@@ -1,0 +1,16 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+.tradingview-widget-container {
+  height: calc(100vh - 20px); /* fills viewport, accounting for pt-5 padding */
+  width: 100%;
+}
+
+#tradingview_33f92 {
+  height: 100%;
+  width: 100%;
+}
