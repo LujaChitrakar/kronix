@@ -1,8 +1,5 @@
-import ChartContainer from "@/components/chart/ChartContainer";
-import Image from "next/image";
+import CryptoChart from '@/components/CryptoChart/CryptoChart';
 
 export default function Home() {
-  return (
-    <div><ChartContainer/></div>
-  );
+  return <CryptoChart />;
 }
