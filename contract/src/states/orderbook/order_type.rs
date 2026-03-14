@@ -56,7 +56,7 @@ pub enum PostOrderType {
     PostOnlySlide = 4,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Side {
     Bid = 0,

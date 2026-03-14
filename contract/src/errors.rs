@@ -6,6 +6,8 @@ pub enum OrderBookError {
     InvalidOrderPostMarket = 2,
     InvalidOrderPostIOC = 3,
     InvalidOrderPostFOC = 4,
+    InvalidPriceLots = 5,
+    InvalidPriceData = 6,
 }
 
 impl From<OrderBookError> for ProgramError {
