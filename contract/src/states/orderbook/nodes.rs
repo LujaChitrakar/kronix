@@ -1,4 +1,4 @@
-use crate::{errors::OrderBookError, states::Side};
+use crate::{constants::NODE_SIZE, errors::OrderBookError, states::Side};
 use bytemuck::{Pod, Zeroable, cast_mut, cast_ref};
 use core::mem::size_of;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -6,7 +6,6 @@ use pinocchio::error::ProgramError;
 use std::u64;
 
 pub type NodeHandle = u32;
-const NODE_SIZE: usize = 88;
 
 #[derive(Debug, Clone, Copy, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
@@ -58,10 +57,9 @@ pub struct InnerNode {
     pub child_earliest_expiry: [u64; 2],
     // right child index
     pub children: [NodeHandle; 2],
-    pub reserved1: [u8; 32],
-    pub reserved2: [u8; 8],
+    pub reserved: [u8; 40],
 }
-const _: () = assert!(size_of::<InnerNode>() == 16 + 8 * 2 + 4 * 2 + 1 + 3 + 4 + 32 + 8);
+const _: () = assert!(size_of::<InnerNode>() == 16 + 8 * 2 + 4 * 2 + 1 + 3 + 4 + 40);
 const _: () = assert!(size_of::<InnerNode>() == NODE_SIZE);
 const _: () = assert!(size_of::<InnerNode>() % 8 == 0);
 
@@ -74,8 +72,7 @@ impl InnerNode {
             tag: NodeTag::InnerNode.into(),
             padding: [0; 3],
             prefix_len,
-            reserved1: [0; 32],
-            reserved2: [0; 8],
+            reserved: [0; 40],
         }
     }
 
@@ -92,6 +89,7 @@ impl InnerNode {
     }
 }
 
+// LeafNode represent an actual order in the orderbook
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Pod, Zeroable)]
 #[repr(C)]
 pub struct LeafNode {
@@ -101,10 +99,6 @@ pub struct LeafNode {
     // Time in seconds after "timestamp" at which the order expires. 0 = no expiration
     pub time_in_force: u16,
     pub padding: [u8; 4],
-    // binary tree key
-    pub key: [u8; 16],
-    // Address of the owning OpenOrderAccount
-    pub owner: [u8; 32],
     // User defined id for this order
     pub client_order_id: u64,
     // No of base lot to buy/sell
@@ -112,6 +106,10 @@ pub struct LeafNode {
     pub timestamp: u64,
     // only applicable for oracle_pegged ordertree
     pub peg_limit: i64,
+    // binary tree key
+    pub key: [u8; 16],
+    // Address of the owning OpenOrderAccount
+    pub owner: [u8; 32],
 }
 const _: () = assert!(size_of::<LeafNode>() == 16 + 32 + 8 + 8 + 8 + 8 + 1 + 1 + 2 + 4);
 const _: () = assert!(size_of::<LeafNode>() == NODE_SIZE);
@@ -120,26 +118,26 @@ const _: () = assert!(size_of::<LeafNode>() % 8 == 0);
 impl LeafNode {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        owner: [u8; 32],
-        key: [u8; 16],
+        owner_slot: u8,
+        time_in_force: u16,
         client_order_id: u64,
         quantity: i64,
         timestamp: u64,
         peg_limit: i64,
-        owner_slot: u8,
-        time_in_force: u16,
+        key: [u8; 16],
+        owner: [u8; 32],
     ) -> Self {
         Self {
             tag: NodeTag::LeafNode.into(),
+            owner_slot,
             owner,
-            key,
+            time_in_force,
+            padding: [0; 4],
             client_order_id,
             quantity,
             timestamp,
             peg_limit,
-            owner_slot,
-            time_in_force,
-            padding: [0; 4],
+            key,
         }
     }
 
@@ -163,16 +161,16 @@ impl LeafNode {
     }
 }
 
+// FreeNode is a node in the orderbook that is not currently in use.
 #[derive(Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
 pub struct FreeNode {
     pub(crate) tag: u8,
     pub(crate) padding: [u8; 3],
-    // required to make anynode alignment with other node types
     pub(crate) next: NodeHandle,
-    pub(crate) reserved0: [u8; 64],
-    pub(crate) reserved1: [u8; 8],
+    // required to make anynode alignment with other node types
     pub(crate) force_align: u64,
+    pub(crate) reserved: [u8; 72],
 }
 const _: () = assert!(size_of::<FreeNode>() == NODE_SIZE);
 const _: () = assert!(size_of::<FreeNode>() % 8 == 0);

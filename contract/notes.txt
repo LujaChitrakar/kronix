@@ -1,0 +1,12 @@
+u8   → will live anywhere
+u16  → only even numbers
+u32  → only multiples of 4
+u64  → only multiples of 8
+
+1. tag/flags: u8     ← identifiers first
+2. other u8 fields   ← pack small fields together
+3. u16 fields        ← fits after u8s naturally
+4. padding: [u8; N]  ← pad to reach multiple of 8
+5. u64/i64 fields    ← largest alignment first
+6. u32 fields        ← then medium
+7. [u8; N] arrays    ← always last, never causes alignment issues
