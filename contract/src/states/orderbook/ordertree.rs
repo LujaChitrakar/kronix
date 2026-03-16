@@ -1,10 +1,12 @@
-use bytemuck::checked::cast;
+use bytemuck::checked::{cast, cast_mut, cast_ref};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use pinocchio::error::ProgramError;
 
 use crate::{
     constants::MAX_ORDERTREE_NODES,
-    states::{AnyNode, FreeNode, LeafNode, NodeHandle, NodeRef, NodeTag, OrderTreeIter, Side},
+    states::{
+        AnyNode, FreeNode, InnerNode, LeafNode, NodeHandle, NodeRef, NodeTag, OrderTreeIter, Side,
+    },
 };
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug, TryFromPrimitive, IntoPrimitive)]
@@ -85,31 +87,6 @@ impl OrderTreeNodes {
         OrderTreeIter::new(self, root)
     }
 
-    // removes only the node at the given key, not the order it contains
-    fn remove(&mut self, key: NodeHandle) -> Option<AnyNode> {
-        let val = *self.node(key)?;
-
-        let tag = if self.free_list_len == 0 {
-            NodeTag::LastFreeNode.into()
-        } else {
-            NodeTag::FreeNode.into()
-        };
-        self.nodes[key as usize] = cast(FreeNode {
-            tag,
-            padding: [0; 3],
-            next: self.free_list_head,
-            force_align: 0,
-            reserved: [0; 72],
-        });
-        self.free_list_len = self
-            .free_list_len
-            .checked_add(1)
-            .ok_or(ProgramError::ArithmeticOverflow)
-            .unwrap();
-        self.free_list_head = key;
-        Some(val)
-    }
-
     pub fn remove_by_key(
         &mut self,
         root: &mut OrderTreeRoot,
@@ -168,6 +145,222 @@ impl OrderTreeNodes {
         stack.pop();
         self.update_parent_earliest_expiry(&stack, outdated_expiry, new_expiry);
         Some(removed_leaf)
+    }
+
+    // removes only the node at the given key, not the order it contains
+    fn remove(&mut self, key: NodeHandle) -> Option<AnyNode> {
+        let val = *self.node(key)?;
+
+        let tag = if self.free_list_len == 0 {
+            NodeTag::LastFreeNode.into()
+        } else {
+            NodeTag::FreeNode.into()
+        };
+        self.nodes[key as usize] = cast(FreeNode {
+            tag,
+            padding: [0; 3],
+            next: self.free_list_head,
+            force_align: 0,
+            reserved: [0; 72],
+        });
+        self.free_list_len = self
+            .free_list_len
+            .checked_add(1)
+            .ok_or(ProgramError::ArithmeticOverflow)
+            .unwrap();
+        self.free_list_head = key;
+        Some(val)
+    }
+
+    pub fn remove_one_expired(
+        &mut self,
+        root: &mut OrderTreeRoot,
+        now_ts: u64,
+    ) -> Option<LeafNode> {
+        let (handle, expires_at) = self.find_earliest_expiry(root)?;
+        if expires_at < now_ts {
+            self.remove_by_key(root, self.node(handle)?.key()?)
+        } else {
+            None
+        }
+    }
+
+    pub fn remove_worst(&mut self, root: &mut OrderTreeRoot) -> Option<LeafNode> {
+        let search_key = u128::from_le_bytes(self.find_worst(root)?.1.key);
+        self.remove_by_key(root, search_key)
+    }
+
+    pub fn find_worst(&self, root: &mut OrderTreeRoot) -> Option<(NodeHandle, &LeafNode)> {
+        match self.order_tree_type() {
+            OrderTreeType::Bids => self.min_leaf(root),
+            OrderTreeType::Asks => self.max_leaf(root),
+        }
+    }
+
+    pub fn min_leaf(&self, root: &OrderTreeRoot) -> Option<(NodeHandle, &LeafNode)> {
+        self.leaf_min_max(false, root)
+    }
+    pub fn max_leaf(&self, root: &OrderTreeRoot) -> Option<(NodeHandle, &LeafNode)> {
+        self.leaf_min_max(true, root)
+    }
+
+    pub fn leaf_min_max(
+        &self,
+        find_max: bool,
+        root: &OrderTreeRoot,
+    ) -> Option<(NodeHandle, &LeafNode)> {
+        let mut node_handle: NodeHandle = root.node()?;
+
+        let i = usize::from(find_max);
+        loop {
+            let node_contents = self.node(node_handle)?;
+            match node_contents.case()? {
+                NodeRef::Inner(inner) => {
+                    node_handle = inner.children[i];
+                }
+                NodeRef::Leaf(leaf) => {
+                    return Some((node_handle, leaf));
+                }
+            }
+        }
+    }
+
+    // INSERT
+    // Internal only add the node does not add the parent links
+    fn insert(&mut self, val: &AnyNode) -> Result<NodeHandle, ProgramError> {
+        match NodeTag::try_from(val.tag) {
+            Ok(NodeTag::InnerNode) | Ok(NodeTag::LeafNode) => (),
+            _ => unreachable!(),
+        }
+
+        if self.free_list_len == 0 {
+            if (self.bump_index as usize) > self.nodes.len() && self.bump_index > u32::MAX {
+                return Err(ProgramError::InvalidAccountData);
+            }
+            self.nodes[self.bump_index as usize] = *val;
+            let key = self.bump_index;
+            self.bump_index = self
+                .bump_index
+                .checked_add(1)
+                .ok_or(ProgramError::ArithmeticOverflow)
+                .unwrap();
+            return Ok(key);
+        }
+        let key = self.free_list_head;
+        let node = &mut self.nodes[key as usize];
+
+        match NodeTag::try_from(node.tag) {
+            Ok(NodeTag::FreeNode) => assert!(self.free_list_len > 1),
+            Ok(NodeTag::LastFreeNode) => assert!(self.free_list_len == 1),
+            _ => unreachable!(),
+        }
+        self.free_list_head = cast_ref::<AnyNode, FreeNode>(node).next;
+        self.free_list_len = self
+            .free_list_len
+            .checked_sub(1)
+            .ok_or(ProgramError::ArithmeticOverflow)
+            .unwrap();
+        *node = *val;
+        Ok(key)
+    }
+
+    // insert_leaf
+    pub fn insert_leaf(
+        &mut self,
+        root: &mut OrderTreeRoot,
+        new_leaf: &LeafNode,
+    ) -> Result<(NodeHandle, Option<LeafNode>), ProgramError> {
+        // path of inner leaf handles that lead to new leaf
+        let mut stack: Vec<(NodeHandle, bool)> = vec![];
+
+        let mut parent_handle: NodeHandle = match root.node() {
+            Some(h) => h,
+            None => {
+                // Create a new node if none exists
+                let handle = self.insert(new_leaf.as_ref())?;
+                root.maybe_node = handle;
+                root.leaf_count = 1;
+                return Ok((handle, None));
+            }
+        };
+
+        // Walk down the tree to find the leaf node to insert into
+        loop {
+            // required if the new node will be child of the root
+            let parent_contents = *self.node(parent_handle).unwrap();
+            let parent_key = parent_contents.key().unwrap();
+            let new_leaf_key = u128::from_le_bytes(new_leaf.key);
+            if parent_key == new_leaf_key {
+                // Should never happen as keys should be unique
+                if let Some(NodeRef::Leaf(&old_parent_as_leaf)) = parent_contents.case() {
+                    // clobber the existing leaf
+                    *self.node_mut(parent_handle).unwrap() = *new_leaf.as_ref();
+                    self.update_parent_earliest_expiry(
+                        &stack,
+                        old_parent_as_leaf.expiry(),
+                        new_leaf.expiry(),
+                    );
+                    return Ok((parent_handle, Some(old_parent_as_leaf)));
+                }
+            }
+            let shared_prefix_len: u32 = (parent_key ^ new_leaf_key).leading_zeros();
+            match parent_contents.case() {
+                None => unreachable!(),
+                Some(NodeRef::Inner(inner)) => {
+                    let keep_old_parent = shared_prefix_len >= inner.prefix_len;
+                    if keep_old_parent {
+                        let (child, crit_bit) = inner.walk_down(new_leaf_key);
+                        stack.push((parent_handle, crit_bit));
+                        parent_handle = child;
+                        continue;
+                    }
+                }
+                _ => (),
+            };
+            // implies parent is a leaf or inner with prefix_len>shared_prefix_len
+            // We will replace parent with a new inner node
+            //
+            // Change the parent with a new InnerNode that has new_leaf and parent as children
+
+            let crit_bit_mask: u128 = 1u128 << (127 - shared_prefix_len);
+            let new_leaf_crit_bit = (crit_bit_mask & new_leaf_key) != 0;
+            let old_parent_crit_bit = !new_leaf_crit_bit;
+
+            let new_leaf_handle = self.insert(new_leaf.as_ref())?;
+            let moved_parent_handle = match self.insert(&parent_contents) {
+                Ok(h) => h,
+                Err(e) => {
+                    self.remove(new_leaf_handle).unwrap();
+                    return Err(e);
+                }
+            };
+
+            let new_parent: &mut InnerNode = cast_mut(self.node_mut(parent_handle).unwrap());
+            *new_parent = InnerNode::new(shared_prefix_len, new_leaf_key);
+
+            new_parent.children[new_leaf_crit_bit as usize] = new_leaf_handle;
+            new_parent.children[old_parent_crit_bit as usize] = moved_parent_handle;
+
+            let new_leaf_expiry = new_leaf.expiry();
+            let old_parent_expiry = parent_contents.earliest_expiry();
+            new_parent.child_earliest_expiry[new_leaf_crit_bit as usize] = new_leaf_expiry;
+            new_parent.child_earliest_expiry[old_parent_crit_bit as usize] = old_parent_expiry;
+
+            if new_leaf_expiry < old_parent_expiry {
+                self.update_parent_earliest_expiry(&stack, old_parent_expiry, new_leaf_expiry);
+            }
+
+            root.leaf_count = root
+                .leaf_count
+                .checked_add(1)
+                .ok_or(ProgramError::ArithmeticOverflow)
+                .unwrap();
+            return Ok((new_leaf_handle, None));
+        }
+    }
+
+    pub fn is_full(&self) -> bool {
+        self.free_list_len <= 1 && (self.bump_index as usize) >= self.nodes.len() - 1
     }
 
     // when node changes the parents child_earliest_expiry may need to be updated
