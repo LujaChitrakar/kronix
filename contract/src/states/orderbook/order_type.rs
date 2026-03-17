@@ -1,6 +1,6 @@
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use pinocchio::error::ProgramError;
-use std::error::Error;
+use std::{default, error::Error};
 
 use crate::errors::OrderBookError;
 
@@ -49,12 +49,30 @@ impl PlaceOrderType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[repr(u8)]
 pub enum PostOrderType {
     Limit = 0,
     PostOnly = 2,
     PostOnlySlide = 4,
+}
+
+#[derive(Eq, PartialEq, Copy, Clone, Default, TryFromPrimitive, IntoPrimitive, Debug)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+#[repr(u8)]
+// SelfTradeBehaviour controls how taker orders interact with the resting limit orders of the same account
+// It is the responsibility of the taker to ensure they correctly configure their taker orders
+pub enum SelfTradeBehaviour {
+    // Both the maker and taker sides of the matched order are decrementd
+    // IT is equivalent to a normal order match but no fees are applied
+    #[default]
+    DecrementTake = 0,
+
+    // Cancel the maker side of the trade, the taker side gets matched with other makers orders
+    CancelProvide = 1,
+
+    // Aborts the whole transaction as soon as a self matching scenaropi is encountered
+    AbortTransaction = 2,
 }
 
 #[derive(Debug, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]
