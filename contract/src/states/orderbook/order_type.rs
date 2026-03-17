@@ -1,3 +1,4 @@
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 use pinocchio::error::ProgramError;
 use std::error::Error;
 
@@ -56,7 +57,7 @@ pub enum PostOrderType {
     PostOnlySlide = 4,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
 pub enum Side {
     Bid = 0,
