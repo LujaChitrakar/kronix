@@ -190,7 +190,7 @@ impl OrderTreeNodes {
         self.remove_by_key(root, search_key)
     }
 
-    pub fn find_worst(&self, root: &mut OrderTreeRoot) -> Option<(NodeHandle, &LeafNode)> {
+    pub fn find_worst(&self, root: &OrderTreeRoot) -> Option<(NodeHandle, &LeafNode)> {
         match self.order_tree_type() {
             OrderTreeType::Bids => self.min_leaf(root),
             OrderTreeType::Asks => self.max_leaf(root),

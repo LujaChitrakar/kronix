@@ -44,12 +44,12 @@ pub fn fixed_price_lots(price_data: u64) -> Result<i64, ProgramError> {
 // Create price data for an oracle pegged from price offset
 pub fn oracle_pegged_price_data(price_offset_lots: i64) -> Result<u64, ProgramError> {
     // Price data is used for odering in the bookside top bits of u128 key
-    Ok((price_offset_lots as u64).wrapping_add(u64::MAX/2+1))
+    Ok((price_offset_lots as u64).wrapping_add(u64::MAX / 2 + 1))
 }
 
 // Retrives the price offset in lots from an oracle pegged price data
 pub fn oracle_pegged_price_offset(price_data: u64) -> Result<i64, ProgramError> {
-    Ok(price_data.wrapping_sub(u64::MAX/2+1) as i64)
+    Ok(price_data.wrapping_sub(u64::MAX / 2 + 1) as i64)
 }
 
 // InnerNodes and leaf Nodes compose the binary tree structure

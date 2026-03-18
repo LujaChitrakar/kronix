@@ -1,6 +1,6 @@
 use pinocchio::sysvars::{Sysvar, clock::Clock};
 
-use crate::states::{PostOrderType, SelfTradeBehaviour, Side};
+use crate::states::{BookSideOrderTree, PostOrderType, SelfTradeBehaviour, Side};
 
 pub struct Order {
     pub side: Side,
@@ -21,7 +21,11 @@ pub enum OrderParams {
         price_lots: i64,
         order_type: PostOrderType,
     },
-    // OraclePegged{price_offset_lots:i64,order_type:PostOrderType,peg_limit_lots:i64},
+    OraclePegged {
+        price_offset_lots: i64,
+        order_type: PostOrderType,
+        peg_limit: i64,
+    },
     FillOrKill {
         price_lots: i64,
     },
@@ -46,6 +50,7 @@ impl Order {
     pub fn is_post_only(&self) -> bool {
         let order_type = match self.params {
             OrderParams::Fixed { order_type, .. } => order_type,
+            OrderParams::OraclePegged { order_type, .. } => order_type,
             _ => return false,
         };
         order_type == PostOrderType::PostOnly || order_type == PostOrderType::PostOnlySlide
@@ -57,12 +62,13 @@ impl Order {
     }
 
     // order tree that this order should be inserted into
-    // pub fn post_target(&self) -> Option<BookSideOrderTree> {
-    //     match self.params {
-    //         OrderParams::Fixed { order_type, .. } => Some(BookSideOrderTree::Fixed),
-    //         _ => None,
-    //     }
-    // }
+    pub fn post_target(&self) -> Option<BookSideOrderTree> {
+        match self.params {
+            OrderParams::Fixed { .. } => Some(BookSideOrderTree::Fixed),
+            OrderParams::OraclePegged { .. } => Some(BookSideOrderTree::OraclePegged),
+            _ => None,
+        }
+    }
 
     // Some order types(PostOnlySlide) may override the price that it has been passed in
     // fn price_for_order_type(&self,now_ts:u64,price_lots:i64,order_book:&Orderbook) -> i64 {}
@@ -86,3 +92,5 @@ fn post_only_slide_limit(side: Side, best_other_side: i64, limit: i64) -> i64 {
         Side::Ask => limit.max(best_other_side + 1),
     }
 }
+
+// comeback after finishing book / bookside

@@ -22,8 +22,8 @@ impl EventHeap {
             free_head: 0,
             used_head: NO_NODE,
             count: 0,
-            _padding: [0; 2],
             seq_num: 0,
+            _padding: [0; 2],
         };
 
         for i in 0..MAX_NUM_EVENTS {

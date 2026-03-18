@@ -75,7 +75,7 @@ pub enum SelfTradeBehaviour {
     AbortTransaction = 2,
 }
 
-#[derive(Debug, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
 pub enum Side {
     Bid = 0,
@@ -91,7 +91,7 @@ impl Side {
     }
 
     // for orderbook price comparison
-    pub fn is_price_data_better(&self, lhs: i64, rhs: i64) -> bool {
+    pub fn is_price_data_better(&self, lhs: u64, rhs: u64) -> bool {
         match self {
             Self::Bid => lhs > rhs,
             Self::Ask => lhs < rhs,
@@ -99,7 +99,7 @@ impl Side {
     }
 
     // for price calculation
-    pub fn is_price_better(&self, lhs: u64, rhs: u64) -> bool {
+    pub fn is_price_better(&self, lhs: i64, rhs: i64) -> bool {
         match self {
             Self::Bid => lhs > rhs,
             Self::Ask => lhs < rhs,
@@ -115,24 +115,16 @@ impl Side {
     }
 }
 
-#[derive(
-    Eq,
-    PartialEq,
-    Copy,
-    Clone,
-    TryFromPrimitive,
-    IntoPrimitive,
-    Debug,
-)]
+#[derive(Eq, PartialEq, Copy, Clone, TryFromPrimitive, IntoPrimitive, Debug)]
 #[repr(u8)]
-pub enum SideAndOrderTree{
-    BidFixed=0,
-    AskFixed=1,
-    BidOraclePegged=2,
-    AskOraclePegged=3,
+pub enum SideAndOrderTree {
+    BidFixed = 0,
+    AskFixed = 1,
+    BidOraclePegged = 2,
+    AskOraclePegged = 3,
 }
 
-impl SideAndOrderTree{
+impl SideAndOrderTree {
     pub fn new(side: Side, order_tree: BookSideOrderTree) -> Self {
         match (side, order_tree) {
             (Side::Bid, BookSideOrderTree::Fixed) => Self::BidFixed,
@@ -141,14 +133,14 @@ impl SideAndOrderTree{
             (Side::Ask, BookSideOrderTree::OraclePegged) => Self::AskOraclePegged,
         }
     }
-    
-    pub fn side(&self)->Side{
+
+    pub fn side(&self) -> Side {
         match self {
             Self::BidFixed | Self::BidOraclePegged => Side::Bid,
             Self::AskFixed | Self::AskOraclePegged => Side::Ask,
         }
     }
-    
+
     pub fn order_tree(&self) -> BookSideOrderTree {
         match self {
             Self::BidFixed | Self::AskFixed => BookSideOrderTree::Fixed,
