@@ -2,7 +2,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use pinocchio::error::ProgramError;
 use std::{default, error::Error};
 
-use crate::errors::OrderBookError;
+use crate::{errors::OrderBookError, states::BookSideOrderTree};
 
 #[derive(Eq, PartialEq, Copy, Clone)]
 #[repr(u8)]
@@ -106,6 +106,7 @@ impl Side {
         }
     }
 
+    // is price limit acceptable for limit order on side
     pub fn is_price_within_limit(&self, price: i64, limit: i64) -> bool {
         match self {
             Side::Bid => price <= limit,
@@ -114,4 +115,44 @@ impl Side {
     }
 }
 
-// Add others in V2
+#[derive(
+    Eq,
+    PartialEq,
+    Copy,
+    Clone,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Debug,
+)]
+#[repr(u8)]
+pub enum SideAndOrderTree{
+    BidFixed=0,
+    AskFixed=1,
+    BidOraclePegged=2,
+    AskOraclePegged=3,
+}
+
+impl SideAndOrderTree{
+    pub fn new(side: Side, order_tree: BookSideOrderTree) -> Self {
+        match (side, order_tree) {
+            (Side::Bid, BookSideOrderTree::Fixed) => Self::BidFixed,
+            (Side::Ask, BookSideOrderTree::Fixed) => Self::AskFixed,
+            (Side::Bid, BookSideOrderTree::OraclePegged) => Self::BidOraclePegged,
+            (Side::Ask, BookSideOrderTree::OraclePegged) => Self::AskOraclePegged,
+        }
+    }
+    
+    pub fn side(&self)->Side{
+        match self {
+            Self::BidFixed | Self::BidOraclePegged => Side::Bid,
+            Self::AskFixed | Self::AskOraclePegged => Side::Ask,
+        }
+    }
+    
+    pub fn order_tree(&self) -> BookSideOrderTree {
+        match self {
+            Self::BidFixed | Self::AskFixed => BookSideOrderTree::Fixed,
+            Self::BidOraclePegged | Self::AskOraclePegged => BookSideOrderTree::OraclePegged,
+        }
+    }
+}
