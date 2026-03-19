@@ -1,4 +1,7 @@
-use bytemuck::checked::{cast, cast_mut, cast_ref};
+use bytemuck::{
+    Pod, Zeroable,
+    checked::{cast, cast_mut, cast_ref},
+};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use pinocchio::error::ProgramError;
 
@@ -25,7 +28,8 @@ impl OrderTreeType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+#[repr(C)]
 pub struct OrderTreeRoot {
     pub maybe_node: NodeHandle,
     pub leaf_count: u32,
@@ -44,7 +48,8 @@ impl OrderTreeRoot {
 }
 
 // a binary tree on AnyNode::key()
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Pod, Zeroable)]
+#[repr(C)]
 pub struct OrderTreeNodes {
     pub order_tree_type: u8,
     pub padding: [u8; 3],

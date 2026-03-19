@@ -2,6 +2,7 @@ use crate::states::{
     AnyNode, BookSideIter, BookSideIterItem, LeafNode, NodeHandle, OrderTreeNodes, OrderTreeRoot,
     Side, rank_orders,
 };
+use bytemuck::{Pod, Zeroable};
 use pinocchio::error::ProgramError;
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -17,6 +18,8 @@ pub struct BookSideOrderHandle {
     pub order_tree: BookSideOrderTree,
 }
 
+#[derive(Clone, Copy, Pod, Zeroable)]
+#[repr(C)]
 pub struct BookSide {
     pub roots: [OrderTreeRoot; 2],
     pub reserved_roots: [OrderTreeRoot; 4],

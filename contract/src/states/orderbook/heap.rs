@@ -7,6 +7,8 @@ use crate::{
     states::Side,
 };
 
+#[derive(Clone, Copy, Pod, Zeroable)]
+#[repr(C)]
 pub struct EventHeap {
     pub header: EventHeapHeader,
     pub nodes: [EventNode; MAX_NUM_EVENTS as usize],
@@ -151,6 +153,8 @@ impl<'a> Iterator for EventHeapIterator<'a> {
     }
 }
 
+#[derive(Clone, Copy, Pod, Zeroable)]
+#[repr(C)]
 pub struct EventHeapHeader {
     free_head: u16,
     used_head: u16,
@@ -182,7 +186,8 @@ impl EventHeapHeader {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Pod, Zeroable, Debug)]
+#[repr(C)]
 pub struct EventNode {
     next: u16,
     prev: u16,
@@ -198,7 +203,8 @@ impl EventNode {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Pod, Zeroable)]
+#[repr(C)]
 pub struct AnyEvent {
     pub event_type: u8,
     pub padding: [u8; 143],
