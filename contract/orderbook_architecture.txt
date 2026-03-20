@@ -1,0 +1,32 @@
+```
+ON-CHAIN
+├── orderbook_program (Pinocchio)
+│   ├── create_market
+│   ├── create_open_orders_account
+│   ├── place_order              ← matching + immediate settlement
+│   │                               via remaining_accounts CPIs
+│   ├── place_take_order         ← same
+│   ├── cancel_order
+│   ├── cancel_all_orders
+│   ├── cancel_order_by_client_id
+│   ├── edit_order
+│   └── prune_orders             ← keeper removes expired orders
+│                                ← consume_events fully removed
+│
+└── risk_program (Pinocchio)
+    ├── deposit / withdraw
+    ├── open_position / close_position
+    ├── settle_fill              ← CPI target, immediate
+    ├── add_margin / remove_margin
+    ├── update_funding_rate      ← crank, per market
+    ├── settle_funding           ← lazy, correct pattern
+    ├── liquidate
+    └── admin ixs
+
+OFF-CHAIN
+├── funding_crank       ← per market, still needed
+├── liquidation_bot     ← monitors health, still needed
+├── prune_crank         ← removes expired orders
+├── price_indexer       ← Pyth feeds
+├── geyser_indexer      ← watches accounts → UI
+└── ui_backend

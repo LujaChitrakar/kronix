@@ -14,3 +14,4 @@ bytemuck = { version = "^1.7.2", features = ["derive", "min_const_generics"] }
 num-derive = "0.4.2"
 solana-clock = "3.0.1"
 num_enum = "0.5.1"
+pyth-solana-receiver-sdk = "1.1.0"

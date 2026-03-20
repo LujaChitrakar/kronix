@@ -8,6 +8,13 @@ pub enum OrderBookError {
     InvalidOrderPostFOC = 4,
     InvalidPriceLots = 5,
     InvalidPriceData = 6,
+    OracleFeedMismatch = 7,
+    OracleStale = 8,
+    InvalidOraclePrice = 9,
+    OracleConfidenceTooLow = 10,
+    InvalidOracle = 11,
+    OpenOrdersFull = 12,
+    OrderNotFound = 13,
 }
 
 impl From<OrderBookError> for ProgramError {

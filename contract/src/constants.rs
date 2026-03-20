@@ -10,6 +10,12 @@ pub const FILL_EVENT_REMAINING_LIMIT: usize = 15;
 pub const MAX_FILLS_PER_ORDER: usize = 6;
 
 // market
-//
 pub const FEES_SCALE_FACTOR: i128 = 1_000_000;
 pub const PENALTY_EVENT_HEAP: u64 = 500;
+
+// open orders
+pub const MAX_OPEN_ORDERS: usize = 24;
+
+// oracle
+pub const MAX_ORACLE_AGE_SECS: i64 = 10; // max 10 seconds stale
+pub const MAX_CONF_RATIO_BPS: u64 = 200; // max 2% uncertainty

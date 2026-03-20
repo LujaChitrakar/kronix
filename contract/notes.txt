@@ -10,3 +10,15 @@ u64  → only multiples of 8
 5. u64/i64 fields    ← largest alignment first
 6. u32 fields        ← then medium
 7. [u8; N] arrays    ← always last, never causes alignment issues
+
+#[repr(C)]
+struct GoodOrder {
+    big: u64,     // 8 bytes
+    medium: u16,  // 2 bytes  
+    small: u8,    // 1 byte
+    // padding: [u8; 5] since the struct size needs to be aligned to 8 bytes.
+}
+
+
+
+The golden rule is to order struct fields from largest to smallest alignment requirements to minimize padding and reduce memory usage.
