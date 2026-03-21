@@ -41,16 +41,16 @@ pub fn fixed_price_lots(price_data: u64) -> Result<i64, ProgramError> {
     Ok(price_data as i64)
 }
 
-// Create price data for an oracle pegged from price offset
-pub fn oracle_pegged_price_data(price_offset_lots: i64) -> Result<u64, ProgramError> {
-    // Price data is used for odering in the bookside top bits of u128 key
-    Ok((price_offset_lots as u64).wrapping_add(u64::MAX / 2 + 1))
-}
+// // Create price data for an oracle pegged from price offset
+// pub fn oracle_pegged_price_data(price_offset_lots: i64) -> Result<u64, ProgramError> {
+//     // Price data is used for odering in the bookside top bits of u128 key
+//     Ok((price_offset_lots as u64).wrapping_add(u64::MAX / 2 + 1))
+// }
 
-// Retrives the price offset in lots from an oracle pegged price data
-pub fn oracle_pegged_price_offset(price_data: u64) -> Result<i64, ProgramError> {
-    Ok(price_data.wrapping_sub(u64::MAX / 2 + 1) as i64)
-}
+// // Retrives the price offset in lots from an oracle pegged price data
+// pub fn oracle_pegged_price_offset(price_data: u64) -> Result<i64, ProgramError> {
+//     Ok(price_data.wrapping_sub(u64::MAX / 2 + 1) as i64)
+// }
 
 // InnerNodes and leaf Nodes compose the binary tree structure
 // Each innerNode has 2 children, either a leaf node or another inner node
@@ -116,11 +116,12 @@ pub struct LeafNode {
     pub quantity: i64,
     pub timestamp: u64,
     // only applicable for oracle_pegged ordertree
-    pub peg_limit: i64,
+    // pub peg_limit: i64,
     // binary tree key
     pub key: [u8; 16],
     // Address of the owning OpenOrderAccount
     pub owner: [u8; 32],
+    pub reserved: [u8; 8],
 }
 const _: () = assert!(size_of::<LeafNode>() == 16 + 32 + 8 + 8 + 8 + 8 + 1 + 1 + 2 + 4);
 const _: () = assert!(size_of::<LeafNode>() == NODE_SIZE);
@@ -134,8 +135,8 @@ impl LeafNode {
         client_order_id: u64,
         quantity: i64,
         timestamp: u64,
-        peg_limit: i64,
-        key: [u8; 16],
+        // peg_limit: i64,
+        key: u128,
         owner: [u8; 32],
     ) -> Self {
         Self {
@@ -147,8 +148,9 @@ impl LeafNode {
             client_order_id,
             quantity,
             timestamp,
-            peg_limit,
-            key,
+            // peg_limit,
+            key: key.to_le_bytes(),
+            reserved: [0; 8],
         }
     }
 

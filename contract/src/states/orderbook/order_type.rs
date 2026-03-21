@@ -57,24 +57,6 @@ pub enum PostOrderType {
     PostOnlySlide = 4,
 }
 
-#[derive(Eq, PartialEq, Copy, Clone, Default, TryFromPrimitive, IntoPrimitive, Debug)]
-#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-#[repr(u8)]
-// SelfTradeBehaviour controls how taker orders interact with the resting limit orders of the same account
-// It is the responsibility of the taker to ensure they correctly configure their taker orders
-pub enum SelfTradeBehaviour {
-    // Both the maker and taker sides of the matched order are decrementd
-    // IT is equivalent to a normal order match but no fees are applied
-    #[default]
-    DecrementTake = 0,
-
-    // Cancel the maker side of the trade, the taker side gets matched with other makers orders
-    CancelProvide = 1,
-
-    // Aborts the whole transaction as soon as a self matching scenaropi is encountered
-    AbortTransaction = 2,
-}
-
 #[derive(Debug, PartialEq, Eq, Copy, Clone, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
 pub enum Side {
@@ -111,40 +93,6 @@ impl Side {
         match self {
             Side::Bid => price <= limit,
             Side::Ask => price >= limit,
-        }
-    }
-}
-
-#[derive(Eq, PartialEq, Copy, Clone, TryFromPrimitive, IntoPrimitive, Debug)]
-#[repr(u8)]
-pub enum SideAndOrderTree {
-    BidFixed = 0,
-    AskFixed = 1,
-    BidOraclePegged = 2,
-    AskOraclePegged = 3,
-}
-
-impl SideAndOrderTree {
-    pub fn new(side: Side, order_tree: BookSideOrderTree) -> Self {
-        match (side, order_tree) {
-            (Side::Bid, BookSideOrderTree::Fixed) => Self::BidFixed,
-            (Side::Ask, BookSideOrderTree::Fixed) => Self::AskFixed,
-            (Side::Bid, BookSideOrderTree::OraclePegged) => Self::BidOraclePegged,
-            (Side::Ask, BookSideOrderTree::OraclePegged) => Self::AskOraclePegged,
-        }
-    }
-
-    pub fn side(&self) -> Side {
-        match self {
-            Self::BidFixed | Self::BidOraclePegged => Side::Bid,
-            Self::AskFixed | Self::AskOraclePegged => Side::Ask,
-        }
-    }
-
-    pub fn order_tree(&self) -> BookSideOrderTree {
-        match self {
-            Self::BidFixed | Self::AskFixed => BookSideOrderTree::Fixed,
-            Self::BidOraclePegged | Self::AskOraclePegged => BookSideOrderTree::OraclePegged,
         }
     }
 }

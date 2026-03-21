@@ -15,6 +15,13 @@ pub enum OrderBookError {
     InvalidOracle = 11,
     OpenOrdersFull = 12,
     OrderNotFound = 13,
+    InvalidInputLotsSize = 14,
+    WouldSelfTrade = 15,
+    WouldExecutePartially = 16,
+    InvalidPostAmount = 17,
+    BookFull = 18,
+    OrderIdNotFound = 19,
+    InvalidOwner = 20,
 }
 
 impl From<OrderBookError> for ProgramError {
