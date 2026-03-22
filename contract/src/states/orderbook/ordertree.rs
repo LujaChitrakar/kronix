@@ -135,7 +135,6 @@ impl OrderTreeNodes {
 
         // replace the parent with its remaining child
         // free child_h and replace parent_h with other_child_h
-
         let other_child_h = self.node(parent_h).unwrap().children().unwrap()[!crit_bit as usize];
         let other_child_node_contents = self.remove(other_child_h).unwrap();
         let new_expiry = other_child_node_contents.earliest_expiry();

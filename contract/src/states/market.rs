@@ -20,33 +20,31 @@ const MIN_DATA_LEN: usize = 102;
 #[repr(C)]
 pub struct MarketState {
     // Identity
-    pub market_index:    u16,
-    pub bump:            u8,
-    pub padding:         [u8; 5],
-    pub name:            [u8; 16],
+    pub market_index: u16,
+    pub bump: u8,
+    pub padding: [u8; 5],
+    pub name: [u8; 16],
 
     // Account refs — pubkeys of associated accounts
-    pub bids:            [u8; 32],
-    pub asks:            [u8; 32],
+    pub bids: [u8; 32],
+    pub asks: [u8; 32],
 
     // Lot sizes — set at market creation, never change
-    pub base_lot_size:   i64,    // base native per lot e.g. 100 = 0.0001 SOL
-    pub quote_lot_size:  i64,    // quote native per lot e.g. 1 = 0.000001 USDC
+    pub base_lot_size: i64,  // base native per lot e.g. 100 = 0.0001 SOL
+    pub quote_lot_size: i64, // quote native per lot e.g. 1 = 0.000001 USDC
 
     // Order ID generation — monotonically increasing
-    pub seq_num:         u64,
+    pub seq_num: u64,
 
     // Market status
     pub registration_ts: i64,
-    pub time_expiry:     i64,    // 0 = never expires
+    pub time_expiry: i64, // 0 = never expires
 
-    pub reserved:        [u8; 64],
+    pub reserved: [u8; 64],
 }
 
-const _: () = assert!(
-    size_of::<MarketState>()
-        == 2 + 1 + 5 + 16 + 32 + 32 + 8 + 8 + 8 + 8 + 8 + 64
-);
+const _: () =
+    assert!(size_of::<MarketState>() == 2 + 1 + 5 + 16 + 32 + 32 + 8 + 8 + 8 + 8 + 8 + 64);
 const _: () = assert!(size_of::<MarketState>() % 8 == 0);
 
 impl MarketState {
@@ -81,25 +79,24 @@ impl MarketState {
     }
 
     /// Convert base lots to native units
-        pub fn base_lots_to_native(&self, lots: i64) -> i64 {
-            lots.checked_mul(self.base_lot_size)
-                .expect("base lots overflow")
-        }
-    
-        /// Convert quote lots to native units
-        pub fn quote_lots_to_native(&self, lots: i64) -> i64 {
-            lots.checked_mul(self.quote_lot_size)
-                .expect("quote lots overflow")
-        }
-    
-        /// Convert native base to lots — floors
-        pub fn native_to_base_lots(&self, native: i64) -> i64 {
-            native / self.base_lot_size
-        }
-    
-        /// Convert native quote to lots — floors
-        pub fn native_to_quote_lots(&self, native: i64) -> i64 {
-            native / self.quote_lot_size
-        }
+    pub fn base_lots_to_native(&self, lots: i64) -> i64 {
+        lots.checked_mul(self.base_lot_size)
+            .expect("base lots overflow")
+    }
 
+    /// Convert quote lots to native units
+    pub fn quote_lots_to_native(&self, lots: i64) -> i64 {
+        lots.checked_mul(self.quote_lot_size)
+            .expect("quote lots overflow")
+    }
+
+    /// Convert native base to lots — floors
+    pub fn native_to_base_lots(&self, native: i64) -> i64 {
+        native / self.base_lot_size
+    }
+
+    /// Convert native quote to lots — floors
+    pub fn native_to_quote_lots(&self, native: i64) -> i64 {
+        native / self.quote_lot_size
+    }
 }

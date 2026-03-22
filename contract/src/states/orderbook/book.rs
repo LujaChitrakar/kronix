@@ -72,13 +72,10 @@ impl<'a> Orderbook<'a> {
         let fill_or_kill = order.is_fill_or_kill();
         let mut post_target = order.post_target();
 
-        // Compute price
         let (price_lots, price_data) = order.price(now_ts, self)?;
 
-        // Generate order ID
         let order_id = market.generate_order_id(side, price_data);
 
-        // Validate lot sizes
         if order.max_base_lots > market.max_base_lots() {
             return Err(OrderBookError::InvalidInputLotsSize.into());
         }
@@ -86,7 +83,6 @@ impl<'a> Orderbook<'a> {
         let mut remaining_base_lots = order.max_base_lots;
         let mut remaining_quote_lots = order.max_quote_lots;
 
-        // Fixed-size stack arrays — no heap allocation
         let mut matched_changes: [(u128, i64); MAX_FILLS_PER_ORDER] = [(0, 0); MAX_FILLS_PER_ORDER];
         let mut matched_changes_count: usize = 0;
 
@@ -96,7 +92,6 @@ impl<'a> Orderbook<'a> {
         let mut result = MatchResults::default();
         let mut dropped_expired: usize = 0;
 
-        // ── Matching Loop ─────────────────────────────────────────────
         {
             let opposing = self.bookside_mut(other_side);
 
@@ -105,7 +100,6 @@ impl<'a> Orderbook<'a> {
                     break;
                 }
 
-                // Handle expired orders
                 if !best_opposing.is_valid() {
                     if dropped_expired < DROP_EXPIRED_ORDER_LIMIT {
                         dropped_expired += 1;
@@ -120,7 +114,6 @@ impl<'a> Orderbook<'a> {
 
                 let best_opposing_price = best_opposing.price_lots;
 
-                // Price no longer crosses
                 if !side.is_price_within_limit(best_opposing_price, price_lots) {
                     break;
                 }
@@ -198,22 +191,19 @@ impl<'a> Orderbook<'a> {
                     );
                     result.fill_count += 1;
                 }
-
                 limit -= 1;
             }
-        } // opposing borrow dropped here
+        }
 
         result.filled_base_lots = order
             .max_base_lots
             .checked_sub(remaining_base_lots)
             .ok_or(ProgramError::ArithmeticOverflow)?;
 
-        // FillOrKill check
         if fill_or_kill && result.filled_base_lots < order.max_base_lots {
             return Err(OrderBookError::WouldExecutePartially.into());
         }
 
-        // Apply changes — safe now, loop is done
         {
             let opposing = self.bookside_mut(other_side);
 
@@ -229,7 +219,6 @@ impl<'a> Orderbook<'a> {
             }
         }
 
-        // ── Post Remainder ────────────────────────────────────────────
         let book_base_quantity_lots = if price_lots > 0 {
             remaining_base_lots.min(remaining_quote_lots / price_lots)
         } else {
@@ -253,12 +242,11 @@ impl<'a> Orderbook<'a> {
 
             let bookside = self.bookside_mut(side);
 
-            // Make room — drop one expired order
             bookside.remove_one_expired(now_ts);
 
             // Book full — evict worst if our price is better
             if bookside.is_full() {
-                let (worst_order, worst_price) = bookside
+                let (_worst_order, worst_price) = bookside
                     .remove_worst(now_ts)
                     .ok_or(OrderBookError::BookFull)?;
 
@@ -271,7 +259,7 @@ impl<'a> Orderbook<'a> {
 
             let new_leaf = LeafNode::new(
                 owner_slot as u8,
-                0,
+                order.time_in_force,
                 order.client_order_id,
                 book_base_quantity_lots,
                 now_ts,

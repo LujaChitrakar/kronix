@@ -25,9 +25,7 @@ pub struct BookSideIter<'a> {
 impl<'a> BookSideIter<'a> {
     pub fn new(book_side: &'a BookSide, now_ts: u64) -> Self {
         Self {
-            inner: book_side
-                .nodes
-                .iter(&book_side.roots),
+            inner: book_side.nodes.iter(&book_side.roots),
             now_ts,
         }
     }
@@ -39,21 +37,20 @@ pub enum OrderState {
     Invalid,
 }
 
-
 impl<'a> Iterator for BookSideIter<'a> {
     type Item = BookSideIterItem<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let (_, node) = self.inner.next()?;
-             let expired = node.is_expired(self.now_ts);
-             Some(BookSideIterItem {
-                 node,
-                 price_lots: fixed_price_lots(node.price_data()).unwrap(),
-                 state: if expired {
-                     OrderState::Invalid
-                 } else {
-                     OrderState::Valid
-                 },
-             })
-         }
+        let expired = node.is_expired(self.now_ts);
+        Some(BookSideIterItem {
+            node,
+            price_lots: fixed_price_lots(node.price_data()).unwrap(),
+            state: if expired {
+                OrderState::Invalid
+            } else {
+                OrderState::Valid
+            },
+        })
+    }
 }

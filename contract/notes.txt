@@ -21,4 +21,6 @@ struct GoodOrder {
 
 
 
-The golden rule is to order struct fields from largest to smallest alignment requirements to minimize padding and reduce memory usage.
+The golden rule is to order struct fields from largest to smallest alignment requirements to minimize padding and reduce memory usage
+
+I think states completed.

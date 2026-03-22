@@ -78,8 +78,7 @@ impl OpenOrdersAccount {
         order: &LeafNode,
         client_order_id: u64,
         locked_price: i64,
-        slot:usize,
-        
+        slot: usize,
     ) {
         let oo = self.open_order_mut_by_raw_index(slot);
 
@@ -88,10 +87,10 @@ impl OpenOrdersAccount {
         oo.id = order.key;
         oo.client_id = client_order_id.to_le_bytes();
         oo.locked_price = locked_price.to_le_bytes();
-        oo.filled_qty   = [0u8; 8];
-        oo.fill_price   = [0u8; 8];
-        oo.is_filled    = 0;
-        oo.padding      = [0; 5];
+        oo.filled_qty = [0u8; 8];
+        oo.fill_price = [0u8; 8];
+        oo.is_filled = 0;
+        oo.padding = [0; 5];
     }
 
     pub fn remove_order(&mut self, slot: usize) {
@@ -100,19 +99,19 @@ impl OpenOrdersAccount {
 
         *self.open_order_mut_by_raw_index(slot) = OpenOrder::default();
     }
-    
+
     /// Called by matching engine — records fill for maker to claim later
     pub fn record_fill(
         &mut self,
-        slot:       usize,
+        slot: usize,
         filled_qty: [u8; 8],
         fill_price: [u8; 8],
-        maker_out:  bool,
+        maker_out: bool,
     ) {
         let oo = &mut self.open_orders[slot];
         oo.filled_qty = filled_qty;
         oo.fill_price = fill_price;
-        oo.is_filled  = 1;
+        oo.is_filled = 1;
         if maker_out {
             // fully consumed — slot freed after claim_fill
             oo.is_free = 0; // still occupied until maker claims
@@ -126,15 +125,15 @@ pub struct OpenOrder {
     pub id: [u8; 16],
     pub client_id: [u8; 8],
     pub locked_price: [u8; 8],
-    pub filled_qty:   [u8;8],      // base lots filled, pending claim
-    pub fill_price:   [u8;8],      // fill price, pending claim
-    pub is_free:      u8,       // 1 = free slot
-    pub side:         u8,       // Side as u8
-    pub is_filled:    u8, 
+    pub filled_qty: [u8; 8], // base lots filled, pending claim
+    pub fill_price: [u8; 8], // fill price, pending claim
+    pub is_free: u8,         // 1 = free slot
+    pub side: u8,            // Side as u8
+    pub is_filled: u8,
     pub padding: [u8; 5],
 }
 
-const _: () = assert!(size_of::<OpenOrder>() == 16 + 8 + 8+8+8 + 1 + 1 +1+ 5);
+const _: () = assert!(size_of::<OpenOrder>() == 16 + 8 + 8 + 8 + 8 + 1 + 1 + 1 + 5);
 const _: () = assert!(size_of::<OpenOrder>() % 8 == 0);
 
 impl Default for OpenOrder {
@@ -145,9 +144,9 @@ impl Default for OpenOrder {
             client_id: [0u8; 8],
             locked_price: [0u8; 8],
             id: [0u8; 16],
-            filled_qty:   [0u8; 8],
-            fill_price:   [0u8; 8],
-            is_filled:    0,
+            filled_qty: [0u8; 8],
+            fill_price: [0u8; 8],
+            is_filled: 0,
             padding: [0; 5],
         }
     }
@@ -159,13 +158,13 @@ impl OpenOrder {
     }
 
     pub fn side(&self) -> Side {
-            match self.side {
-                0 => Side::Bid,
-                _ => Side::Ask,
-            }
-    }
-    
-    pub fn has_pending_fill(&self) -> bool {
-            self.is_filled == 1
+        match self.side {
+            0 => Side::Bid,
+            _ => Side::Ask,
         }
+    }
+
+    pub fn has_pending_fill(&self) -> bool {
+        self.is_filled == 1
+    }
 }

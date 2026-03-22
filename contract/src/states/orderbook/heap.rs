@@ -1,17 +1,12 @@
 use bytemuck::{Pod, Zeroable};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use pinocchio::error::ProgramError;
 
-use crate::{
-    constants::{EVENT_SIZE, MAX_NUM_EVENTS, NO_NODE},
-    states::Side,
-};
+use crate::{constants::EVENT_SIZE, states::Side};
 
 #[derive(Copy, Clone, IntoPrimitive, TryFromPrimitive, Eq, PartialEq)]
 #[repr(u8)]
 pub enum EventType {
     Fill,
-    Out,
 }
 
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
