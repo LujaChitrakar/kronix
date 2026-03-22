@@ -353,3 +353,404 @@ impl<'a> Orderbook<'a> {
         Ok(total_quantity)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use bytemuck::Zeroable;
+
+    use crate::states::{OrderParams, PostOrderType};
+
+    use super::*;
+
+    fn make_market() -> MarketState {
+        let mut m = MarketState::zeroed();
+        m.base_lot_size = 1;
+        m.quote_lot_size = 1;
+        m.seq_num = 0;
+        m
+    }
+
+    fn make_open_orders(owner: [u8; 32]) -> OpenOrdersAccount {
+        let mut oo = OpenOrdersAccount::zeroed();
+        oo.owner = owner;
+        for slot in oo.open_orders.iter_mut() {
+            slot.is_free = 1;
+        }
+        oo
+    }
+
+    fn make_orderbook<'a>(bids: &'a mut BookSide, asks: &'a mut BookSide) -> Orderbook<'a> {
+        bids.nodes.order_tree_type = OrderTreeType::Bids.into();
+        asks.nodes.order_tree_type = OrderTreeType::Asks.into();
+        Orderbook { bids, asks }
+    }
+
+    fn limit_order(
+        side: Side,
+        price: i64,
+        base_lots: i64,
+        quote_lots: i64,
+        client_id: u64,
+    ) -> Order {
+        Order {
+            side,
+            max_base_lots: base_lots,
+            max_quote_lots: quote_lots,
+            client_order_id: client_id,
+            time_in_force: 0,
+            params: OrderParams::Fixed {
+                price_lots: price,
+                order_type: PostOrderType::Limit,
+            },
+        }
+    }
+
+    fn market_order(side: Side, base_lots: i64, quote_lots: i64) -> Order {
+        Order {
+            side,
+            max_base_lots: base_lots,
+            max_quote_lots: quote_lots,
+            client_order_id: 0,
+            time_in_force: 0,
+            params: OrderParams::Market,
+        }
+    }
+
+    #[test]
+    fn limit_order_posts_when_no_match() {
+        let mut bids = BookSide::zeroed();
+        let mut asks = BookSide::zeroed();
+        let mut ob = make_orderbook(&mut bids, &mut asks);
+        let mut mkt = make_market();
+        let mut oo = make_open_orders([1u8; 32]);
+
+        let order = limit_order(Side::Bid, 100, 10, 1000, 1);
+        let result = ob.new_order(&order, &mut mkt, &mut oo, 1000, 8).unwrap();
+
+        assert!(result.order_id.is_some());
+        assert_eq!(result.fill_count, 0);
+        assert_eq!(result.filled_base_lots, 0);
+        assert_eq!(result.posted_price, 100);
+        assert_eq!(ob.bids.roots.leaf_count, 1);
+    }
+
+    #[test]
+    fn taker_fully_matches_resting_maker() {
+        let mut bids = BookSide::zeroed();
+        let mut asks = BookSide::zeroed();
+        let mut mkt = make_market();
+
+        // Place a resting ask at 100 for 10 lots
+        {
+            let mut ob = make_orderbook(&mut bids, &mut asks);
+            let mut maker_oo = make_open_orders([1u8; 32]);
+            let ask = limit_order(Side::Ask, 100, 10, 10000, 1);
+            ob.new_order(&ask, &mut mkt, &mut maker_oo, 1000, 8)
+                .unwrap();
+        }
+        assert_eq!(asks.roots.leaf_count, 1);
+
+        // Taker bid matches against resting ask
+        {
+            let mut ob = make_orderbook(&mut bids, &mut asks);
+            let mut taker_oo = make_open_orders([2u8; 32]);
+            let bid = limit_order(Side::Bid, 100, 10, 10000, 2);
+            let result = ob
+                .new_order(&bid, &mut mkt, &mut taker_oo, 1000, 8)
+                .unwrap();
+
+            assert_eq!(result.fill_count, 1);
+            assert_eq!(result.filled_base_lots, 10);
+            assert_eq!(result.fills[0].price, 100);
+            assert_eq!(result.fills[0].quantity, 10);
+            assert!(result.fills[0].maker_out());
+        }
+
+        // Ask fully consumed
+        assert_eq!(asks.roots.leaf_count, 0);
+    }
+
+    #[test]
+    fn partial_match_remainder_posted() {
+        let mut bids = BookSide::zeroed();
+        let mut asks = BookSide::zeroed();
+        let mut mkt = make_market();
+
+        // Resting ask for 5 lots at 100
+        {
+            let mut ob = make_orderbook(&mut bids, &mut asks);
+            let mut maker_oo = make_open_orders([1u8; 32]);
+            let ask = limit_order(Side::Ask, 100, 5, 10000, 1);
+            ob.new_order(&ask, &mut mkt, &mut maker_oo, 1000, 8)
+                .unwrap();
+        }
+
+        // Taker bids for 10 lots — 5 filled, 5 posted
+        {
+            let mut ob = make_orderbook(&mut bids, &mut asks);
+            let mut taker_oo = make_open_orders([2u8; 32]);
+            let bid = limit_order(Side::Bid, 100, 10, 10000, 2);
+            let result = ob
+                .new_order(&bid, &mut mkt, &mut taker_oo, 1000, 8)
+                .unwrap();
+
+            assert_eq!(result.fill_count, 1);
+            assert_eq!(result.filled_base_lots, 5);
+            assert!(result.order_id.is_some()); // remainder posted
+        }
+
+        assert_eq!(asks.roots.leaf_count, 0); // ask consumed
+        assert_eq!(bids.roots.leaf_count, 1); // remainder posted
+    }
+
+    #[test]
+    fn no_match_when_price_does_not_cross() {
+        let mut bids = BookSide::zeroed();
+        let mut asks = BookSide::zeroed();
+        let mut mkt = make_market();
+
+        // Ask at 200
+        {
+            let mut ob = make_orderbook(&mut bids, &mut asks);
+            let mut maker_oo = make_open_orders([1u8; 32]);
+            let ask = limit_order(Side::Ask, 200, 10, 10000, 1);
+            ob.new_order(&ask, &mut mkt, &mut maker_oo, 1000, 8)
+                .unwrap();
+        }
+
+        // Bid at 100 — does not cross
+        {
+            let mut ob = make_orderbook(&mut bids, &mut asks);
+            let mut taker_oo = make_open_orders([2u8; 32]);
+            let bid = limit_order(Side::Bid, 100, 10, 10000, 2);
+            let result = ob
+                .new_order(&bid, &mut mkt, &mut taker_oo, 1000, 8)
+                .unwrap();
+
+            assert_eq!(result.fill_count, 0);
+            assert_eq!(result.filled_base_lots, 0);
+            assert!(result.order_id.is_some()); // posted at 100
+        }
+
+        assert_eq!(asks.roots.leaf_count, 1); // ask untouched
+        assert_eq!(bids.roots.leaf_count, 1); // bid posted
+    }
+
+    #[test]
+    fn post_only_cancels_if_would_match() {
+        let mut bids = BookSide::zeroed();
+        let mut asks = BookSide::zeroed();
+        let mut mkt = make_market();
+
+        // Resting ask at 100
+        {
+            let mut ob = make_orderbook(&mut bids, &mut asks);
+            let mut maker_oo = make_open_orders([1u8; 32]);
+            let ask = limit_order(Side::Ask, 100, 10, 10000, 1);
+            ob.new_order(&ask, &mut mkt, &mut maker_oo, 1000, 8)
+                .unwrap();
+        }
+
+        // PostOnly bid at 100 — would match, so cancelled silently
+        {
+            let mut ob = make_orderbook(&mut bids, &mut asks);
+            let mut taker_oo = make_open_orders([2u8; 32]);
+            let order = Order {
+                side: Side::Bid,
+                max_base_lots: 10,
+                max_quote_lots: 10000,
+                client_order_id: 2,
+                time_in_force: 0,
+                params: OrderParams::Fixed {
+                    price_lots: 100,
+                    order_type: PostOrderType::PostOnly,
+                },
+            };
+            let result = ob
+                .new_order(&order, &mut mkt, &mut taker_oo, 1000, 8)
+                .unwrap();
+
+            assert_eq!(result.fill_count, 0);
+            assert!(result.order_id.is_none()); // not posted
+        }
+
+        assert_eq!(asks.roots.leaf_count, 1); // ask untouched
+        assert_eq!(bids.roots.leaf_count, 0); // nothing posted
+    }
+
+    #[test]
+    fn fok_fails_on_partial_fill() {
+        let mut bids = BookSide::zeroed();
+        let mut asks = BookSide::zeroed();
+        let mut mkt = make_market();
+
+        // Resting ask for 5 lots
+        {
+            let mut ob = make_orderbook(&mut bids, &mut asks);
+            let mut maker_oo = make_open_orders([1u8; 32]);
+            let ask = limit_order(Side::Ask, 100, 5, 10000, 1);
+            ob.new_order(&ask, &mut mkt, &mut maker_oo, 1000, 8)
+                .unwrap();
+        }
+
+        // FOK for 10 lots — only 5 available, should fail
+        {
+            let mut ob = make_orderbook(&mut bids, &mut asks);
+            let mut taker_oo = make_open_orders([2u8; 32]);
+            let order = Order {
+                side: Side::Bid,
+                max_base_lots: 10,
+                max_quote_lots: 10000,
+                client_order_id: 2,
+                time_in_force: 0,
+                params: OrderParams::FillOrKill { price_lots: 100 },
+            };
+            let result = ob.new_order(&order, &mut mkt, &mut taker_oo, 1000, 8);
+            assert!(result.is_err());
+        }
+    }
+
+    #[test]
+    fn fok_succeeds_on_full_fill() {
+        let mut bids = BookSide::zeroed();
+        let mut asks = BookSide::zeroed();
+        let mut mkt = make_market();
+
+        // Resting ask for 10 lots
+        {
+            let mut ob = make_orderbook(&mut bids, &mut asks);
+            let mut maker_oo = make_open_orders([1u8; 32]);
+            let ask = limit_order(Side::Ask, 100, 10, 10000, 1);
+            ob.new_order(&ask, &mut mkt, &mut maker_oo, 1000, 8)
+                .unwrap();
+        }
+
+        // FOK for 10 lots — exactly available
+        {
+            let mut ob = make_orderbook(&mut bids, &mut asks);
+            let mut taker_oo = make_open_orders([2u8; 32]);
+            let order = Order {
+                side: Side::Bid,
+                max_base_lots: 10,
+                max_quote_lots: 10000,
+                client_order_id: 2,
+                time_in_force: 0,
+                params: OrderParams::FillOrKill { price_lots: 100 },
+            };
+            let result = ob
+                .new_order(&order, &mut mkt, &mut taker_oo, 1000, 8)
+                .unwrap();
+            assert_eq!(result.filled_base_lots, 10);
+            assert_eq!(result.fill_count, 1);
+        }
+    }
+
+    #[test]
+    fn self_trade_aborts() {
+        let mut bids = BookSide::zeroed();
+        let mut asks = BookSide::zeroed();
+        let mut mkt = make_market();
+        let owner = [1u8; 32];
+
+        // Same owner posts ask then bid
+        {
+            let mut ob = make_orderbook(&mut bids, &mut asks);
+            let mut oo = make_open_orders(owner);
+            let ask = limit_order(Side::Ask, 100, 10, 10000, 1);
+            ob.new_order(&ask, &mut mkt, &mut oo, 1000, 8).unwrap();
+        }
+        {
+            let mut ob = make_orderbook(&mut bids, &mut asks);
+            let mut oo = make_open_orders(owner); // same owner
+            let bid = limit_order(Side::Bid, 100, 10, 10000, 2);
+            let result = ob.new_order(&bid, &mut mkt, &mut oo, 1000, 8);
+            assert!(result.is_err());
+        }
+    }
+
+    #[test]
+    fn cancel_order_removes_from_book() {
+        let mut bids = BookSide::zeroed();
+        let mut asks = BookSide::zeroed();
+        let mut mkt = make_market();
+        let mut oo = make_open_orders([1u8; 32]);
+
+        let mut ob = make_orderbook(&mut bids, &mut asks);
+        let order = limit_order(Side::Bid, 100, 10, 1000, 1);
+        let result = ob.new_order(&order, &mut mkt, &mut oo, 1000, 8).unwrap();
+
+        let order_id = result.order_id.unwrap();
+        assert_eq!(ob.bids.roots.leaf_count, 1);
+        let order_id_u128 = u128::from_le_bytes(order_id);
+        ob.cancel_order(&mut oo, order_id_u128, Side::Bid, None)
+            .unwrap();
+        assert_eq!(ob.bids.roots.leaf_count, 0);
+    }
+
+    #[test]
+    fn market_order_fills_multiple_levels() {
+        let mut bids = BookSide::zeroed();
+        let mut asks = BookSide::zeroed();
+        let mut mkt = make_market();
+
+        // Three resting asks at different prices
+        {
+            let mut ob = make_orderbook(&mut bids, &mut asks);
+            for (price, seq) in [(100, 1), (110, 2), (120, 3)] {
+                let mut maker_oo = make_open_orders([seq as u8; 32]);
+                let ask = limit_order(Side::Ask, price, 5, 10000, seq);
+                ob.new_order(&ask, &mut mkt, &mut maker_oo, 1000, 8)
+                    .unwrap();
+            }
+        }
+        assert_eq!(asks.roots.leaf_count, 3);
+
+        // Market bid for 12 lots — sweeps first two levels
+        {
+            let mut ob = make_orderbook(&mut bids, &mut asks);
+            let mut taker_oo = make_open_orders([10u8; 32]);
+            let bid = market_order(Side::Bid, 12, 100000);
+            let result = ob
+                .new_order(&bid, &mut mkt, &mut taker_oo, 1000, 8)
+                .unwrap();
+
+            assert_eq!(result.fill_count, 3);
+            assert_eq!(result.filled_base_lots, 12); // 5 + 5 + 2
+            assert_eq!(result.fills[0].price, 100);
+            assert_eq!(result.fills[1].price, 110);
+            assert_eq!(result.fills[2].price, 120);
+        }
+    }
+
+    #[test]
+    fn market_seq_num_increments_per_order() {
+        let mut bids = BookSide::zeroed();
+        let mut asks = BookSide::zeroed();
+        let mut ob = make_orderbook(&mut bids, &mut asks);
+        let mut mkt = make_market();
+
+        assert_eq!(mkt.seq_num, 0);
+
+        let mut oo1 = make_open_orders([1u8; 32]);
+        ob.new_order(
+            &limit_order(Side::Bid, 100, 5, 1000, 1),
+            &mut mkt,
+            &mut oo1,
+            1000,
+            8,
+        )
+        .unwrap();
+        assert_eq!(mkt.seq_num, 1);
+
+        let mut oo2 = make_open_orders([2u8; 32]);
+        ob.new_order(
+            &limit_order(Side::Ask, 200, 5, 1000, 2),
+            &mut mkt,
+            &mut oo2,
+            1000,
+            8,
+        )
+        .unwrap();
+        assert_eq!(mkt.seq_num, 2);
+    }
+}

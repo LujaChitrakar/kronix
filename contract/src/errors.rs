@@ -1,5 +1,5 @@
 use pinocchio::error::ProgramError;
-
+#[derive(Debug)]
 #[repr(u32)]
 pub enum OrderBookError {
     InvalidOrderType = 1,
