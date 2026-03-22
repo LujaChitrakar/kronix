@@ -84,42 +84,42 @@ impl FillEvent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn fill_event_size() {
         assert_eq!(size_of::<FillEvent>(), EVENT_SIZE);
         assert_eq!(size_of::<FillEvent>() % 8, 0);
     }
-    
+
     #[test]
-      fn fill_event_default_is_zeroed() {
-          let event = FillEvent::default();
-          assert_eq!(event.event_type, 0);
-          assert_eq!(event.price, 0);
-          assert_eq!(event.quantity, 0);
-          assert_eq!(event.maker_pubkey, [0u8; 32]);
-          assert_eq!(event.taker_pubkey, [0u8; 32]);
-      }
-      
+    fn fill_event_default_is_zeroed() {
+        let event = FillEvent::default();
+        assert_eq!(event.event_type, 0);
+        assert_eq!(event.price, 0);
+        assert_eq!(event.quantity, 0);
+        assert_eq!(event.maker_pubkey, [0u8; 32]);
+        assert_eq!(event.taker_pubkey, [0u8; 32]);
+    }
+
     #[test]
-    fn fill_event_new(){
-        let maker=[1u8;32];
-        let taker=[1u8;32];
+    fn fill_event_new() {
+        let maker = [1u8; 32];
+        let taker = [1u8; 32];
         let event = FillEvent::new(
-                    Side::Bid,      // taker_side
-                    true,           // maker_out
-                    3,              // maker_slot
-                    1000,           // timestamp
-                    42,             // seq_num
-                    900,            // maker_timestamp
-                    10,             // maker_client_order_id
-                    20,             // taker_client_order_id
-                    500,            // price
-                    100,            // quantity
-                    maker,
-                    taker,
-                );
-        
+            Side::Bid, // taker_side
+            true,      // maker_out
+            3,         // maker_slot
+            1000,      // timestamp
+            42,        // seq_num
+            900,       // maker_timestamp
+            10,        // maker_client_order_id
+            20,        // taker_client_order_id
+            500,       // price
+            100,       // quantity
+            maker,
+            taker,
+        );
+
         assert_eq!(event.event_type, EventType::Fill as u8);
         assert_eq!(event.taker_side, Side::Bid as u8);
         assert_eq!(event.maker_out, 1);
@@ -134,31 +134,31 @@ mod tests {
         assert_eq!(event.maker_pubkey, maker);
         assert_eq!(event.taker_pubkey, taker);
     }
-    
+
     #[test]
-        fn maker_out_helper() {
-            let mut event = FillEvent::default();
-            event.maker_out = 0;
-            assert!(!event.maker_out());
-    
-            event.maker_out = 1;
-            assert!(event.maker_out());
-        }
-        
+    fn maker_out_helper() {
+        let mut event = FillEvent::default();
+        event.maker_out = 0;
+        assert!(!event.maker_out());
+
+        event.maker_out = 1;
+        assert!(event.maker_out());
+    }
+
     #[test]
-    fn taker_side_helper(){
-        let mut event=FillEvent::default();
-        event.taker_side=Side::Bid as u8;
-        assert_eq!(event.taker_side(),Side::Bid);
-        
+    fn taker_side_helper() {
+        let mut event = FillEvent::default();
+        event.taker_side = Side::Bid as u8;
+        assert_eq!(event.taker_side(), Side::Bid);
+
         event.taker_side = Side::Ask as u8;
         assert_eq!(event.taker_side(), Side::Ask);
     }
-    
+
     #[test]
-    fn fill_event_pod_roundtrip(){
-        let maker=[3u8;32];
-        let taker=[4u8;32];
+    fn fill_event_pod_roundtrip() {
+        let maker = [3u8; 32];
+        let taker = [4u8; 32];
         let original = FillEvent::new(
             Side::Ask,
             false,
@@ -173,10 +173,10 @@ mod tests {
             maker,
             taker,
         );
-        
-        let bytes=bytemuck::bytes_of(&original);
-        let recovered:&FillEvent=bytemuck::from_bytes(bytes);
-        
+
+        let bytes = bytemuck::bytes_of(&original);
+        let recovered: &FillEvent = bytemuck::from_bytes(bytes);
+
         assert_eq!(recovered.price, original.price);
         assert_eq!(recovered.quantity, original.quantity);
         assert_eq!(recovered.maker_pubkey, original.maker_pubkey);

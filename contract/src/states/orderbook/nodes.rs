@@ -291,96 +291,95 @@ mod tests {
 
     #[test]
     fn fixed_price_roundtrip() {
-        for price in [1,42,1000,i64::MAX] {
+        for price in [1, 42, 1000, i64::MAX] {
             let price_data = fixed_price_data(price).unwrap();
-            let recovered=fixed_price_lots(price_data).unwrap();
-            assert!(price==recovered);
+            let recovered = fixed_price_lots(price_data).unwrap();
+            assert!(price == recovered);
         }
     }
-    
+
     #[test]
     fn fixed_price_data_rejects_zero_and_negative() {
         assert!(fixed_price_data(0).is_err());
         assert!(fixed_price_data(-1).is_err());
         assert!(fixed_price_data(i64::MIN).is_err());
     }
-    
+
     // Bids: higher price = smaller key (best bid = leftmost in ascending tree)
     // Asks: lower price = smaller key (best ask = leftmost in ascending tree)
     // For same price: earlier seq_num = better (FIFO)
     #[test]
-    fn bid_key_ordering_by_price(){
+    fn bid_key_ordering_by_price() {
         let low_price = fixed_price_data(100).unwrap();
         let high_price = fixed_price_data(200).unwrap();
-        
-        let low_key=new_node_key(Side::Bid, low_price, 1);
-        let high_key=new_node_key(Side::Bid, high_price, 1);
+
+        let low_key = new_node_key(Side::Bid, low_price, 1);
+        let high_key = new_node_key(Side::Bid, high_price, 1);
         assert!(low_key < high_key);
     }
-    
+
     #[test]
-    fn ask_key_ordering_by_price(){
+    fn ask_key_ordering_by_price() {
         let low_price = fixed_price_data(100).unwrap();
         let high_price = fixed_price_data(200).unwrap();
-        
-        let low_key=new_node_key(Side::Ask, low_price, 1);
-        let high_key=new_node_key(Side::Ask, high_price, 1);
+
+        let low_key = new_node_key(Side::Ask, low_price, 1);
+        let high_key = new_node_key(Side::Ask, high_price, 1);
         assert!(low_key < high_key);
     }
-    
+
     #[test]
-    fn same_price_earlier_seq_num_is_better(){
+    fn same_price_earlier_seq_num_is_better() {
         let price = fixed_price_data(100).unwrap();
-        
+
         // earlier seq_num → larger inverted value → larger key → matched first
         let early_bid = new_node_key(Side::Bid, price, 1);
         let late_bid = new_node_key(Side::Bid, price, 2);
         assert!(early_bid > late_bid);
-        
-        
+
         // earlier seq_num → smaller value → smaller key → matched first
         let early_ask = new_node_key(Side::Ask, price, 1);
         let late_ask = new_node_key(Side::Ask, price, 2);
         assert!(early_ask < late_ask);
     }
-    
+
     #[test]
-       fn bid_ask_key_encoding_differs() {
-           // Same price + seq_num should produce different keys for bid vs ask
-           // because bid inverts seq_num
-           let price_data = fixed_price_data(100).unwrap();
-           let bid_key = new_node_key(Side::Bid, price_data, 1);
-           let ask_key = new_node_key(Side::Ask, price_data, 1);
-           assert_ne!(bid_key, ask_key);
-       }
-       
+    fn bid_ask_key_encoding_differs() {
+        // Same price + seq_num should produce different keys for bid vs ask
+        // because bid inverts seq_num
+        let price_data = fixed_price_data(100).unwrap();
+        let bid_key = new_node_key(Side::Bid, price_data, 1);
+        let ask_key = new_node_key(Side::Ask, price_data, 1);
+        assert_ne!(bid_key, ask_key);
+    }
+
     #[test]
     fn leaf_node_no_expiry() {
         let leaf = LeafNode::new(
-            0,                  // owner_slot
-            0,                  // time_in_force = 0 → never expires
-            0,                  // client_order_id
-            10,                 // quantity
-            1000,               // timestamp
-            0,                  // key — dummy
-            [0u8; 32],          // owner
+            0,         // owner_slot
+            0,         // time_in_force = 0 → never expires
+            0,         // client_order_id
+            10,        // quantity
+            1000,      // timestamp
+            0,         // key — dummy
+            [0u8; 32], // owner
         );
 
         assert!(!leaf.is_expired(1000));
         assert!(!leaf.is_expired(u64::MAX));
         assert_eq!(leaf.expiry(), u64::MAX);
     }
-    
+
     #[test]
     fn leaf_node_tif_expiry() {
         let leaf = LeafNode::new(
-            0,                  // owner_slot
-            300,                // time_in_force = 300 →  expires at 300
-            0,                  // client_order_id
-            10,                 // quantity
-            1000,               // timestamp
-            0,                  // key — dummy
-            [0u8; 32],          // owner
+            0,         // owner_slot
+            300,       // time_in_force = 300 →  expires at 300
+            0,         // client_order_id
+            10,        // quantity
+            1000,      // timestamp
+            0,         // key — dummy
+            [0u8; 32], // owner
         );
 
         assert_eq!(leaf.expiry(), 1300);
@@ -392,22 +391,22 @@ mod tests {
         // past expiry
         assert!(leaf.is_expired(9999));
     }
-    
+
     #[test]
-       fn leaf_node_already_expired() {
-           let leaf = LeafNode::new(
-               0,                  // owner_slot
-               1,                // time_in_force = 1 →  expires at 1
-               0,                  // client_order_id
-               10,                 // quantity
-               1000,               // timestamp
-               0,                  // key — dummy
-               [0u8; 32],    
-           );
-           assert!(leaf.is_expired(1001));
-           assert!(!leaf.is_expired(1000));
-       }
-       
+    fn leaf_node_already_expired() {
+        let leaf = LeafNode::new(
+            0,    // owner_slot
+            1,    // time_in_force = 1 →  expires at 1
+            0,    // client_order_id
+            10,   // quantity
+            1000, // timestamp
+            0,    // key — dummy
+            [0u8; 32],
+        );
+        assert!(leaf.is_expired(1001));
+        assert!(!leaf.is_expired(1000));
+    }
+
     #[test]
     fn price_data_roundtrip_from_key() {
         let price_lots = 12345;
