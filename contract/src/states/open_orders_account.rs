@@ -166,9 +166,13 @@ impl OpenOrder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn make_oo(owner: [u8; 32]) -> OpenOrdersAccount {
+    fn make_account(owner: [u8; 32]) -> OpenOrdersAccount {
         let mut oo = OpenOrdersAccount::zeroed();
         oo.owner = owner;
+        // initialize all slots to free state
+        for slot in oo.open_orders.iter_mut() {
+            *slot = OpenOrder::default(); // sets is_free = 1
+        }
         oo
     }
 
@@ -186,8 +190,8 @@ mod tests {
         }
     }
 
-    fn dummy_leaf(slot: u8, key: u128, owner: [u8; 32], qty: i64) -> LeafNode {
-        LeafNode::new(slot, 0, 0, qty, 1000, key, owner)
+    fn make_leaf(key: u128, qty: i64, owner: [u8; 32]) -> LeafNode {
+        LeafNode::new(0, 0, 0, qty, 1000, key, owner)
     }
 
     #[test]
@@ -196,4 +200,169 @@ mod tests {
         assert_eq!(core::mem::size_of::<OpenOrder>() % 8, 0);
     }
 
+    #[test]
+    fn new_account_has_no_orders() {
+        let oo = make_account([1u8; 32]);
+        assert!(oo.has_no_orders());
+        assert_eq!(oo.all_orders_in_use().count(), 0);
+    }
+    #[test]
+    fn all_slots_free_on_init() {
+        let oo = make_account([1u8; 32]);
+        assert!(oo.open_orders.iter().all(|o| o.is_free()));
+    }
+    #[test]
+    fn owner_is_valid_signer() {
+        let owner = [1u8; 32];
+        let oo = make_account(owner);
+        assert!(oo.is_owner_or_delegate(owner));
+    }
+
+    #[test]
+    fn non_owner_rejected() {
+        let oo = make_account([1u8; 32]);
+        assert!(!oo.is_owner_or_delegate([2u8; 32]));
+    }
+
+    #[test]
+    fn delegate_is_valid_signer() {
+        let mut oo = make_account([1u8; 32]);
+        oo.delegate = [3u8; 32];
+        assert!(oo.is_owner_or_delegate([3u8; 32]));
+    }
+
+    #[test]
+    fn zero_delegate_not_valid() {
+        let oo = make_account([1u8; 32]);
+        // delegate is [0;32] by default — should not be treated as valid
+        assert!(!oo.is_owner_or_delegate([0u8; 32]));
+    }
+
+    #[test]
+    fn next_slot_is_zero_on_empty() {
+        let oo = make_account([1u8; 32]);
+        assert_eq!(oo.next_order_slot().unwrap(), 0);
+    }
+
+    #[test]
+    fn next_slot_advances_after_add() {
+        let mut oo = make_account([1u8; 32]);
+        let leaf = make_leaf(100, 10, [0u8; 32]);
+        oo.add_order(Side::Bid, &leaf, 1, 100, 0);
+        assert_eq!(oo.next_order_slot().unwrap(), 1);
+    }
+
+    #[test]
+    fn next_slot_error_when_full() {
+        let mut oo = make_account([1u8; 32]);
+        for i in 0..MAX_OPEN_ORDERS {
+            let leaf = make_leaf(i as u128, 1, [0u8; 32]);
+            oo.add_order(Side::Bid, &leaf, i as u64, 100, i);
+        }
+        assert!(oo.next_order_slot().is_err());
+    }
+
+    #[test]
+    fn add_order_fills_slot() {
+        let mut oo = make_account([1u8; 32]);
+        let leaf = make_leaf(42, 10, [0u8; 32]);
+
+        oo.add_order(Side::Ask, &leaf, 99, 200, 0);
+
+        let slot = oo.open_order_by_raw_index(0);
+        assert!(!slot.is_free());
+        assert_eq!(slot.client_id, 99);
+        assert_eq!(slot.locked_price, 200);
+        assert_eq!(slot.side(), Side::Ask);
+        assert_eq!(u128::from_le_bytes(slot.id), 42);
+    }
+
+    #[test]
+    fn remove_order_frees_slot() {
+        let mut oo = make_account([1u8; 32]);
+        let leaf = make_leaf(1, 5, [0u8; 32]);
+        oo.add_order(Side::Bid, &leaf, 1, 100, 0);
+        assert!(!oo.open_order_by_raw_index(0).is_free());
+
+        oo.remove_order(0);
+        assert!(oo.open_order_by_raw_index(0).is_free());
+        assert!(oo.has_no_orders());
+    }
+
+    #[test]
+    #[should_panic]
+    fn remove_free_slot_panics() {
+        let mut oo = make_account([1u8; 32]);
+        oo.remove_order(0); // slot is already free
+    }
+
+    #[test]
+    fn record_fill_sets_fields() {
+        let mut oo = make_account([1u8; 32]);
+        let leaf = make_leaf(1, 10, [0u8; 32]);
+        oo.add_order(Side::Ask, &leaf, 1, 100, 0);
+
+        oo.record_fill(0, 5, 100, false);
+
+        let slot = oo.open_order_by_raw_index(0);
+        assert_eq!(slot.filled_qty, 5);
+        assert_eq!(slot.fill_price, 100);
+        assert!(slot.has_pending_fill());
+        assert!(!slot.is_free()); // not free until claimed
+    }
+
+    #[test]
+    fn find_by_client_id_found() {
+        let mut oo = make_account([1u8; 32]);
+        let leaf = make_leaf(1, 5, [1u8; 32]);
+        oo.add_order(Side::Bid, &leaf, 42, 100, 0);
+
+        assert_eq!(oo.find_order_with_client_id(42), Some(0));
+    }
+
+    #[test]
+    fn find_by_order_id_found() {
+        let mut oo = make_account([1u8; 32]);
+        let leaf = make_leaf(999, 5, [1u8; 32]);
+        oo.add_order(Side::Ask, &leaf, 1, 100, 0);
+
+        assert!(oo.find_order_with_order_id(999).is_some());
+    }
+
+    #[test]
+    fn all_orders_in_use_count() {
+        let mut oo = make_account([1u8; 32]);
+
+        assert_eq!(oo.all_orders_in_use().count(), 0);
+
+        oo.add_order(Side::Bid, &make_leaf(1, 5, [1u8; 32]), 1, 100, 0);
+        assert_eq!(oo.all_orders_in_use().count(), 1);
+
+        oo.add_order(Side::Ask, &make_leaf(2, 5, [1u8; 32]), 2, 200, 1);
+        assert_eq!(oo.all_orders_in_use().count(), 2);
+
+        oo.remove_order(0);
+        assert_eq!(oo.all_orders_in_use().count(), 1);
+    }
+
+    #[test]
+    fn open_order_default_is_free() {
+        let oo = OpenOrder::default();
+        assert!(oo.is_free());
+        assert!(!oo.has_pending_fill());
+    }
+
+    #[test]
+    fn open_order_side_bid() {
+        let mut oo = OpenOrder::default();
+        oo.side = Side::Bid as u8;
+        assert_eq!(oo.side(), Side::Bid);
+    }
+
+    #[test]
+    fn open_order_side_ask() {
+        let mut oo = OpenOrder::default();
+        oo.side = Side::Ask as u8;
+        assert_eq!(oo.side(), Side::Ask);
+    }
 }
