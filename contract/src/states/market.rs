@@ -1,20 +1,5 @@
+use crate::states::{Side, new_node_key};
 use bytemuck::{Pod, Zeroable};
-use pinocchio::{AccountView, Address, error::ProgramError, sysvars::clock::Clock};
-use pyth_solana_receiver_sdk::PYTH_PUSH_ORACLE_ID;
-
-use crate::{
-    constants::{MAX_CONF_RATIO_BPS, MAX_ORACLE_AGE_SECS},
-    errors::OrderBookError,
-    states::{Side, new_node_key, orderbook},
-    utils::impl_load,
-};
-
-const OFFSET_FEED_ID: usize = 42;
-const OFFSET_PRICE: usize = 74;
-const OFFSET_CONF: usize = 82;
-const OFFSET_EXPONENT: usize = 90;
-const OFFSET_PUBLISH_TIME: usize = 94;
-const MIN_DATA_LEN: usize = 102;
 
 #[derive(Clone, Copy, Pod, Zeroable)]
 #[repr(C)]
@@ -22,7 +7,8 @@ pub struct MarketState {
     // Identity
     pub market_index: u16,
     pub bump: u8,
-    pub padding: [u8; 5],
+    pub paused: u8, // add paused here
+    pub padding: [u8; 4],
     pub name: [u8; 16],
 
     // Account refs — pubkeys of associated accounts
@@ -54,8 +40,16 @@ impl MarketState {
             .trim_matches(char::from(0))
     }
 
-    pub fn is_expired(&self, time_stamp: i64) -> bool {
-        self.time_expiry != 0 && self.time_expiry < time_stamp
+    pub fn is_expired(&self, timestamp: i64) -> bool {
+        self.time_expiry != 0 && self.time_expiry <= timestamp
+    }
+
+    pub fn is_paused(&self) -> bool {
+        self.paused == 1
+    }
+
+    pub fn is_active(&self, timestamp: i64) -> bool {
+        !self.is_paused() && !self.is_expired(timestamp)
     }
 
     pub fn generate_order_id(&mut self, side: Side, price_data: u64) -> u128 {
@@ -98,5 +92,136 @@ impl MarketState {
     /// Convert native quote to lots — floors
     pub fn native_to_quote_lots(&self, native: i64) -> i64 {
         native / self.quote_lot_size
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::states::fixed_price_data;
+
+    use super::*;
+
+    fn make_market(base_lot_size: i64, quote_lot_size: i64) -> MarketState {
+        let mut m = MarketState::zeroed();
+        m.base_lot_size = base_lot_size;
+        m.quote_lot_size = quote_lot_size;
+        m.seq_num = 0;
+        m.time_expiry = 0;
+        m
+    }
+
+    #[test]
+    fn market_size() {
+        assert_eq!(core::mem::size_of::<MarketState>(), 192);
+        assert_eq!(core::mem::size_of::<MarketState>() % 8, 0);
+    }
+
+    #[test]
+    fn never_expires_when_time_expiry_zero() {
+        let m = make_market(1, 1);
+        assert!(!m.is_expired(0));
+        assert!(!m.is_expired(i64::MAX));
+    }
+
+    #[test]
+    fn expires_after_time_expiry() {
+        let mut m = make_market(1, 1);
+        m.time_expiry = 1000;
+
+        assert!(!m.is_expired(999));
+        assert!(m.is_expired(1000));
+        assert!(m.is_expired(9999));
+    }
+
+    #[test]
+    fn paused_flag() {
+        let mut m = make_market(1, 1);
+        assert!(!m.is_paused());
+
+        m.paused = 1;
+        assert!(m.is_paused());
+    }
+
+    #[test]
+    fn active_when_not_paused_and_not_expired() {
+        let m = make_market(1, 1);
+        assert!(m.is_active(0));
+    }
+
+    #[test]
+    fn gen_order_id_increments_seq_num() {
+        let mut m = make_market(1, 1);
+        assert_eq!(m.seq_num, 0);
+
+        let price_data = fixed_price_data(100).unwrap();
+        m.generate_order_id(Side::Bid, price_data);
+        assert_eq!(m.seq_num, 1);
+
+        m.generate_order_id(Side::Ask, price_data);
+        assert_eq!(m.seq_num, 2);
+    }
+    #[test]
+    fn gen_order_id_unique_per_call() {
+        let mut m = make_market(1, 1);
+        let price_data = fixed_price_data(100).unwrap();
+
+        let id1 = m.generate_order_id(Side::Bid, price_data);
+        let id2 = m.generate_order_id(Side::Bid, price_data);
+        assert_ne!(id1, id2);
+    }
+
+    #[test]
+    fn max_lots_no_overflow() {
+        let m = make_market(100, 10);
+        assert_eq!(m.max_base_lots(), i64::MAX / 100);
+        assert_eq!(m.max_quote_lots(), i64::MAX / 10);
+    }
+
+    #[test]
+    fn base_lots_to_native() {
+        let m = make_market(100, 1);
+        assert_eq!(m.base_lots_to_native(10), 1000);
+        assert_eq!(m.base_lots_to_native(0), 0);
+        assert_eq!(m.base_lots_to_native(1), 100);
+    }
+
+    #[test]
+    fn quote_lots_to_native() {
+        let m = make_market(1, 10);
+        assert_eq!(m.quote_lots_to_native(5), 50);
+        assert_eq!(m.quote_lots_to_native(0), 0);
+        assert_eq!(m.quote_lots_to_native(1), 10);
+    }
+
+    #[test]
+    fn native_to_base_lots_floors() {
+        let m = make_market(100, 1);
+        assert_eq!(m.native_to_base_lots(100), 1);
+        assert_eq!(m.native_to_base_lots(150), 1); // floors
+        assert_eq!(m.native_to_base_lots(200), 2);
+        assert_eq!(m.native_to_base_lots(0), 0);
+    }
+
+    #[test]
+    fn native_to_quote_lots_floors() {
+        let m = make_market(1, 10);
+        assert_eq!(m.native_to_quote_lots(10), 1);
+        assert_eq!(m.native_to_quote_lots(15), 1); // floors
+        assert_eq!(m.native_to_quote_lots(20), 2);
+    }
+
+    #[test]
+    fn name_trims_null_bytes() {
+        let mut m = make_market(1, 1);
+        let name = b"BTC-PERP";
+        m.name[..name.len()].copy_from_slice(name);
+
+        assert_eq!(m.name(), "BTC-PERP");
+    }
+
+    #[test]
+    fn empty_name_returns_empty_str() {
+        let m = make_market(1, 1);
+        assert_eq!(m.name(), "");
     }
 }

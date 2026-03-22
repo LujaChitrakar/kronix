@@ -39,8 +39,8 @@ impl OpenOrdersAccount {
         self.open_orders.iter()
     }
 
-    pub fn has_no_order(&self) -> bool {
-        self.all_orders().all(|oo| oo.is_free())
+    pub fn has_no_orders(&self) -> bool {
+        self.open_orders.iter().all(|oo| oo.is_free())
     }
 
     pub fn all_orders_in_use(&self) -> impl Iterator<Item = &OpenOrder> {
@@ -57,7 +57,7 @@ impl OpenOrdersAccount {
     pub fn find_order_with_client_id(&self, client_id: u64) -> Option<usize> {
         self.open_orders
             .iter()
-            .position(|oo| !oo.is_free() && u64::from_le_bytes(oo.client_id) == client_id)
+            .position(|oo| !oo.is_free() && oo.client_id == client_id)
     }
     pub fn find_order_with_order_id(&self, order_id: u128) -> Option<&OpenOrder> {
         self.all_orders_in_use()
@@ -85,10 +85,10 @@ impl OpenOrdersAccount {
         oo.is_free = false.into();
         oo.side = side as u8;
         oo.id = order.key;
-        oo.client_id = client_order_id.to_le_bytes();
-        oo.locked_price = locked_price.to_le_bytes();
-        oo.filled_qty = [0u8; 8];
-        oo.fill_price = [0u8; 8];
+        oo.client_id = client_order_id;
+        oo.locked_price = locked_price;
+        oo.filled_qty = 0;
+        oo.fill_price = 0;
         oo.is_filled = 0;
         oo.padding = [0; 5];
     }
@@ -101,13 +101,7 @@ impl OpenOrdersAccount {
     }
 
     /// Called by matching engine — records fill for maker to claim later
-    pub fn record_fill(
-        &mut self,
-        slot: usize,
-        filled_qty: [u8; 8],
-        fill_price: [u8; 8],
-        maker_out: bool,
-    ) {
+    pub fn record_fill(&mut self, slot: usize, filled_qty: i64, fill_price: i64, maker_out: bool) {
         let oo = &mut self.open_orders[slot];
         oo.filled_qty = filled_qty;
         oo.fill_price = fill_price;
@@ -123,12 +117,12 @@ impl OpenOrdersAccount {
 #[repr(C)]
 pub struct OpenOrder {
     pub id: [u8; 16],
-    pub client_id: [u8; 8],
-    pub locked_price: [u8; 8],
-    pub filled_qty: [u8; 8], // base lots filled, pending claim
-    pub fill_price: [u8; 8], // fill price, pending claim
-    pub is_free: u8,         // 1 = free slot
-    pub side: u8,            // Side as u8
+    pub client_id: u64,
+    pub locked_price: i64,
+    pub filled_qty: i64, // base lots filled, pending claim
+    pub fill_price: i64, // fill price, pending claim
+    pub is_free: u8,     // 1 = free slot
+    pub side: u8,        // Side as u8
     pub is_filled: u8,
     pub padding: [u8; 5],
 }
@@ -141,11 +135,11 @@ impl Default for OpenOrder {
         Self {
             is_free: 1,
             side: Side::Bid as u8,
-            client_id: [0u8; 8],
-            locked_price: [0u8; 8],
+            client_id: 0,
+            locked_price: 0,
             id: [0u8; 16],
-            filled_qty: [0u8; 8],
-            fill_price: [0u8; 8],
+            filled_qty: 0,
+            fill_price: 0,
             is_filled: 0,
             padding: [0; 5],
         }
@@ -154,7 +148,7 @@ impl Default for OpenOrder {
 
 impl OpenOrder {
     pub fn is_free(&self) -> bool {
-        self.is_free == u8::from(true)
+        self.is_free == 1
     }
 
     pub fn side(&self) -> Side {
@@ -167,4 +161,39 @@ impl OpenOrder {
     pub fn has_pending_fill(&self) -> bool {
         self.is_filled == 1
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn make_oo(owner: [u8; 32]) -> OpenOrdersAccount {
+        let mut oo = OpenOrdersAccount::zeroed();
+        oo.owner = owner;
+        oo
+    }
+
+    fn make_order(id: u128, price: i64, side: Side, client_id: u64) -> OpenOrder {
+        OpenOrder {
+            id: id.to_be_bytes(),
+            client_id: client_id,
+            locked_price: price,
+            filled_qty: 0,
+            fill_price: 0,
+            is_free: 0,
+            side: side as u8,
+            is_filled: 0,
+            padding: [0; 5],
+        }
+    }
+
+    fn dummy_leaf(slot: u8, key: u128, owner: [u8; 32], qty: i64) -> LeafNode {
+        LeafNode::new(slot, 0, 0, qty, 1000, key, owner)
+    }
+
+    #[test]
+    fn open_order_size() {
+        assert_eq!(core::mem::size_of::<OpenOrder>(), 56);
+        assert_eq!(core::mem::size_of::<OpenOrder>() % 8, 0);
+    }
+
 }

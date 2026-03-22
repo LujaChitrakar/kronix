@@ -331,7 +331,7 @@ impl<'a> Orderbook<'a> {
             }
 
             if let Some(client_id) = client_id_filter {
-                if u64::from_le_bytes(oo.client_id) != client_id {
+                if oo.client_id != client_id {
                     continue;
                 }
             }
