@@ -1,4 +1,3 @@
-use pinocchio::error::ProgramError;
 use crate::{
     constants::{DROP_EXPIRED_ORDER_LIMIT, MAX_FILLS_PER_ORDER},
     errors::OrderBookError,
@@ -6,6 +5,7 @@ use crate::{
         BookSide, FillEvent, LeafNode, MarketState, OpenOrdersAccount, Order, OrderTreeType, Side,
     },
 };
+use pinocchio::error::ProgramError;
 
 pub struct Orderbook<'a> {
     pub bids: &'a mut BookSide,
@@ -243,9 +243,8 @@ impl<'a> Orderbook<'a> {
 
             // Book full — evict worst if our price is better
             if bookside.is_full() {
-                let (_worst_order, worst_price) = bookside
-                    .remove_worst()
-                    .ok_or(OrderBookError::BookFull)?;
+                let (_worst_order, worst_price) =
+                    bookside.remove_worst().ok_or(OrderBookError::BookFull)?;
 
                 if !side.is_price_better(price_lots, worst_price) {
                     return Err(OrderBookError::BookFull.into());

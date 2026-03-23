@@ -1,4 +1,6 @@
-use crate::states::{Side, new_node_key};
+use crate::{
+    states::{Side, new_node_key},
+};
 use bytemuck::{Pod, Zeroable};
 
 #[derive(Clone, Copy, Pod, Zeroable)]
