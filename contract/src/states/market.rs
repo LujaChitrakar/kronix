@@ -1,6 +1,4 @@
-use crate::{
-    states::{Side, new_node_key},
-};
+use crate::states::{Side, new_node_key};
 use bytemuck::{Pod, Zeroable};
 
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -37,7 +35,7 @@ const _: () = assert!(size_of::<MarketState>() % 8 == 0);
 
 impl MarketState {
     pub fn name(&self) -> &str {
-        std::str::from_utf8(&self.name)
+        core::str::from_utf8(&self.name)
             .unwrap()
             .trim_matches(char::from(0))
     }

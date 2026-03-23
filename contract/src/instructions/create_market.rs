@@ -1,10 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{AccountView, ProgramResult, error::ProgramError};
 
-use crate::{
-    states::MarketState, utils::check_ata,
-  
-};
+use crate::{states::MarketState, utils::check_ata};
 
 #[derive(Pod, Zeroable, Clone, Copy)]
 #[repr(C)]
