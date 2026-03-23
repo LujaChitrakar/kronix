@@ -142,11 +142,9 @@ fn post_only_slide_limit(side: Side, best_other_side: i64, limit: i64) -> i64 {
 
 #[cfg(test)]
 mod tests {
-    use bytemuck::Zeroable;
-
-    use crate::states::{BookSide, LeafNode, OrderTreeType, new_node_key};
-
     use super::*;
+    use crate::states::{BookSide, LeafNode, OrderTreeType, new_node_key};
+    use bytemuck::Zeroable;
 
     fn make_orderbook_stub() -> (BookSide, BookSide) {
         let mut bids = BookSide::zeroed();
@@ -303,7 +301,7 @@ mod tests {
     #[test]
     fn market_bid_price_is_max() {
         let (mut bids, mut asks) = make_orderbook_stub();
-        let mut ob = Orderbook {
+        let ob = Orderbook {
             bids: &mut bids,
             asks: &mut asks,
         };
@@ -323,7 +321,7 @@ mod tests {
     #[test]
     fn market_ask_price_is_min() {
         let (mut bids, mut asks) = make_orderbook_stub();
-        let mut ob = Orderbook {
+        let ob = Orderbook {
             bids: &mut bids,
             asks: &mut asks,
         };

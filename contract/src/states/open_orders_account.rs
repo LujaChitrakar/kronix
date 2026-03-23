@@ -4,7 +4,7 @@ use pinocchio::error::ProgramError;
 use crate::{
     constants::MAX_OPEN_ORDERS,
     errors::OrderBookError,
-    states::{BookSideOrderTree, LeafNode, Side},
+    states::{LeafNode, Side},
 };
 
 #[derive(Pod, Zeroable, Clone, Copy)]
@@ -174,20 +174,6 @@ mod tests {
             *slot = OpenOrder::default(); // sets is_free = 1
         }
         oo
-    }
-
-    fn make_order(id: u128, price: i64, side: Side, client_id: u64) -> OpenOrder {
-        OpenOrder {
-            id: id.to_be_bytes(),
-            client_id: client_id,
-            locked_price: price,
-            filled_qty: 0,
-            fill_price: 0,
-            is_free: 0,
-            side: side as u8,
-            is_filled: 0,
-            padding: [0; 5],
-        }
     }
 
     fn make_leaf(key: u128, qty: i64, owner: [u8; 32]) -> LeafNode {

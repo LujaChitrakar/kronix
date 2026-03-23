@@ -36,12 +36,12 @@ impl BookSide {
     // Iterate over all entries in the book filtering out the invalid orders
     // smallest to hightest for ask
     // highest to smallest for bid
-    pub fn iter_valid(&self, now_ts: u64) -> impl Iterator<Item = BookSideIterItem> {
+    pub fn iter_valid(&self, now_ts: u64) -> impl Iterator<Item = BookSideIterItem<'_>> {
         BookSideIter::new(self, now_ts).filter(|item| item.is_valid())
     }
 
     // iter all including invalid orders
-    pub fn iter_all_including_invalid(&self, now_ts: u64) -> BookSideIter {
+    pub fn iter_all_including_invalid(&self, now_ts: u64) -> BookSideIter<'_> {
         BookSideIter::new(self, now_ts)
     }
 
@@ -100,9 +100,7 @@ impl BookSide {
     }
 
     // Remove the overall worst-price order.
-    pub fn remove_worst(&mut self, now_ts: u64) -> Option<(LeafNode, i64)> {
-        let side = self.nodes.order_tree_type().side();
-
+    pub fn remove_worst(&mut self) -> Option<(LeafNode, i64)> {
         let (_, worst_leaf) = self.nodes.find_worst(&self.roots)?;
 
         // For bids: worst = lowest price = min_leaf
@@ -177,14 +175,6 @@ mod tests {
         bs
     }
 
-    fn make_leaf(price_lots: i64, seq_num: u64, quantity: i64) -> LeafNode {
-        let price_data = fixed_price_data(price_lots).unwrap();
-        let side = if price_lots > 0 { Side::Bid } else { Side::Ask };
-        let key = new_node_key(side, price_data, seq_num);
-
-        LeafNode::new(0, 0, seq_num, quantity, 1000, key, [0u8; 32])
-    }
-
     fn make_bid_leaf(price_lots: i64, seq_num: u64, quantity: i64) -> LeafNode {
         let price_data = fixed_price_data(price_lots).unwrap();
         let key = new_node_key(Side::Bid, price_data, seq_num);
@@ -202,13 +192,6 @@ mod tests {
     fn make_expiring_bid_leaf(price_lots: i64, seq_num: u64, timestamp: u64, tif: u16) -> LeafNode {
         let price_data = fixed_price_data(price_lots).unwrap();
         let key = new_node_key(Side::Bid, price_data, seq_num);
-
-        LeafNode::new(0, tif, seq_num, 0, timestamp, key, [0u8; 32])
-    }
-
-    fn make_expiring_ask_leaf(price_lots: i64, seq_num: u64, timestamp: u64, tif: u16) -> LeafNode {
-        let price_data = fixed_price_data(price_lots).unwrap();
-        let key = new_node_key(Side::Ask, price_data, seq_num);
 
         LeafNode::new(0, tif, seq_num, 0, timestamp, key, [0u8; 32])
     }
@@ -375,7 +358,7 @@ mod tests {
         bids.insert_leaf(&make_bid_leaf(200, 2, 5)).unwrap();
         bids.insert_leaf(&make_bid_leaf(150, 3, 5)).unwrap();
 
-        let (_, worst_price) = bids.remove_worst(0).unwrap();
+        let (_, worst_price) = bids.remove_worst().unwrap();
         assert_eq!(worst_price, 100);
         assert_eq!(bids.roots.leaf_count, 2);
     }
@@ -387,7 +370,7 @@ mod tests {
         asks.insert_leaf(&make_ask_leaf(300, 2, 5)).unwrap();
         asks.insert_leaf(&make_ask_leaf(200, 3, 5)).unwrap();
 
-        let (_, worst_price) = asks.remove_worst(0).unwrap();
+        let (_, worst_price) = asks.remove_worst().unwrap();
         assert_eq!(worst_price, 300);
         assert_eq!(asks.roots.leaf_count, 2);
     }
@@ -395,7 +378,7 @@ mod tests {
     #[test]
     fn remove_worst_empty_returns_none() {
         let mut bids = make_bookside(OrderTreeType::Bids);
-        assert!(bids.remove_worst(0).is_none());
+        assert!(bids.remove_worst().is_none());
     }
 
     #[test]

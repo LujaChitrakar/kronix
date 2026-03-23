@@ -1,7 +1,4 @@
-use std::cell::RefMut;
-
 use pinocchio::error::ProgramError;
-
 use crate::{
     constants::{DROP_EXPIRED_ORDER_LIMIT, MAX_FILLS_PER_ORDER},
     errors::OrderBookError,
@@ -247,7 +244,7 @@ impl<'a> Orderbook<'a> {
             // Book full — evict worst if our price is better
             if bookside.is_full() {
                 let (_worst_order, worst_price) = bookside
-                    .remove_worst(now_ts)
+                    .remove_worst()
                     .ok_or(OrderBookError::BookFull)?;
 
                 if !side.is_price_better(price_lots, worst_price) {

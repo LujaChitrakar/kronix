@@ -204,7 +204,7 @@ pub(crate) enum NodeRefMut<'a> {
 }
 
 impl AnyNode {
-    pub(crate) fn case(&self) -> Option<NodeRef> {
+    pub(crate) fn case(&self) -> Option<NodeRef<'_>> {
         match NodeTag::try_from(self.tag) {
             Ok(NodeTag::InnerNode) => Some(NodeRef::Inner(cast_ref(self))),
             Ok(NodeTag::LeafNode) => Some(NodeRef::Leaf(cast_ref(self))),
@@ -212,7 +212,7 @@ impl AnyNode {
         }
     }
 
-    pub fn case_mut(&mut self) -> Option<NodeRefMut> {
+    pub(crate) fn case_mut(&mut self) -> Option<NodeRefMut<'_>> {
         match NodeTag::try_from(self.tag) {
             Ok(NodeTag::InnerNode) => Some(NodeRefMut::Inner(cast_mut(self))),
             Ok(NodeTag::LeafNode) => Some(NodeRefMut::Leaf(cast_mut(self))),

@@ -1,8 +1,7 @@
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use pinocchio::error::ProgramError;
-use std::{default, error::Error};
 
-use crate::{errors::OrderBookError, states::BookSideOrderTree};
+use crate::errors::OrderBookError;
 
 #[derive(Eq, PartialEq, Copy, Clone)]
 #[repr(u8)]
