@@ -75,7 +75,7 @@ pub unsafe fn to_mut_bytes<T: DataLen>(data: &mut T) -> &mut [u8] {
 
 #[inline(always)]
 pub unsafe fn try_from_account_info<T: DataLen>(acc: &AccountView) -> Result<&T, ProgramError> {
-    if acc.owner() != &crate::ID {
+    if acc.owner().as_array() != &crate::ID {
         return Err(ProgramError::IllegalOwner);
     }
     let bytes = acc.try_borrow()?;
@@ -90,7 +90,7 @@ pub unsafe fn try_from_account_info<T: DataLen>(acc: &AccountView) -> Result<&T,
 pub unsafe fn try_from_account_info_mut<T: DataLen>(
     acc: &mut AccountView,
 ) -> Result<&mut T, ProgramError> {
-    if acc.owner() != &crate::ID {
+    if acc.owner().as_array() != &crate::ID {
         return Err(ProgramError::IllegalOwner);
     }
     let mut bytes = acc.try_borrow_mut()?;

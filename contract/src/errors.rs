@@ -22,6 +22,7 @@ pub enum OrderBookError {
     BookFull = 18,
     OrderIdNotFound = 19,
     InvalidOwner = 20,
+    InvalidSystemProgram = 21,
 }
 
 impl From<OrderBookError> for ProgramError {

@@ -1,6 +1,6 @@
 use crate::states::{
     AnyNode, BookSideIter, BookSideIterItem, LeafNode, NodeHandle, NodeRef, OrderTreeNodes,
-    OrderTreeRoot, Side,
+    OrderTreeRoot, OrderTreeType, Side,
 };
 use bytemuck::{Pod, Zeroable};
 use pinocchio::error::ProgramError;
@@ -33,6 +33,17 @@ const _: () = assert!(size_of::<BookSide>() == 90944);
 const _: () = assert!(size_of::<BookSide>() % 8 == 0);
 
 impl BookSide {
+    pub const LEN: usize = size_of::<BookSide>();
+
+    pub fn init(&mut self, tree_type: OrderTreeType) {
+        self.roots.maybe_node = 0;
+        self.roots.leaf_count = 0;
+        self.nodes.order_tree_type = tree_type as u8;
+        self.nodes.bump_index = 0;
+        self.nodes.free_list_len = 0;
+        self.nodes.free_list_head = 0;
+    }
+
     // Iterate over all entries in the book filtering out the invalid orders
     // smallest to hightest for ask
     // highest to smallest for bid

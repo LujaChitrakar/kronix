@@ -12,12 +12,10 @@ default_panic_handler!();
 
 #[inline(always)]
 fn process_instruction(
-    program_id: &Address,
+    _program_id: &Address,
     accounts: &[AccountView],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    assert_eq!(program_id, &ID);
-
     let (disc, data) = instruction_data
         .split_first()
         .ok_or(ProgramError::InvalidInstructionData)?;

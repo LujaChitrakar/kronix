@@ -8,4 +8,4 @@ pub mod instructions;
 pub mod states;
 pub mod utils;
 
-pinocchio::address::declare_id!("j8VeDggFuwtiCjM8uo7am8i1bWWH2sj7mBRxqTaZniU");
+pinocchio_pubkey::declare_id!("j8VeDggFuwtiCjM8uo7am8i1bWWH2sj7mBRxqTaZniU");

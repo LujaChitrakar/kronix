@@ -12,6 +12,7 @@ pub struct MarketState {
     pub name: [u8; 16],
 
     // Account refs — pubkeys of associated accounts
+    pub admin: [u8; 32],
     pub bids: [u8; 32],
     pub asks: [u8; 32],
 
@@ -30,10 +31,11 @@ pub struct MarketState {
 }
 
 const _: () =
-    assert!(size_of::<MarketState>() == 2 + 1 + 5 + 16 + 32 + 32 + 8 + 8 + 8 + 8 + 8 + 64);
+    assert!(size_of::<MarketState>() == 2 + 1 + 5 + 16 + 32 + 32 + 32 + 8 + 8 + 8 + 8 + 8 + 64);
 const _: () = assert!(size_of::<MarketState>() % 8 == 0);
 
 impl MarketState {
+    pub const LEN: usize = size_of::<MarketState>();
     pub fn name(&self) -> &str {
         core::str::from_utf8(&self.name)
             .unwrap()
@@ -112,7 +114,7 @@ mod tests {
 
     #[test]
     fn market_size() {
-        assert_eq!(core::mem::size_of::<MarketState>(), 192);
+        assert_eq!(core::mem::size_of::<MarketState>(), 224);
         assert_eq!(core::mem::size_of::<MarketState>() % 8, 0);
     }
 
