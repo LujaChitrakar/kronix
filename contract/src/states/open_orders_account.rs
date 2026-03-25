@@ -4,7 +4,7 @@ use pinocchio::error::ProgramError;
 use crate::{
     constants::MAX_OPEN_ORDERS,
     errors::OrderBookError,
-    states::{LeafNode, Side},
+    states::{BookSide, LeafNode, Side},
 };
 
 #[derive(Pod, Zeroable, Clone, Copy)]
@@ -110,6 +110,26 @@ impl OpenOrdersAccount {
         if maker_out {
             // fully consumed — slot freed after claim_fill
             oo.is_free = 0; // still occupied until maker claims
+        }
+    }
+
+    pub fn cleanup_stale_orders(&mut self, bookside_bids: &BookSide, bookside_asks: &BookSide) {
+        for i in 0..self.open_orders.len() {
+            let oo = &self.open_orders[i];
+            if oo.is_free() {
+                continue;
+            }
+            // Check if order still exists in book
+            let side = oo.side();
+            let bookside = match side {
+                Side::Bid => bookside_bids,
+                Side::Ask => bookside_asks,
+            };
+            let id = u128::from_le_bytes(oo.id);
+            if bookside.node_by_key(id).is_none() {
+                // Order gone from book — free the slot
+                self.open_orders[i] = OpenOrder::default();
+            }
         }
     }
 }

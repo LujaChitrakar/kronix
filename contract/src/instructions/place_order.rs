@@ -212,6 +212,10 @@ pub fn place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
                 }
             }
         }
+
+        // may be error
+        // oo_account_state.cleanup_stale_orders(bids_state, asks_state);
+
         // TODO: CPI to risk_program::settle_fill for taker
         // Uncomment when risk_program is built:
         //

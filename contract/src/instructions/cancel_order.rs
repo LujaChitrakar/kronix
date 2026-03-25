@@ -108,7 +108,6 @@ pub fn process_cancel_order(accounts: &[AccountView], data: &[u8]) -> ProgramRes
         bids: bids_state,
         asks: asks_state,
     };
-
     order_book.cancel_order(
         oo_account_state,
         order_id,

@@ -85,6 +85,26 @@ impl BookSide {
             }
         }
     }
+    pub fn node_by_key(&self, search_key: u128) -> Option<&LeafNode> {
+        let mut node_handle = self.roots.node()?;
+
+        loop {
+            let node = self.nodes.node(node_handle)?;
+            match node.case()? {
+                NodeRef::Inner(inner) => {
+                    let (child, _) = inner.walk_down(search_key);
+                    node_handle = child;
+                }
+                NodeRef::Leaf(leaf) => {
+                    if u128::from_le_bytes(leaf.key) == search_key {
+                        return Some(leaf);
+                    } else {
+                        return None;
+                    }
+                }
+            }
+        }
+    }
 
     pub fn root(&self) -> &OrderTreeRoot {
         &self.roots
