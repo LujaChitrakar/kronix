@@ -107,6 +107,7 @@ pub fn place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
             &[
                 OPEN_ORDERS_SEED,
                 open_orders_account_owner.as_ref(),
+                market.address().as_array().as_ref(),
                 &open_orders_account_bump,
             ],
             &crate::ID,
@@ -166,7 +167,7 @@ pub fn place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
 
     unsafe {
         verify_account_owner(bids, &market_state.bids)?;
-        verify_account_owner(bids, &market_state.bids)?;
+        verify_account_owner(asks, &market_state.asks)?;
     }
 
     // matching engine
