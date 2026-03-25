@@ -27,6 +27,8 @@ pub enum OrderBookError {
     OrderAlreadyExpired = 23,
     OpenOrderNotFound = 24,
     InvalidSide = 25,
+    InvalidOrderSlot = 26,
+    NoFillToClaim = 27,
 }
 
 impl From<OrderBookError> for ProgramError {
