@@ -1,7 +1,4 @@
-use pinocchio::{
-    error::ProgramError,
-    sysvars::{Sysvar, clock::Clock},
-};
+use pinocchio::error::ProgramError;
 
 use crate::{
     errors::OrderBookError,
@@ -38,8 +35,7 @@ pub enum OrderParams {
 
 impl Order {
     // Convert an input expiry timestamp to a time_in_force value
-    pub fn tif_from_expiry(expiry_timestamp: u64) -> Option<u16> {
-        let now_ts: u64 = Clock::get().unwrap().unix_timestamp.try_into().unwrap();
+    pub fn tif_from_expiry(expiry_timestamp: u64, now_ts: u64) -> Option<u16> {
         if expiry_timestamp != 0 {
             // If expiry is far in the future, clamp to u16::MAX seconds
             let tif = expiry_timestamp.saturating_sub(now_ts).min(u16::MAX.into());

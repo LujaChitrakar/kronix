@@ -11,6 +11,10 @@ use pinocchio_system::instructions::CreateAccount;
 use crate::{
     constants::{ASKS_SEED, BIDS_SEED, MARKET_SEED},
     errors::OrderBookError,
+    helper::{
+        verify_account_owner, verify_ix_data_len, verify_pda, verify_program_id, verify_signer,
+        verify_uninitialized,
+    },
     states::{BookSide, MarketState, OrderTreeType},
 };
 
@@ -29,31 +33,19 @@ struct CreateMarketParams {
     name: [u8; 16],
 }
 
-pub fn create_market(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [
-        payer,
-        market,
-        bids,
-        asks,
-        system_program,
-        _remaining @ ..,
-    ] = accounts
-    else {
+pub fn process_create_market(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    let [payer, market, bids, asks, system_program, _remaining @ ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 
-    if !payer.is_signer() {
-        return Err(ProgramError::MissingRequiredSignature);
-    }
-    if !market.is_data_empty() || !asks.is_data_empty() || !bids.is_data_empty() {
-        return Err(ProgramError::AccountAlreadyInitialized);
-    }
-    if system_program.address() != &pinocchio_system::ID {
-        return Err(OrderBookError::InvalidSystemProgram.into());
-    }
-    
-    let clock=Clock::get()?;
-    let rent=Rent::get()?;
+    verify_signer(payer)?;
+    verify_uninitialized(market)?;
+    verify_uninitialized(asks)?;
+    verify_uninitialized(bids)?;
+    verify_program_id(system_program, &pinocchio_system::ID)?;
+
+    let clock = Clock::get()?;
+    let rent = Rent::get()?;
 
     let ix_args = bytemuck::try_from_bytes::<CreateMarketParams>(data)
         .map_err(|_| ProgramError::InvalidAccountData)?;
@@ -72,23 +64,21 @@ pub fn create_market(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
 
     // validate_pda
     {
-        let market_seed = [MARKET_SEED, market_index.as_ref(), &bump_bytes];
-        let market_account_pda = derive_address(&market_seed, None, &crate::ID);
-        if market_account_pda != *market.address().as_array() {
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        let bids_seed = [BIDS_SEED, market_index.as_ref(), &bid_bump_bytes];
-        let bids_account_pda = derive_address(&bids_seed, None, &crate::ID);
-        if bids_account_pda != *bids.address().as_array() {
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        let asks_seed = [ASKS_SEED, market_index.as_ref(), &ask_bump_bytes];
-        let asks_account_pda = derive_address(&asks_seed, None, &crate::ID);
-        if asks_account_pda != *asks.address().as_array() {
-            return Err(ProgramError::InvalidAccountData);
-        }
+        verify_pda(
+            market,
+            &[MARKET_SEED, market_index.as_ref(), &bump_bytes],
+            &crate::ID,
+        )?;
+        verify_pda(
+            bids,
+            &[BIDS_SEED, market_index.as_ref(), &bid_bump_bytes],
+            &crate::ID,
+        )?;
+        verify_pda(
+            asks,
+            &[ASKS_SEED, market_index.as_ref(), &ask_bump_bytes],
+            &crate::ID,
+        )?;
     }
 
     // required signer_seeds
@@ -137,7 +127,8 @@ pub fn create_market(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
 
     {
         let mut market_data = market.try_borrow_mut()?;
-        let market_state = bytemuck::from_bytes_mut::<MarketState>(&mut market_data);
+        let market_state =
+            bytemuck::from_bytes_mut::<MarketState>(&mut market_data[..MarketState::LEN]);
 
         *market_state = MarketState {
             market_index: ix_args.market_index,
@@ -158,12 +149,14 @@ pub fn create_market(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     }
     {
         let mut bids_data = bids.try_borrow_mut()?;
-        let bookside_bid_state = bytemuck::from_bytes_mut::<BookSide>(&mut bids_data);
+        let bookside_bid_state =
+            bytemuck::from_bytes_mut::<BookSide>(&mut bids_data[..BookSide::LEN]);
         bookside_bid_state.init(OrderTreeType::Bids);
     }
     {
         let mut asks_data = asks.try_borrow_mut()?;
-        let bookside_ask_state = bytemuck::from_bytes_mut::<BookSide>(&mut asks_data);
+        let bookside_ask_state =
+            bytemuck::from_bytes_mut::<BookSide>(&mut asks_data[..BookSide::LEN]);
         bookside_ask_state.init(OrderTreeType::Asks);
     }
     Ok(())

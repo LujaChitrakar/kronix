@@ -23,6 +23,8 @@ pub enum OrderBookError {
     OrderIdNotFound = 19,
     InvalidOwner = 20,
     InvalidSystemProgram = 21,
+    MarketInactive = 22,
+    OrderAlreadyExpired = 23,
 }
 
 impl From<OrderBookError> for ProgramError {

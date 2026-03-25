@@ -26,6 +26,7 @@ const _: () = assert!(
 const _: () = assert!(size_of::<OpenOrdersAccount>() % 8 == 0);
 
 impl OpenOrdersAccount {
+    pub const LEN: usize = size_of::<OpenOrdersAccount>();
     // no of bytes required for space including disc
     pub fn space() -> usize {
         8 + size_of::<OpenOrdersAccount>()

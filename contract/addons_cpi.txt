@@ -1,0 +1,96 @@
+in place_order.rs
+// CURRENT — stubbed
+// TODO: CPI to risk_program::settle_fill for taker
+
+// REPLACE WITH
+settle_fill_cpi(
+    risk_program,
+    taker_user_account,
+    taker_position,
+    market_config,
+    funding_state,
+    oracle,
+    fill,
+    true,   // is_taker
+)?;
+
+and uncomment in accounts
+
+---
+
+claim_fills.rs
+
+// CURRENT — stubbed
+// TODO: CPI to risk_program::settle_fill for maker
+
+// REPLACE WITH
+settle_fill_cpi(
+    risk_program,
+    maker_user_account,
+    maker_position,
+    market_config,
+    funding_state,
+    oracle,
+    fill,
+    false,  // is_taker
+)?;
+
+---
+
+cpi_helper??
+
+// cpi.rs or utils.rs
+pub fn settle_fill_cpi(
+    risk_program:       &AccountView,
+    user_account:       &AccountView,
+    position:           &AccountView,
+    market_config:      &AccountView,
+    funding_state:      &AccountView,
+    oracle:             &AccountView,
+    fill:               &FillEvent,
+    is_taker:           bool,
+) -> ProgramResult {
+
+    // serialize FillEvent as ix data
+    let mut ix_data = [0u8; size_of::<FillEvent>() + 1];
+    ix_data[0] = is_taker as u8;
+    ix_data[1..].copy_from_slice(bytemuck::bytes_of(fill));
+
+    pinocchio::cpi::invoke(
+        &pinocchio::instruction::Instruction {
+            program_id: risk_program.address(),
+            accounts: &[
+                user_account.to_meta_c(),
+                position.to_meta_c(),
+                market_config.to_meta_c(),
+                funding_state.to_meta_c(),
+                oracle.to_meta_c(),
+            ],
+            data: &ix_data,
+        },
+        &[
+            user_account,
+            position,
+            market_config,
+            funding_state,
+            oracle,
+        ],
+    )
+}
+```
+
+---
+
+## That's It — Only 3 Changes
+```
+place_order.rs
+  → uncomment 3 accounts
+  → replace TODO comment with settle_fill_cpi() call
+
+claim_fill.rs
+  → uncomment 3 accounts  
+  → replace TODO comment with settle_fill_cpi() call
+
+cpi.rs (new file)
+  → add settle_fill_cpi() helper
+  → used by both instructions above

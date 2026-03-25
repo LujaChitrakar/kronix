@@ -3,7 +3,7 @@ use pinocchio::error::ProgramError;
 
 use crate::errors::OrderBookError;
 
-#[derive(Eq, PartialEq, Copy, Clone)]
+#[derive(Eq, PartialEq, Copy, Clone, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
 pub enum PlaceOrderType {
     //Try to match existing orders upto price, max_base_quantity and max_quote_quantity

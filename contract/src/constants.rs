@@ -24,3 +24,4 @@ pub const MAX_CONF_RATIO_BPS: u64 = 200; // max 2% uncertainty
 pub const MARKET_SEED: &[u8] = b"market";
 pub const BIDS_SEED: &[u8] = b"bids";
 pub const ASKS_SEED: &[u8] = b"asks";
+pub const OPEN_ORDERS_SEED: &[u8] = b"open_orders";
