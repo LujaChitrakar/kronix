@@ -59,7 +59,7 @@ pub fn process_cancel_order(accounts: &[AccountView], data: &[u8]) -> ProgramRes
     }
 
     let mut oo_account_data = open_orders_account.try_borrow_mut()?;
-    let mut oo_account_state = bytemuck::from_bytes_mut::<OpenOrdersAccount>(
+    let oo_account_state = bytemuck::from_bytes_mut::<OpenOrdersAccount>(
         &mut oo_account_data[..OpenOrdersAccount::LEN],
     );
 
@@ -94,7 +94,7 @@ pub fn process_cancel_order(accounts: &[AccountView], data: &[u8]) -> ProgramRes
         )?;
     }
 
-    let order_slot = oo_account_state
+    let _order_slot = oo_account_state
         .find_order_with_order_id(order_id)
         .ok_or(OrderBookError::OpenOrderNotFound)?;
 

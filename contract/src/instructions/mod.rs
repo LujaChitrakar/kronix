@@ -1,3 +1,5 @@
+use pinocchio::error::ProgramError;
+
 pub mod cancel_all_orders;
 pub mod cancel_order;
 pub mod cancel_order_by_client_id;
@@ -16,7 +18,6 @@ pub use claim_fill::*;
 pub use create_market::*;
 pub use create_open_orders_account::*;
 pub use edit_order::*;
-use pinocchio::error::ProgramError;
 pub use place_order::*;
 pub use place_take_order::*;
 pub use prune_orders::*;
@@ -29,7 +30,7 @@ pub enum OrderbookInstruction {
     PlaceTakeOrder,
     EditOrder,
     CancelOrder,
-    CancelOrderById,
+    CancelOrderByClientId,
     CancelAllOrders,
     ClaimFill,
     PruneOrders,
@@ -46,7 +47,7 @@ impl TryFrom<&u8> for OrderbookInstruction {
             3 => Ok(OrderbookInstruction::PlaceTakeOrder),
             4 => Ok(OrderbookInstruction::EditOrder),
             5 => Ok(OrderbookInstruction::CancelOrder),
-            6 => Ok(OrderbookInstruction::CancelOrderById),
+            6 => Ok(OrderbookInstruction::CancelOrderByClientId),
             7 => Ok(OrderbookInstruction::CancelAllOrders),
             8 => Ok(OrderbookInstruction::ClaimFill),
             9 => Ok(OrderbookInstruction::PruneOrders),

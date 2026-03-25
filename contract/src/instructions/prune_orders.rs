@@ -4,7 +4,6 @@ use pinocchio::{
     error::ProgramError,
     sysvars::{Sysvar, clock::Clock},
 };
-use pyth_solana_receiver_sdk::cpi::accounts;
 
 use crate::{
     constants::MARKET_SEED,

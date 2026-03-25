@@ -62,7 +62,7 @@ pub fn process_cancel_order_by_client_id(accounts: &[AccountView], data: &[u8]) 
     }
 
     let mut oo_account_data = open_orders_account.try_borrow_mut()?;
-    let mut oo_account_state = bytemuck::from_bytes_mut::<OpenOrdersAccount>(
+    let oo_account_state = bytemuck::from_bytes_mut::<OpenOrdersAccount>(
         &mut oo_account_data[..OpenOrdersAccount::LEN],
     );
 

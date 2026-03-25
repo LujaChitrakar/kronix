@@ -5,16 +5,12 @@ use pinocchio::{
     error::ProgramError,
     sysvars::{Sysvar, clock::Clock, rent::Rent},
 };
-use pinocchio_pubkey::derive_address;
 use pinocchio_system::instructions::CreateAccount;
 
 use crate::{
     constants::{ASKS_SEED, BIDS_SEED, MARKET_SEED},
     errors::OrderBookError,
-    helper::{
-        verify_account_owner, verify_ix_data_len, verify_pda, verify_program_id, verify_signer,
-        verify_uninitialized,
-    },
+    helper::{verify_pda, verify_program_id, verify_signer, verify_uninitialized},
     states::{BookSide, MarketState, OrderTreeType},
 };
 

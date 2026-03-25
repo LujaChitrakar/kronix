@@ -2,9 +2,8 @@ use bytemuck::{Pod, Zeroable};
 use pinocchio::{
     AccountView, ProgramResult,
     error::ProgramError,
-    sysvars::{Sysvar, clock::Clock, rent::Rent},
+    sysvars::{Sysvar, clock::Clock},
 };
-use pinocchio_pubkey::derive_address;
 
 use crate::{
     constants::{MARKET_SEED, MAX_FILLS_PER_ORDER, OPEN_ORDERS_SEED},
@@ -16,7 +15,6 @@ use crate::{
         BookSide, MarketState, OpenOrdersAccount, Order, OrderParams, Orderbook, PlaceOrderType,
         PostOrderType, Side,
     },
-    utils::{DataLen, load_ix_data},
 };
 
 #[derive(Pod, Zeroable, Clone, Copy)]
@@ -70,7 +68,6 @@ pub fn place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     let now_ts = Clock::get()?.unix_timestamp;
-    let rent = Rent::get()?;
 
     let mut market_data = market.try_borrow_mut()?;
     let market_state =
