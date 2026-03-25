@@ -1,6 +1,6 @@
 pub mod cancel_all_orders;
 pub mod cancel_order;
-pub mod cancel_order_by_id;
+pub mod cancel_order_by_client_id;
 pub mod claim_fill;
 pub mod create_market;
 pub mod create_open_orders_account;
@@ -11,7 +11,7 @@ pub mod prune_orders;
 
 pub use cancel_all_orders::*;
 pub use cancel_order::*;
-pub use cancel_order_by_id::*;
+pub use cancel_order_by_client_id::*;
 pub use claim_fill::*;
 pub use create_market::*;
 pub use create_open_orders_account::*;
