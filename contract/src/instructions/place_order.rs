@@ -196,10 +196,7 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
     // setle_fills
     for i in 0..result.fill_count as usize {
         let fill = &result.fills[i];
-
-        // record fill on makers 00 account
-        // maker calls claim_fill ix to settle with risk_program
-        // we need makers oo account passed in remaining accounts
+    
         if let Some(maker_oo_account) = _remaining.get(i) {
             unsafe {
                 if maker_oo_account.owner().as_array() == &crate::ID {
@@ -207,7 +204,7 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
                     let maker_oo = bytemuck::from_bytes_mut::<OpenOrdersAccount>(
                         &mut maker_oo_data[..OpenOrdersAccount::LEN],
                     );
-
+    
                     if maker_oo.owner == fill.maker_pubkey
                         && maker_oo.market == *market.address().as_array()
                     {
@@ -221,20 +218,6 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
                 }
             }
         }
-
-        // may be error
-        // oo_account_state.cleanup_stale_orders(bids_state, asks_state);
-
-        // TODO: CPI to risk_program::settle_fill for taker
-        // Uncomment when risk_program is built:
-        //
-        // settle_fill_cpi(
-        //     risk_program,
-        //     taker_user_account,
-        //     taker_position,
-        //     fill,
-        //     true,  // is_taker
-        // )?;
     }
     Ok(())
 }

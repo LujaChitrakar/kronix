@@ -74,9 +74,11 @@ pub fn process_claim_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResul
         let open_orders_account_bump = [oo_account_state.bump];
         let open_orders_account_owner = oo_account_state.owner;
 
-        unsafe {
-            verify_account_owner(signer, &open_orders_account_owner)?;
-            verify_account_owner(market, &oo_account_state.market)?;
+        if signer.address().as_array() != &open_orders_account_owner {
+            return Err(ProgramError::InvalidAccountOwner);
+        }
+        if market.address().as_array() != &oo_account_state.market {
+            return Err(ProgramError::InvalidAccountOwner);
         }
 
         verify_pda(
@@ -98,7 +100,7 @@ pub fn process_claim_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResul
 
     let oo = oo_account_state.open_order_by_raw_index(slot);
 
-    if oo.has_pending_fill() {
+    if !oo.has_pending_fill() {
         return Err(OrderBookError::NoFillToClaim.into());
     }
     if oo.is_free() {
