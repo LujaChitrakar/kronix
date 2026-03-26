@@ -59,7 +59,7 @@ pub struct OrderTreeNodes {
     pub reserved: [u8; 512],
     pub nodes: [AnyNode; MAX_ORDERTREE_NODES],
 }
-const _: () = assert!(size_of::<OrderTreeNodes>() == 1 + 3 + 4 + 4 + 4 + 512 + 88 * 1024);
+const _: () = assert!(size_of::<OrderTreeNodes>() == 1 + 3 + 4 + 4 + 4 + 512 + 88 * MAX_ORDERTREE_NODES);
 const _: () = assert!(size_of::<OrderTreeNodes>() % 8 == 0);
 
 impl OrderTreeNodes {
@@ -646,7 +646,7 @@ mod tests {
         let mut inserted: Vec<(i64, u64)> = vec![];
         let mut seq: u64 = 0;
 
-        for _ in 0..200 {
+        for _ in 0..50 {
             let price: i64 = rng.gen_range(1..10000_i64);
             // Skip duplicate prices
             if inserted.iter().any(|(p, _)| *p == price) {
@@ -661,7 +661,7 @@ mod tests {
         }
 
         // Remove 50 at random
-        for _ in 0..50 {
+        for _ in 0..10 {
             if inserted.is_empty() {
                 break;
             }

@@ -4,6 +4,7 @@ use pinocchio::{
     error::ProgramError,
     sysvars::{Sysvar, clock::Clock},
 };
+use pinocchio_log::log;
 
 use crate::{
     constants::{MARKET_SEED, MAX_FILLS_PER_ORDER, OPEN_ORDERS_SEED},
@@ -31,7 +32,7 @@ pub struct PlaceOrderParams {
     pub price_lots: i64,
 }
 
-pub fn place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     let [
         signer,
         open_orders_account,
@@ -52,6 +53,7 @@ pub fn place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     verify_initialized(bids)?;
     verify_initialized(asks)?;
 
+
     unsafe {
         verify_account_owner(market, &crate::ID)?;
         verify_account_owner(open_orders_account, &crate::ID)?;
@@ -64,14 +66,17 @@ pub fn place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     verify_writtable(bids)?;
     verify_writtable(asks)?;
 
-    let params = bytemuck::try_from_bytes::<PlaceOrderParams>(data)
+ 
+    let params = bytemuck::try_pod_read_unaligned::<PlaceOrderParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
+
 
     let now_ts = Clock::get()?.unix_timestamp;
 
     let mut market_data = market.try_borrow_mut()?;
     let market_state =
         bytemuck::from_bytes_mut::<MarketState>(&mut market_data[..MarketState::LEN]);
+  
 
     if !market_state.is_active(now_ts) {
         return Err(OrderBookError::MarketInactive.into());
@@ -89,10 +94,15 @@ pub fn place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
         let open_orders_account_bump = [oo_account_state.bump];
         let open_orders_account_owner = oo_account_state.owner;
 
-        unsafe {
-            verify_account_owner(signer, &open_orders_account_owner)?;
-            verify_account_owner(market, &oo_account_state.market)?;
-        }
+        // Check signer pubkey matches stored owner — use address(), not owner()
+           if signer.address().as_array() != &open_orders_account_owner {
+               return Err(ProgramError::InvalidAccountOwner);
+           }
+       
+           // Check market address matches stored market in OO account
+           if market.address().as_array() != &oo_account_state.market {
+               return Err(ProgramError::InvalidAccountOwner);
+           }
 
         verify_pda(
             market,
@@ -162,9 +172,11 @@ pub fn place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     let mut asks_data = asks.try_borrow_mut()?;
     let asks_state = bytemuck::from_bytes_mut::<BookSide>(&mut asks_data[..BookSide::LEN]);
 
-    unsafe {
-        verify_account_owner(bids, &market_state.bids)?;
-        verify_account_owner(asks, &market_state.asks)?;
+    if bids.address().as_array() != &market_state.bids {
+        return Err(ProgramError::InvalidAccountOwner);
+    }
+    if asks.address().as_array() != &market_state.asks {
+        return Err(ProgramError::InvalidAccountOwner);
     }
 
     // matching engine

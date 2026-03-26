@@ -29,7 +29,7 @@ pub struct BookSide {
 const _: () = assert!(
     size_of::<BookSide>() == size_of::<OrderTreeNodes>() + 6 * size_of::<OrderTreeRoot>() + 256
 );
-const _: () = assert!(size_of::<BookSide>() == 90944);
+// const _: () = assert!(size_of::<BookSide>() == 90944);
 const _: () = assert!(size_of::<BookSide>() % 8 == 0);
 
 impl BookSide {

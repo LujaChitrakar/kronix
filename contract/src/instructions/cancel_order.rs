@@ -4,6 +4,7 @@ use pinocchio::{
     error::ProgramError,
     sysvars::{Sysvar, clock::Clock},
 };
+use pinocchio_log::log;
 
 use crate::{
     constants::{MARKET_SEED, OPEN_ORDERS_SEED},
@@ -23,22 +24,34 @@ pub struct CancelOrderParams {
 }
 
 pub fn process_cancel_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [signer, open_orders_account, market, bids, asks] = accounts else {
+    log!("Step1");
+    let [
+        signer,
+        open_orders_account,
+        market,
+        bids,
+        asks,
+        _remaining @ ..,
+    ] = accounts
+    else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 
+    log!("Step2");
     verify_signer(signer)?;
     verify_initialized(open_orders_account)?;
     verify_initialized(market)?;
     verify_initialized(bids)?;
     verify_initialized(asks)?;
 
+    log!("Step3");
     unsafe {
         verify_account_owner(market, &crate::ID)?;
         verify_account_owner(open_orders_account, &crate::ID)?;
         verify_account_owner(bids, &crate::ID)?;
         verify_account_owner(asks, &crate::ID)?;
     }
+    log!("Step4");
 
     verify_writtable(open_orders_account)?;
     verify_writtable(bids)?;
@@ -70,11 +83,17 @@ pub fn process_cancel_order(accounts: &[AccountView], data: &[u8]) -> ProgramRes
         let open_orders_account_bump = [oo_account_state.bump];
         let open_orders_account_owner = oo_account_state.owner;
 
-        unsafe {
-            verify_account_owner(signer, &open_orders_account_owner)?;
-            verify_account_owner(market, &oo_account_state.market)?;
-            verify_account_owner(bids, &market_state.bids)?;
-            verify_account_owner(asks, &market_state.asks)?;
+        if signer.address().as_array() != &open_orders_account_owner {
+            return Err(ProgramError::InvalidAccountOwner);
+        }
+        if market.address().as_array() != &oo_account_state.market {
+            return Err(ProgramError::InvalidAccountOwner);
+        }
+        if bids.address().as_array() != &market_state.bids {
+            return Err(ProgramError::InvalidAccountOwner);
+        }
+        if asks.address().as_array() != &market_state.asks {
+            return Err(ProgramError::InvalidAccountOwner);
         }
 
         verify_pda(

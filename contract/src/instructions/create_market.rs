@@ -16,17 +16,17 @@ use crate::{
 
 #[derive(Pod, Zeroable, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
-struct CreateMarketParams {
-    admin: [u8; 32],
-    market_index: u16,
-    bump: u8,
-    bids_bump: u8,
-    asks_bump: u8,
-    padding: [u8; 3],
-    base_lot_size: i64,
-    quote_lot_size: i64,
-    time_expiry: i64,
-    name: [u8; 16],
+pub struct CreateMarketParams {
+    pub admin: [u8; 32],
+    pub market_index: u16,
+    pub bump: u8,
+    pub bids_bump: u8,
+    pub asks_bump: u8,
+    pub padding: [u8; 3],
+    pub base_lot_size: i64,
+    pub quote_lot_size: i64,
+    pub time_expiry: i64,
+    pub name: [u8; 16],
 }
 
 pub fn process_create_market(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
@@ -43,7 +43,7 @@ pub fn process_create_market(accounts: &[AccountView], data: &[u8]) -> ProgramRe
     let clock = Clock::get()?;
     let rent = Rent::get()?;
 
-    let ix_args = bytemuck::try_from_bytes::<CreateMarketParams>(data)
+    let ix_args = bytemuck::try_pod_read_unaligned::<CreateMarketParams>(data)
         .map_err(|_| ProgramError::InvalidAccountData)?;
 
     if ix_args.time_expiry != 0 && ix_args.time_expiry <= clock.unix_timestamp {
