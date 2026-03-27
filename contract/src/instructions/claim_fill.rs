@@ -48,7 +48,7 @@ pub fn process_claim_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResul
 
     verify_writtable(open_orders_account)?;
 
-    let params = bytemuck::try_from_bytes::<ClaimFillParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<ClaimFillParams>(data)
         .map_err(|_| ProgramError::InvalidAccountData)?;
 
     let slot = params.order_slot as usize;

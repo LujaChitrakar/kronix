@@ -64,7 +64,7 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
     verify_writtable(bids)?;
     verify_writtable(asks)?;
 
-    let params = bytemuck::try_from_bytes::<PlaceTakeOrderParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<PlaceTakeOrderParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     let place_order_type = PlaceOrderType::try_from(params.order_type)
@@ -114,11 +114,17 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
         let open_orders_account_bump = [oo_account_state.bump];
         let open_orders_account_owner = oo_account_state.owner;
 
-        unsafe {
-            verify_account_owner(signer, &open_orders_account_owner)?;
-            verify_account_owner(market, &oo_account_state.market)?;
-            verify_account_owner(bids, &market_state.bids)?;
-            verify_account_owner(asks, &market_state.asks)?;
+        if signer.address().as_array() != &open_orders_account_owner {
+            return Err(ProgramError::InvalidAccountOwner);
+        }
+        if market.address().as_array() != &oo_account_state.market {
+            return Err(ProgramError::InvalidAccountOwner);
+        }
+        if bids.address().as_array() != &market_state.bids {
+            return Err(ProgramError::InvalidAccountOwner);
+        }
+        if asks.address().as_array() != &market_state.asks {
+            return Err(ProgramError::InvalidAccountOwner);
         }
 
         verify_pda(

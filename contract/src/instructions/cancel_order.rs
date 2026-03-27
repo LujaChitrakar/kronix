@@ -52,7 +52,7 @@ pub fn process_cancel_order(accounts: &[AccountView], data: &[u8]) -> ProgramRes
     verify_writtable(bids)?;
     verify_writtable(asks)?;
 
-    let params = bytemuck::try_from_bytes::<CancelOrderParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<CancelOrderParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
     let side = Side::try_from(params.side).map_err(|_| OrderBookError::InvalidSide)?;
     let order_id = u128::from_le_bytes(params.order_id);

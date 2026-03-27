@@ -1,5 +1,4 @@
 use litesvm::LiteSVM;
-use litesvm_token::spl_token;
 use solana_address::{Address, address};
 use solana_keypair::Keypair;
 use solana_message::{AccountMeta, Instruction, Message};
@@ -10,8 +9,9 @@ use solana_transaction::Transaction;
 use crate::{
     constants::{ASKS_SEED, BIDS_SEED, MARKET_SEED, OPEN_ORDERS_SEED},
     instructions::{
-        CancelAllOrdersParams, CancelOrderParams, ClaimFillParams, CreateMarketParams,
-        CreateOpenOrdersAccountParams, PlaceOrderParams,
+        CancelAllOrdersParams, CancelOrderByClientIdParams, CancelOrderParams, ClaimFillParams,
+        CreateMarketParams, CreateOpenOrdersAccountParams, EditOrderParams, PlaceOrderParams,
+        PlaceTakeOrderParams, PruneOrdersParams,
     },
     states::OpenOrdersAccount,
 };
@@ -144,8 +144,8 @@ pub fn place_order(
     user: &Keypair,
     side: u8,
     order_type: u8,
-    client_order_id:u64,
-    price_lots:i64,
+    client_order_id: u64,
+    price_lots: i64,
     maker_oo: Option<Address>,
 ) -> u8 {
     let payer = user;
@@ -390,20 +390,272 @@ pub fn cancel_all_order(
 
     let mut ix_data = vec![7u8];
     ix_data.extend_from_slice(bytemuck::bytes_of(&params));
-    
-    println!("ix_data: {:?}", ix_data);
-    println!("CancelAllOrdersParams size: {}", std::mem::size_of::<CancelAllOrdersParams>());
-    
-    println!("size: {}", core::mem::size_of::<CancelAllOrdersParams>());
-    println!("offset side_filter: {}", core::mem::offset_of!(CancelAllOrdersParams, side_filter));
-    println!("offset has_client_filter: {}", core::mem::offset_of!(CancelAllOrdersParams, has_client_filter));
-    println!("offset limit: {}", core::mem::offset_of!(CancelAllOrdersParams, limit));
-    println!("offset padding: {}", core::mem::offset_of!(CancelAllOrdersParams, padding));
-    println!("offset client_id_filter: {}", core::mem::offset_of!(CancelAllOrdersParams, client_id_filter));
 
     let accounts = vec![
         AccountMeta::new(payer.pubkey(), true),
         AccountMeta::new(oo_account_pda, false),
+        AccountMeta::new(market_pda, false),
+        AccountMeta::new(bids_pda, false),
+        AccountMeta::new(asks_pda, false),
+    ];
+
+    let ix = Instruction {
+        program_id: PROGRAM_ID,
+        accounts,
+        data: ix_data,
+    };
+
+    let message = Message::new(&[ix], Some(&payer.pubkey()));
+    let blockhash = svm.latest_blockhash();
+    let tx = Transaction::new(&[&payer], message, blockhash);
+    let result = svm.send_transaction(tx);
+    assert!(
+        result.is_ok(),
+        "Failed to create open orders account: {:?}",
+        result.err()
+    );
+}
+
+pub fn cancel_order_by_client_id(
+    svm: &mut LiteSVM,
+    market_index: &u16,
+    user: &Keypair,
+    client_id: u64,
+) {
+    let payer = user;
+    let market_index_bytes = market_index.to_le_bytes();
+
+    let (market_pda, _) =
+        Address::find_program_address(&[MARKET_SEED, &market_index_bytes], &PROGRAM_ID);
+    let (oo_account_pda, _) = Address::find_program_address(
+        &[
+            OPEN_ORDERS_SEED,
+            &payer.pubkey().to_bytes(),
+            &market_pda.to_bytes(),
+        ],
+        &PROGRAM_ID,
+    );
+    let (bids_pda, _) =
+        Address::find_program_address(&[BIDS_SEED, &market_index_bytes], &PROGRAM_ID);
+    let (asks_pda, _) =
+        Address::find_program_address(&[ASKS_SEED, &market_index_bytes], &PROGRAM_ID);
+
+    let params = CancelOrderByClientIdParams { client_id };
+
+    let mut ix_data = vec![6u8];
+    ix_data.extend_from_slice(bytemuck::bytes_of(&params));
+
+    let accounts = vec![
+        AccountMeta::new(payer.pubkey(), true),
+        AccountMeta::new(oo_account_pda, false),
+        AccountMeta::new(market_pda, false),
+        AccountMeta::new(bids_pda, false),
+        AccountMeta::new(asks_pda, false),
+    ];
+
+    let ix = Instruction {
+        program_id: PROGRAM_ID,
+        accounts,
+        data: ix_data,
+    };
+
+    let message = Message::new(&[ix], Some(&payer.pubkey()));
+    let blockhash = svm.latest_blockhash();
+    let tx = Transaction::new(&[&payer], message, blockhash);
+    let result = svm.send_transaction(tx);
+    assert!(
+        result.is_ok(),
+        "Failed to create open orders account: {:?}",
+        result.err()
+    );
+}
+
+pub fn edit_order(
+    svm: &mut LiteSVM,
+    market_index: &u16,
+    user: &Keypair,
+    side: u8,
+    order_type: u8,
+    limit: u8,
+    new_price_lots: i64,
+    new_base_lots: i64,
+    new_quote_lots: i64,
+    client_order_id: u64,
+    expiry_timestamp: u64,
+) {
+    let payer = user;
+    let market_index_bytes = market_index.to_le_bytes();
+
+    let (market_pda, _) =
+        Address::find_program_address(&[MARKET_SEED, &market_index_bytes], &PROGRAM_ID);
+    let (oo_account_pda, _) = Address::find_program_address(
+        &[
+            OPEN_ORDERS_SEED,
+            &payer.pubkey().to_bytes(),
+            &market_pda.to_bytes(),
+        ],
+        &PROGRAM_ID,
+    );
+    let (bids_pda, _) =
+        Address::find_program_address(&[BIDS_SEED, &market_index_bytes], &PROGRAM_ID);
+    let (asks_pda, _) =
+        Address::find_program_address(&[ASKS_SEED, &market_index_bytes], &PROGRAM_ID);
+
+    let oo_account_data = svm
+        .get_account(&oo_account_pda)
+        .expect("OO account not found");
+    let oo_account_state =
+        bytemuck::from_bytes::<OpenOrdersAccount>(&oo_account_data.data[..OpenOrdersAccount::LEN]);
+    let order_id = oo_account_state
+        .open_orders
+        .iter()
+        .find(|o| u128::from_le_bytes(o.id) != 0)
+        .expect("No active orders found")
+        .id;
+
+    let params = EditOrderParams {
+        side,
+        order_type,
+        limit,
+        padding: [0u8; 5],
+        order_id,
+        new_price_lots,
+        new_base_lots,
+        new_quote_lots,
+        client_order_id,
+        expiry_timestamp,
+    };
+
+    let mut ix_data = vec![4u8];
+    ix_data.extend_from_slice(bytemuck::bytes_of(&params));
+
+    let accounts = vec![
+        AccountMeta::new(payer.pubkey(), true),
+        AccountMeta::new(oo_account_pda, false),
+        AccountMeta::new(market_pda, false),
+        AccountMeta::new(bids_pda, false),
+        AccountMeta::new(asks_pda, false),
+    ];
+
+    let ix = Instruction {
+        program_id: PROGRAM_ID,
+        accounts,
+        data: ix_data,
+    };
+
+    let message = Message::new(&[ix], Some(&payer.pubkey()));
+    let blockhash = svm.latest_blockhash();
+    let tx = Transaction::new(&[&payer], message, blockhash);
+    let result = svm.send_transaction(tx);
+    assert!(
+        result.is_ok(),
+        "Failed to create open orders account: {:?}",
+        result.err()
+    );
+}
+
+pub fn place_take_order(
+    svm: &mut LiteSVM,
+    market_index: &u16,
+    user: &Keypair,
+    side: u8,
+    order_type: u8,
+    limit: u8,
+    max_base_lots: i64,
+    max_quote_lots: i64,
+    client_order_id: u64,
+    price_lots: i64,
+    maker_oo: Option<Address>
+) {
+    let payer = user;
+    let market_index_bytes = market_index.to_le_bytes();
+
+    let (market_pda, _) =
+        Address::find_program_address(&[MARKET_SEED, &market_index_bytes], &PROGRAM_ID);
+    let (oo_account_pda, _) = Address::find_program_address(
+        &[
+            OPEN_ORDERS_SEED,
+            &payer.pubkey().to_bytes(),
+            &market_pda.to_bytes(),
+        ],
+        &PROGRAM_ID,
+    );
+    let (bids_pda, _) =
+        Address::find_program_address(&[BIDS_SEED, &market_index_bytes], &PROGRAM_ID);
+    let (asks_pda, _) =
+        Address::find_program_address(&[ASKS_SEED, &market_index_bytes], &PROGRAM_ID);
+
+    let params = PlaceTakeOrderParams {
+        side,
+        order_type,
+        limit,
+        padding: [0u8; 5],
+        max_base_lots,
+        max_quote_lots,
+        client_order_id,
+        price_lots,
+    };
+
+    let mut ix_data = vec![3u8];
+    ix_data.extend_from_slice(bytemuck::bytes_of(&params));
+
+    let mut accounts = vec![
+        AccountMeta::new(payer.pubkey(), true),
+        AccountMeta::new(oo_account_pda, false),
+        AccountMeta::new(market_pda, false),
+        AccountMeta::new(bids_pda, false),
+        AccountMeta::new(asks_pda, false),
+    ];
+    
+    if let Some(maker_oo_pda) = maker_oo {
+           accounts.push(AccountMeta::new(maker_oo_pda, false));
+       }
+
+    let ix = Instruction {
+        program_id: PROGRAM_ID,
+        accounts,
+        data: ix_data,
+    };
+
+    let message = Message::new(&[ix], Some(&payer.pubkey()));
+    let blockhash = svm.latest_blockhash();
+    let tx = Transaction::new(&[&payer], message, blockhash);
+    let result = svm.send_transaction(tx);
+    assert!(
+        result.is_ok(),
+        "Failed to create open orders account: {:?}",
+        result.err()
+    );
+}
+
+pub fn prune_orders(
+    svm: &mut LiteSVM,
+    market_index: &u16,
+    user: &Keypair,
+    side: u8,
+    limit: u8,
+) {
+    let payer = user;
+    let market_index_bytes = market_index.to_le_bytes();
+
+    let (market_pda, _) =
+        Address::find_program_address(&[MARKET_SEED, &market_index_bytes], &PROGRAM_ID);
+    let (bids_pda, _) =
+        Address::find_program_address(&[BIDS_SEED, &market_index_bytes], &PROGRAM_ID);
+    let (asks_pda, _) =
+        Address::find_program_address(&[ASKS_SEED, &market_index_bytes], &PROGRAM_ID);
+
+    let params = PruneOrdersParams {
+        side,
+        limit,
+        padding: [0u8; 6],
+    };
+
+    let mut ix_data = vec![9u8];
+    ix_data.extend_from_slice(bytemuck::bytes_of(&params));
+
+    let accounts = vec![
+        AccountMeta::new(payer.pubkey(), true),
         AccountMeta::new(market_pda, false),
         AccountMeta::new(bids_pda, false),
         AccountMeta::new(asks_pda, false),

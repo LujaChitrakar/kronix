@@ -43,7 +43,7 @@ pub fn process_create_open_orders_account(accounts: &[AccountView], data: &[u8])
         verify_account_owner(market, &crate::ID)?;
     }
 
-    let args = bytemuck::try_from_bytes::<CreateOpenOrdersAccountParams>(data)
+    let args = bytemuck::try_pod_read_unaligned::<CreateOpenOrdersAccountParams>(data)
         .map_err(|_| ProgramError::InvalidAccountData)?;
     let bump_bytes = [args.bump];
     let owner = args.owner;

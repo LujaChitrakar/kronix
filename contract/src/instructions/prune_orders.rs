@@ -47,7 +47,7 @@ pub fn process_prune_orders(accounts: &[AccountView], data: &[u8]) -> ProgramRes
     verify_writtable(bids)?;
     verify_writtable(asks)?;
 
-    let params = bytemuck::try_from_bytes::<PruneOrdersParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<PruneOrdersParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     let limit = if params.limit == 0 { 8u8 } else { params.limit };
@@ -63,10 +63,14 @@ pub fn process_prune_orders(accounts: &[AccountView], data: &[u8]) -> ProgramRes
     {
         let market_bump = [market_state.bump];
         let market_index = market_state.market_index.to_le_bytes();
-        unsafe {
-            verify_account_owner(bids, &market_state.bids)?;
-            verify_account_owner(asks, &market_state.asks)?;
+        
+        if bids.address().as_array() != &market_state.bids {
+            return Err(ProgramError::InvalidAccountOwner);
         }
+        if asks.address().as_array() != &market_state.asks {
+            return Err(ProgramError::InvalidAccountOwner);
+        }
+        
         verify_pda(
             market,
             &[MARKET_SEED, market_index.as_ref(), &market_bump],
