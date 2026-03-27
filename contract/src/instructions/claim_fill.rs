@@ -111,7 +111,7 @@ pub fn process_claim_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResul
     // We stored filled_qty and fill_price on the OpenOrder
     // Reconstruct enough of FillEvent for risk_program::settle_fill
 
-    let fill = FillEvent {
+    let _fill = FillEvent {
         event_type: 0,
         taker_side: oo.side().invert_side() as u8,
         maker_out: if oo.filled_qty == 0 { 1 } else { 0 },

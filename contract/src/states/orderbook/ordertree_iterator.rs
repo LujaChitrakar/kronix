@@ -1,9 +1,6 @@
 use crate::{
     constants::ITER_STACK_DEPTH,
-    states::{
-        InnerNode, LeafNode, NodeHandle, NodeRef, OrderTreeNodes, OrderTreeRoot, OrderTreeType,
-        Side,
-    },
+    states::{LeafNode, NodeHandle, NodeRef, OrderTreeNodes, OrderTreeRoot, OrderTreeType, Side},
 };
 
 // Iterate over the orders in an order tree( Accending for bids, descending for asks)
@@ -71,7 +68,7 @@ impl<'a> Iterator for OrderTreeIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let current_left = self.next_leaf?;
-    
+
         self.next_leaf = if self.stack_len == 0 {
             None
         } else {
@@ -84,7 +81,7 @@ impl<'a> Iterator for OrderTreeIter<'a> {
             let start = inner.children[self.right];
             self.find_left_most_leaf(start)
         };
-    
+
         Some(current_left)
     }
 }

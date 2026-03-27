@@ -59,7 +59,8 @@ pub struct OrderTreeNodes {
     pub reserved: [u8; 512],
     pub nodes: [AnyNode; MAX_ORDERTREE_NODES],
 }
-const _: () = assert!(size_of::<OrderTreeNodes>() == 1 + 3 + 4 + 4 + 4 + 512 + 88 * MAX_ORDERTREE_NODES);
+const _: () =
+    assert!(size_of::<OrderTreeNodes>() == 1 + 3 + 4 + 4 + 4 + 512 + 88 * MAX_ORDERTREE_NODES);
 const _: () = assert!(size_of::<OrderTreeNodes>() % 8 == 0);
 
 impl OrderTreeNodes {
@@ -100,7 +101,7 @@ impl OrderTreeNodes {
         const MAX_DEPTH: usize = 40;
         let mut stack: [(NodeHandle, bool); MAX_DEPTH] = [(0, false); MAX_DEPTH];
         let mut stack_len: usize = 0;
-    
+
         let mut parent_h = root.node()?;
         let (mut child_h, mut crit_bit) = match self.node(parent_h).unwrap().case().unwrap() {
             NodeRef::Leaf(&leaf) if u128::from_le_bytes(leaf.key) == search_key => {
@@ -115,7 +116,7 @@ impl OrderTreeNodes {
         };
         stack[stack_len] = (parent_h, crit_bit);
         stack_len += 1;
-    
+
         loop {
             match self.node(child_h).unwrap().case().unwrap() {
                 NodeRef::Inner(inner) => {
@@ -136,9 +137,8 @@ impl OrderTreeNodes {
                 }
             }
         }
-    
-        let other_child_h =
-            self.node(parent_h).unwrap().children().unwrap()[!crit_bit as usize];
+
+        let other_child_h = self.node(parent_h).unwrap().children().unwrap()[!crit_bit as usize];
         let other_child_node_contents = self.remove(other_child_h).unwrap();
         let new_expiry = other_child_node_contents.earliest_expiry();
         *self.node_mut(parent_h).unwrap() = other_child_node_contents;
@@ -148,7 +148,7 @@ impl OrderTreeNodes {
             .ok_or(ProgramError::ArithmeticOverflow)
             .unwrap();
         let removed_leaf: LeafNode = cast(self.remove(child_h).unwrap());
-    
+
         let outdated_expiry = removed_leaf.expiry();
         if stack_len > 0 {
             stack_len -= 1;
@@ -318,7 +318,7 @@ impl OrderTreeNodes {
     ) -> Result<(NodeHandle, Option<LeafNode>), ProgramError> {
         let mut stack: [(NodeHandle, bool); MAX_DEPTH] = [(0, false); MAX_DEPTH];
         let mut stack_len: usize = 0;
-    
+
         let mut parent_handle: NodeHandle = match root.node() {
             Some(h) => h,
             None => {
@@ -328,12 +328,12 @@ impl OrderTreeNodes {
                 return Ok((handle, None));
             }
         };
-    
+
         loop {
             let parent_contents = *self.node(parent_handle).unwrap();
             let parent_key = parent_contents.key().unwrap();
             let new_leaf_key = u128::from_le_bytes(new_leaf.key);
-    
+
             if parent_key == new_leaf_key {
                 if let Some(NodeRef::Leaf(&old_parent_as_leaf)) = parent_contents.case() {
                     *self.node_mut(parent_handle).unwrap() = *new_leaf.as_ref();
@@ -345,7 +345,7 @@ impl OrderTreeNodes {
                     return Ok((parent_handle, Some(old_parent_as_leaf)));
                 }
             }
-    
+
             let shared_prefix_len: u32 = (parent_key ^ new_leaf_key).leading_zeros();
             match parent_contents.case() {
                 None => unreachable!(),
@@ -363,11 +363,11 @@ impl OrderTreeNodes {
                 }
                 _ => (),
             };
-    
+
             let crit_bit_mask: u128 = 1u128 << (127 - shared_prefix_len);
             let new_leaf_crit_bit = (crit_bit_mask & new_leaf_key) != 0;
             let old_parent_crit_bit = !new_leaf_crit_bit;
-    
+
             let new_leaf_handle = self.insert(new_leaf.as_ref())?;
             let moved_parent_handle = match self.insert(&parent_contents) {
                 Ok(h) => h,
@@ -376,18 +376,18 @@ impl OrderTreeNodes {
                     return Err(e);
                 }
             };
-    
+
             let new_parent: &mut InnerNode = cast_mut(self.node_mut(parent_handle).unwrap());
             *new_parent = InnerNode::new(shared_prefix_len, new_leaf_key);
-    
+
             new_parent.children[new_leaf_crit_bit as usize] = new_leaf_handle;
             new_parent.children[old_parent_crit_bit as usize] = moved_parent_handle;
-    
+
             let new_leaf_expiry = new_leaf.expiry();
             let old_parent_expiry = parent_contents.earliest_expiry();
             new_parent.child_earliest_expiry[new_leaf_crit_bit as usize] = new_leaf_expiry;
             new_parent.child_earliest_expiry[old_parent_crit_bit as usize] = old_parent_expiry;
-    
+
             if new_leaf_expiry < old_parent_expiry {
                 self.update_parent_earliest_expiry(
                     &stack[..stack_len],
@@ -395,12 +395,12 @@ impl OrderTreeNodes {
                     new_leaf_expiry,
                 );
             }
-    
+
             root.leaf_count = root
                 .leaf_count
                 .checked_add(1)
                 .ok_or(ProgramError::ArithmeticOverflow)?; // use ? not .unwrap()
-    
+
             return Ok((new_leaf_handle, None));
         }
     }

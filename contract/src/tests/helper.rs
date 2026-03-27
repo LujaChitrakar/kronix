@@ -283,22 +283,12 @@ pub fn cancel_order(svm: &mut LiteSVM, market_index: &u16, user: &Keypair, side:
     order_id
 }
 
-pub fn claim_fill(
-    svm: &mut LiteSVM,
-    market_index: &u16,
-    user: &Keypair,
-    maker_oo_pda: Address,
-    taker_oo_pda: Address,
-) {
+pub fn claim_fill(svm: &mut LiteSVM, market_index: &u16, user: &Keypair, maker_oo_pda: Address) {
     let payer = user;
     let market_index_bytes = market_index.to_le_bytes();
 
     let (market_pda, _) =
         Address::find_program_address(&[MARKET_SEED, &market_index_bytes], &PROGRAM_ID);
-    let (bids_pda, _) =
-        Address::find_program_address(&[BIDS_SEED, &market_index_bytes], &PROGRAM_ID);
-    let (asks_pda, _) =
-        Address::find_program_address(&[ASKS_SEED, &market_index_bytes], &PROGRAM_ID);
 
     let maker_oo_data = svm.get_account(&maker_oo_pda).expect("Maker OO not found");
     let maker_oo_state =
@@ -565,7 +555,7 @@ pub fn place_take_order(
     max_quote_lots: i64,
     client_order_id: u64,
     price_lots: i64,
-    maker_oo: Option<Address>
+    maker_oo: Option<Address>,
 ) {
     let payer = user;
     let market_index_bytes = market_index.to_le_bytes();
@@ -606,10 +596,10 @@ pub fn place_take_order(
         AccountMeta::new(bids_pda, false),
         AccountMeta::new(asks_pda, false),
     ];
-    
+
     if let Some(maker_oo_pda) = maker_oo {
-           accounts.push(AccountMeta::new(maker_oo_pda, false));
-       }
+        accounts.push(AccountMeta::new(maker_oo_pda, false));
+    }
 
     let ix = Instruction {
         program_id: PROGRAM_ID,
@@ -628,13 +618,7 @@ pub fn place_take_order(
     );
 }
 
-pub fn prune_orders(
-    svm: &mut LiteSVM,
-    market_index: &u16,
-    user: &Keypair,
-    side: u8,
-    limit: u8,
-) {
+pub fn prune_orders(svm: &mut LiteSVM, market_index: &u16, user: &Keypair, side: u8, limit: u8) {
     let payer = user;
     let market_index_bytes = market_index.to_le_bytes();
 

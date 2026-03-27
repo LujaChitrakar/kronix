@@ -1,7 +1,10 @@
 #![allow(unexpected_cfgs)]
 
 use crate::instructions::{
-    OrderbookInstruction, process_cancel_all_orders, process_cancel_order, process_cancel_order_by_client_id, process_claim_fill, process_create_market, process_create_open_orders_account, process_edit_order, process_place_order, process_place_take_order, process_prune_orders
+    OrderbookInstruction, process_cancel_all_orders, process_cancel_order,
+    process_cancel_order_by_client_id, process_claim_fill, process_create_market,
+    process_create_open_orders_account, process_edit_order, process_place_order,
+    process_place_take_order, process_prune_orders,
 };
 use pinocchio::{
     AccountView, Address, ProgramResult, default_panic_handler, error::ProgramError, no_allocator,
@@ -19,8 +22,10 @@ fn process_instruction(
     accounts: &[AccountView],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    
-    log!("disc byte: {}", instruction_data.first().copied().unwrap_or(255));
+    log!(
+        "disc byte: {}",
+        instruction_data.first().copied().unwrap_or(255)
+    );
     let (disc, data) = instruction_data
         .split_first()
         .ok_or(ProgramError::InvalidInstructionData)?;

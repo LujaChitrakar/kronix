@@ -6,7 +6,6 @@ use crate::{
     },
 };
 use pinocchio::error::ProgramError;
-use pinocchio_log::log;
 
 pub struct Orderbook<'a> {
     pub bids: &'a mut BookSide,
@@ -93,7 +92,6 @@ impl<'a> Orderbook<'a> {
             let opposing = self.bookside_mut(other_side);
 
             for best_opposing in opposing.iter_all_including_invalid(now_ts) {
-                
                 if remaining_base_lots == 0 || remaining_quote_lots == 0 {
                     break;
                 }
@@ -189,19 +187,9 @@ impl<'a> Orderbook<'a> {
                     );
                     result.fill_count += 1;
                 }
-                
-                log!("fill_count after loop: {}", result.fill_count);
                 limit -= 1;
             }
         }
-        log!("remaining_base_lots: {}", remaining_base_lots);
-        log!("remaining_quote_lots: {}", remaining_quote_lots);
-        log!("price_lots: {}", price_lots);
-        
-        let book_base_quantity_lots = remaining_base_lots
-            .min(remaining_quote_lots / price_lots);
-        
-        log!("book_base_quantity_lots: {}", book_base_quantity_lots);
 
         result.filled_base_lots = order
             .max_base_lots

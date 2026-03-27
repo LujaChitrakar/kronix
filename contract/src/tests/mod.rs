@@ -1,4 +1,3 @@
-
 #[cfg(test)]
 pub mod helper;
 // maker side 1 =ask
@@ -6,12 +5,12 @@ pub mod helper;
 
 #[cfg(test)]
 mod tests {
-    use pinocchio::Address;
-
     use crate::{
-        constants::{MARKET_SEED, OPEN_ORDERS_SEED}, states::OpenOrdersAccount, tests::helper::{
-            PROGRAM_ID, cancel_all_order, cancel_order, cancel_order_by_client_id, claim_fill, create_market, edit_order, open_orders_account, place_order, place_take_order, prune_orders, setup
-        }
+        states::OpenOrdersAccount,
+        tests::helper::{
+            cancel_all_order, cancel_order, cancel_order_by_client_id, claim_fill, create_market,
+            edit_order, open_orders_account, place_order, place_take_order, prune_orders, setup,
+        },
     };
 
     #[test]
@@ -36,7 +35,6 @@ mod tests {
 
         place_order(&mut svm, &market_index, &user1, side, 0, 1, 50, None);
     }
-    
 
     #[test]
     pub fn test_04_place_take_order() {
@@ -167,11 +165,7 @@ mod tests {
             Some(maker_oo_pda),
         );
 
-        let maker_oo_data = svm.get_account(&maker_oo_pda).unwrap();
-        let maker_oo = bytemuck::from_bytes::<OpenOrdersAccount>(
-            &maker_oo_data.data[..OpenOrdersAccount::LEN],
-        );
-        claim_fill(&mut svm, &market_index, &user1, maker_oo_pda, taker_oo_pda);
+        claim_fill(&mut svm, &market_index, &user1, maker_oo_pda);
     }
 
     #[test]
@@ -188,45 +182,56 @@ mod tests {
         prune_orders(&mut svm, &market_index, &user1, asks_side, 10);
         prune_orders(&mut svm, &market_index, &user1, 255, 10);
     }
-    
+
     #[test]
     pub fn test_05_orders_are_matching() {
         let (mut svm, user1, user2) = setup();
         let market_index = create_market(&mut svm, &user1);
-    
+
         let maker_oo = open_orders_account(&mut svm, &market_index, &user1);
         let taker_oo = open_orders_account(&mut svm, &market_index, &user2);
-    
+
         place_order(&mut svm, &market_index, &user1, 1, 0, 1, 50, None);
         place_order(&mut svm, &market_index, &user2, 0, 0, 2, 50, Some(maker_oo));
-    
+
         // verify maker has fill recorded
         let oo_data = svm.get_account(&maker_oo).unwrap();
-        let oo_state = bytemuck::from_bytes::<OpenOrdersAccount>(
-            &oo_data.data[..OpenOrdersAccount::LEN]
-        );
+        let oo_state =
+            bytemuck::from_bytes::<OpenOrdersAccount>(&oo_data.data[..OpenOrdersAccount::LEN]);
         let maker_filled = oo_state.open_orders.iter().any(|o| o.is_filled == 1);
         assert!(maker_filled, "Maker should have a fill recorded");
-    
+
         // verify taker did not post to book
         let oo_data = svm.get_account(&taker_oo).unwrap();
-        let oo_state = bytemuck::from_bytes::<OpenOrdersAccount>(
-            &oo_data.data[..OpenOrdersAccount::LEN]
+        let oo_state =
+            bytemuck::from_bytes::<OpenOrdersAccount>(&oo_data.data[..OpenOrdersAccount::LEN]);
+        let taker_active = oo_state
+            .open_orders
+            .iter()
+            .filter(|o| o.is_free == 0)
+            .count();
+        assert_eq!(
+            taker_active, 0,
+            "Taker should be fully matched, not posted to book"
         );
-        let taker_active = oo_state.open_orders.iter().filter(|o| o.is_free == 0).count();
-        assert_eq!(taker_active, 0, "Taker should be fully matched, not posted to book");
-    
+
         // maker claims fill
-        claim_fill(&mut svm, &market_index, &user1, maker_oo, taker_oo);
-    
+        claim_fill(&mut svm, &market_index, &user1, maker_oo);
+
         // verify fill cleared
         let oo_data = svm.get_account(&maker_oo).unwrap();
-        let oo_state = bytemuck::from_bytes::<OpenOrdersAccount>(
-            &oo_data.data[..OpenOrdersAccount::LEN]
-        );
+        let oo_state =
+            bytemuck::from_bytes::<OpenOrdersAccount>(&oo_data.data[..OpenOrdersAccount::LEN]);
         let still_filled = oo_state.open_orders.iter().any(|o| o.is_filled == 1);
         assert!(!still_filled, "Fill should be cleared after claim");
-        let maker_active_final = oo_state.open_orders.iter().filter(|o| o.is_free == 0).count();
-        assert_eq!(maker_active_final, 0, "Maker slot should be free after claim");
+        let maker_active_final = oo_state
+            .open_orders
+            .iter()
+            .filter(|o| o.is_free == 0)
+            .count();
+        assert_eq!(
+            maker_active_final, 0,
+            "Maker slot should be free after claim"
+        );
     }
 }

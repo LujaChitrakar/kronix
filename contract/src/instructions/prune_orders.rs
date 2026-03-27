@@ -63,14 +63,14 @@ pub fn process_prune_orders(accounts: &[AccountView], data: &[u8]) -> ProgramRes
     {
         let market_bump = [market_state.bump];
         let market_index = market_state.market_index.to_le_bytes();
-        
+
         if bids.address().as_array() != &market_state.bids {
             return Err(ProgramError::InvalidAccountOwner);
         }
         if asks.address().as_array() != &market_state.asks {
             return Err(ProgramError::InvalidAccountOwner);
         }
-        
+
         verify_pda(
             market,
             &[MARKET_SEED, market_index.as_ref(), &market_bump],
