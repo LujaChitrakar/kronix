@@ -10,8 +10,8 @@ use solana_transaction::Transaction;
 use crate::{
     constants::{ASKS_SEED, BIDS_SEED, MARKET_SEED, OPEN_ORDERS_SEED},
     instructions::{
-        CancelOrderParams, ClaimFillParams, CreateMarketParams, CreateOpenOrdersAccountParams,
-        PlaceOrderParams,
+        CancelAllOrdersParams, CancelOrderParams, ClaimFillParams, CreateMarketParams,
+        CreateOpenOrdersAccountParams, PlaceOrderParams,
     },
     states::OpenOrdersAccount,
 };
@@ -143,7 +143,9 @@ pub fn place_order(
     market_index: &u16,
     user: &Keypair,
     side: u8,
-    order_type: u8,     
+    order_type: u8,
+    client_order_id:u64,
+    price_lots:i64,
     maker_oo: Option<Address>,
 ) -> u8 {
     let payer = user;
@@ -171,9 +173,9 @@ pub fn place_order(
         padding: [0u8; 5],
         max_base_lots: 10,
         max_quote_lots: 1000,
-        client_order_id: 11,
+        client_order_id,
         expiry_timestamp: 0,
-        price_lots: 50,
+        price_lots,
     };
 
     let mut ix_data = vec![2u8];
@@ -349,5 +351,77 @@ pub fn claim_fill(
     assert_eq!(
         oo_state.open_orders[slot].filled_qty, 0,
         "filled_qty should be 0 after claim"
+    );
+}
+
+pub fn cancel_all_order(
+    svm: &mut LiteSVM,
+    market_index: &u16,
+    user: &Keypair,
+    side_filter: u8,
+    client_id_filter: Option<u64>,
+    limit: u8,
+) {
+    let payer = user;
+    let market_index_bytes = market_index.to_le_bytes();
+
+    let (market_pda, _) =
+        Address::find_program_address(&[MARKET_SEED, &market_index_bytes], &PROGRAM_ID);
+    let (oo_account_pda, _) = Address::find_program_address(
+        &[
+            OPEN_ORDERS_SEED,
+            &payer.pubkey().to_bytes(),
+            &market_pda.to_bytes(),
+        ],
+        &PROGRAM_ID,
+    );
+    let (bids_pda, _) =
+        Address::find_program_address(&[BIDS_SEED, &market_index_bytes], &PROGRAM_ID);
+    let (asks_pda, _) =
+        Address::find_program_address(&[ASKS_SEED, &market_index_bytes], &PROGRAM_ID);
+
+    let params = CancelAllOrdersParams {
+        side_filter,
+        has_client_filter: if client_id_filter.is_some() { 1 } else { 0 },
+        limit,
+        padding: [0u8; 5],
+        client_id_filter: client_id_filter.unwrap_or(0),
+    };
+
+    let mut ix_data = vec![7u8];
+    ix_data.extend_from_slice(bytemuck::bytes_of(&params));
+    
+    println!("ix_data: {:?}", ix_data);
+    println!("CancelAllOrdersParams size: {}", std::mem::size_of::<CancelAllOrdersParams>());
+    
+    println!("size: {}", core::mem::size_of::<CancelAllOrdersParams>());
+    println!("offset side_filter: {}", core::mem::offset_of!(CancelAllOrdersParams, side_filter));
+    println!("offset has_client_filter: {}", core::mem::offset_of!(CancelAllOrdersParams, has_client_filter));
+    println!("offset limit: {}", core::mem::offset_of!(CancelAllOrdersParams, limit));
+    println!("offset padding: {}", core::mem::offset_of!(CancelAllOrdersParams, padding));
+    println!("offset client_id_filter: {}", core::mem::offset_of!(CancelAllOrdersParams, client_id_filter));
+
+    let accounts = vec![
+        AccountMeta::new(payer.pubkey(), true),
+        AccountMeta::new(oo_account_pda, false),
+        AccountMeta::new(market_pda, false),
+        AccountMeta::new(bids_pda, false),
+        AccountMeta::new(asks_pda, false),
+    ];
+
+    let ix = Instruction {
+        program_id: PROGRAM_ID,
+        accounts,
+        data: ix_data,
+    };
+
+    let message = Message::new(&[ix], Some(&payer.pubkey()));
+    let blockhash = svm.latest_blockhash();
+    let tx = Transaction::new(&[&payer], message, blockhash);
+    let result = svm.send_transaction(tx);
+    assert!(
+        result.is_ok(),
+        "Failed to create open orders account: {:?}",
+        result.err()
     );
 }

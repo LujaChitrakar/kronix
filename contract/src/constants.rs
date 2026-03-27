@@ -8,6 +8,8 @@ pub const NO_NODE: u16 = u16::MAX;
 pub const DROP_EXPIRED_ORDER_LIMIT: usize = 5;
 pub const FILL_EVENT_REMAINING_LIMIT: usize = 15;
 pub const MAX_FILLS_PER_ORDER: usize = 6;
+pub const MAX_DEPTH: usize = 40;
+pub const ITER_STACK_DEPTH: usize = 40;
 
 // market
 pub const FEES_SCALE_FACTOR: i128 = 1_000_000;

@@ -89,23 +89,11 @@ impl<'a> Orderbook<'a> {
 
         let mut result = MatchResults::default();
         let mut dropped_expired: usize = 0;
-        log!("=== new_order start ===");
-        log!("side: {}", order.side as u8);
-        log!("price_lots: {}", price_lots);
-        log!("max_base_lots: {}", order.max_base_lots);
-        log!("max_quote_lots: {}", order.max_quote_lots);
-        log!("bids empty: {}", self.bids.is_empty());
-        log!("asks empty: {}", self.asks.is_empty());
         {
             let opposing = self.bookside_mut(other_side);
 
             for best_opposing in opposing.iter_all_including_invalid(now_ts) {
                 
-                log!("--- checking opposing order ---");
-                    log!("opposing price: {}", best_opposing.price_lots);
-                    log!("opposing valid: {}", best_opposing.is_valid());
-                    log!("remaining_base: {}", remaining_base_lots);
-                    log!("remaining_quote: {}", remaining_quote_lots);
                 if remaining_base_lots == 0 || remaining_quote_lots == 0 {
                     break;
                 }

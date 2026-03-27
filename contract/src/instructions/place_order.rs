@@ -4,7 +4,6 @@ use pinocchio::{
     error::ProgramError,
     sysvars::{Sysvar, clock::Clock},
 };
-use pinocchio_log::log;
 
 use crate::{
     constants::{MARKET_SEED, MAX_FILLS_PER_ORDER, OPEN_ORDERS_SEED},
@@ -53,7 +52,6 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
     verify_initialized(bids)?;
     verify_initialized(asks)?;
 
-
     unsafe {
         verify_account_owner(market, &crate::ID)?;
         verify_account_owner(open_orders_account, &crate::ID)?;
@@ -66,17 +64,14 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
     verify_writtable(bids)?;
     verify_writtable(asks)?;
 
- 
     let params = bytemuck::try_pod_read_unaligned::<PlaceOrderParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
-
 
     let now_ts = Clock::get()?.unix_timestamp;
 
     let mut market_data = market.try_borrow_mut()?;
     let market_state =
         bytemuck::from_bytes_mut::<MarketState>(&mut market_data[..MarketState::LEN]);
-  
 
     if !market_state.is_active(now_ts) {
         return Err(OrderBookError::MarketInactive.into());
@@ -95,14 +90,14 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
         let open_orders_account_owner = oo_account_state.owner;
 
         // Check signer pubkey matches stored owner — use address(), not owner()
-           if signer.address().as_array() != &open_orders_account_owner {
-               return Err(ProgramError::InvalidAccountOwner);
-           }
-       
-           // Check market address matches stored market in OO account
-           if market.address().as_array() != &oo_account_state.market {
-               return Err(ProgramError::InvalidAccountOwner);
-           }
+        if signer.address().as_array() != &open_orders_account_owner {
+            return Err(ProgramError::InvalidAccountOwner);
+        }
+
+        // Check market address matches stored market in OO account
+        if market.address().as_array() != &oo_account_state.market {
+            return Err(ProgramError::InvalidAccountOwner);
+        }
 
         verify_pda(
             market,
@@ -196,7 +191,7 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
     // setle_fills
     for i in 0..result.fill_count as usize {
         let fill = &result.fills[i];
-    
+
         if let Some(maker_oo_account) = _remaining.get(i) {
             unsafe {
                 if maker_oo_account.owner().as_array() == &crate::ID {
@@ -204,7 +199,7 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
                     let maker_oo = bytemuck::from_bytes_mut::<OpenOrdersAccount>(
                         &mut maker_oo_data[..OpenOrdersAccount::LEN],
                     );
-    
+
                     if maker_oo.owner == fill.maker_pubkey
                         && maker_oo.market == *market.address().as_array()
                     {
@@ -219,5 +214,20 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
             }
         }
     }
+
+    // ── TODO: CPI to risk_program::settle_fill ────────────────────
+    // Uncomment when risk_program is built:
+    //
+    // settle_fill_cpi(
+    //     risk_program,
+    //     maker_user_account,
+    //     maker_position,
+    //     market_config,
+    //     funding_state,
+    //     oracle,
+    //     &fill,
+    //     false,  // is_taker = false, this is maker
+    // )?;
+
     Ok(())
 }

@@ -4,7 +4,6 @@ use pinocchio::{
     error::ProgramError,
     sysvars::{Sysvar, clock::Clock},
 };
-use pinocchio_log::log;
 
 use crate::{
     constants::{MARKET_SEED, OPEN_ORDERS_SEED},
@@ -24,7 +23,6 @@ pub struct CancelOrderParams {
 }
 
 pub fn process_cancel_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    log!("Step1");
     let [
         signer,
         open_orders_account,
@@ -37,21 +35,18 @@ pub fn process_cancel_order(accounts: &[AccountView], data: &[u8]) -> ProgramRes
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 
-    log!("Step2");
     verify_signer(signer)?;
     verify_initialized(open_orders_account)?;
     verify_initialized(market)?;
     verify_initialized(bids)?;
     verify_initialized(asks)?;
 
-    log!("Step3");
     unsafe {
         verify_account_owner(market, &crate::ID)?;
         verify_account_owner(open_orders_account, &crate::ID)?;
         verify_account_owner(bids, &crate::ID)?;
         verify_account_owner(asks, &crate::ID)?;
     }
-    log!("Step4");
 
     verify_writtable(open_orders_account)?;
     verify_writtable(bids)?;

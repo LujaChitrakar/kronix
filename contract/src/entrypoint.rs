@@ -7,6 +7,7 @@ use pinocchio::{
     AccountView, Address, ProgramResult, default_panic_handler, error::ProgramError, no_allocator,
     program_entrypoint,
 };
+use pinocchio_log::log;
 
 program_entrypoint!(process_instruction);
 no_allocator!();
@@ -18,6 +19,8 @@ fn process_instruction(
     accounts: &[AccountView],
     instruction_data: &[u8],
 ) -> ProgramResult {
+    
+    log!("disc byte: {}", instruction_data.first().copied().unwrap_or(255));
     let (disc, data) = instruction_data
         .split_first()
         .ok_or(ProgramError::InvalidInstructionData)?;

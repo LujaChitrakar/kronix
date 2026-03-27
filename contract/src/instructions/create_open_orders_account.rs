@@ -5,7 +5,6 @@ use pinocchio::{
     error::ProgramError,
     sysvars::{Sysvar, rent::Rent},
 };
-use pinocchio_log::log;
 use pinocchio_system::instructions::CreateAccount;
 
 use crate::{
@@ -26,7 +25,6 @@ pub struct CreateOpenOrdersAccountParams {
 }
 
 pub fn process_create_open_orders_account(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    log!("Setp1");
     let [
         payer,
         open_orders_account,
@@ -39,21 +37,17 @@ pub fn process_create_open_orders_account(accounts: &[AccountView], data: &[u8])
     };
     verify_signer(payer)?;
     verify_initialized(market)?;
-    log!("Setp2");
     verify_uninitialized(open_orders_account)?;
-    log!("Setp3");
     verify_program_id(system_program, &pinocchio_system::ID)?;
     unsafe {
         verify_account_owner(market, &crate::ID)?;
     }
 
-    log!("Setp4");
     let args = bytemuck::try_from_bytes::<CreateOpenOrdersAccountParams>(data)
         .map_err(|_| ProgramError::InvalidAccountData)?;
     let bump_bytes = [args.bump];
     let owner = args.owner;
 
-    log!("Setp5");
     // validation
     {
         let market_data = market.try_borrow()?;
@@ -77,7 +71,6 @@ pub fn process_create_open_orders_account(accounts: &[AccountView], data: &[u8])
             &crate::ID,
         )?;
     }
-    log!("Setp6");
 
     let signer_seeds = [
         Seed::from(OPEN_ORDERS_SEED),

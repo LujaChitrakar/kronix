@@ -1,14 +1,19 @@
-use crate::states::{
-    InnerNode, LeafNode, NodeHandle, NodeRef, OrderTreeNodes, OrderTreeRoot, OrderTreeType, Side,
+use crate::{
+    constants::ITER_STACK_DEPTH,
+    states::{
+        InnerNode, LeafNode, NodeHandle, NodeRef, OrderTreeNodes, OrderTreeRoot, OrderTreeType,
+        Side,
+    },
 };
 
 // Iterate over the orders in an order tree( Accending for bids, descending for asks)
 pub struct OrderTreeIter<'a> {
     order_tree: &'a OrderTreeNodes,
     // Innernode where the right side still has to be iterated on
-    stack: Vec<&'a InnerNode>,
+    stack: [(NodeHandle, bool); ITER_STACK_DEPTH],
     // to keep track of the next leaf to return
     next_leaf: Option<(NodeHandle, &'a LeafNode)>,
+    stack_len: usize,
     left: usize,
     right: usize,
 }
@@ -20,11 +25,10 @@ impl<'a> OrderTreeIter<'a> {
         } else {
             (0, 1)
         };
-        let stack = vec![];
-
         let mut iter = Self {
             order_tree,
-            stack,
+            stack: [(0, false); ITER_STACK_DEPTH],
+            stack_len: 0,
             next_leaf: None,
             left,
             right,
@@ -48,7 +52,10 @@ impl<'a> OrderTreeIter<'a> {
         loop {
             match self.order_tree.node(current).unwrap().case().unwrap() {
                 NodeRef::Inner(inner) => {
-                    self.stack.push(inner);
+                    if self.stack_len < ITER_STACK_DEPTH {
+                        self.stack[self.stack_len] = (current, false); // store inner node handle
+                        self.stack_len += 1;
+                    }
                     current = inner.children[self.left];
                 }
                 NodeRef::Leaf(leaf) => {
@@ -63,16 +70,21 @@ impl<'a> Iterator for OrderTreeIter<'a> {
     type Item = (NodeHandle, &'a LeafNode);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.next_leaf?;
-
-        let current_left = self.next_leaf;
-        self.next_leaf = match self.stack.pop() {
-            None => None,
-            Some(inner) => {
-                let start = inner.children[self.right];
-                self.find_left_most_leaf(start)
-            }
+        let current_left = self.next_leaf?;
+    
+        self.next_leaf = if self.stack_len == 0 {
+            None
+        } else {
+            self.stack_len -= 1;
+            let (inner_handle, _) = self.stack[self.stack_len];
+            let inner = match self.order_tree.node(inner_handle).unwrap().case().unwrap() {
+                NodeRef::Inner(inner) => inner,
+                _ => unreachable!(),
+            };
+            let start = inner.children[self.right];
+            self.find_left_most_leaf(start)
         };
-        current_left
+    
+        Some(current_left)
     }
 }

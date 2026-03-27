@@ -6,7 +6,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use pinocchio::error::ProgramError;
 
 use crate::{
-    constants::MAX_ORDERTREE_NODES,
+    constants::{MAX_DEPTH, MAX_ORDERTREE_NODES},
     states::{
         AnyNode, FreeNode, InnerNode, LeafNode, NodeHandle, NodeRef, NodeTag, OrderTreeIter, Side,
     },
@@ -97,10 +97,10 @@ impl OrderTreeNodes {
         root: &mut OrderTreeRoot,
         search_key: u128,
     ) -> Option<LeafNode> {
-        // path of InnerNode handles that lead to the removed leaf
-        let mut stack: Vec<(NodeHandle, bool)> = vec![];
-
-        // special case potential to remove the root
+        const MAX_DEPTH: usize = 40;
+        let mut stack: [(NodeHandle, bool); MAX_DEPTH] = [(0, false); MAX_DEPTH];
+        let mut stack_len: usize = 0;
+    
         let mut parent_h = root.node()?;
         let (mut child_h, mut crit_bit) = match self.node(parent_h).unwrap().case().unwrap() {
             NodeRef::Leaf(&leaf) if u128::from_le_bytes(leaf.key) == search_key => {
@@ -113,16 +113,20 @@ impl OrderTreeNodes {
             NodeRef::Inner(inner) => inner.walk_down(search_key),
             NodeRef::Leaf(_) => return None,
         };
-        stack.push((parent_h, crit_bit));
-
+        stack[stack_len] = (parent_h, crit_bit);
+        stack_len += 1;
+    
         loop {
             match self.node(child_h).unwrap().case().unwrap() {
                 NodeRef::Inner(inner) => {
                     parent_h = child_h;
-                    let (new_child_h, new_critbit) = inner.walk_down(search_key);
+                    let (new_child_h, new_crit_bit) = inner.walk_down(search_key);
                     child_h = new_child_h;
-                    crit_bit = new_critbit;
-                    stack.push((parent_h, crit_bit));
+                    crit_bit = new_crit_bit;
+                    if stack_len < MAX_DEPTH {
+                        stack[stack_len] = (parent_h, crit_bit);
+                        stack_len += 1;
+                    }
                 }
                 NodeRef::Leaf(leaf) => {
                     if u128::from_le_bytes(leaf.key) != search_key {
@@ -132,10 +136,9 @@ impl OrderTreeNodes {
                 }
             }
         }
-
-        // replace the parent with its remaining child
-        // free child_h and replace parent_h with other_child_h
-        let other_child_h = self.node(parent_h).unwrap().children().unwrap()[!crit_bit as usize];
+    
+        let other_child_h =
+            self.node(parent_h).unwrap().children().unwrap()[!crit_bit as usize];
         let other_child_node_contents = self.remove(other_child_h).unwrap();
         let new_expiry = other_child_node_contents.earliest_expiry();
         *self.node_mut(parent_h).unwrap() = other_child_node_contents;
@@ -145,10 +148,12 @@ impl OrderTreeNodes {
             .ok_or(ProgramError::ArithmeticOverflow)
             .unwrap();
         let removed_leaf: LeafNode = cast(self.remove(child_h).unwrap());
-
+    
         let outdated_expiry = removed_leaf.expiry();
-        stack.pop();
-        self.update_parent_earliest_expiry(&stack, outdated_expiry, new_expiry);
+        if stack_len > 0 {
+            stack_len -= 1;
+        }
+        self.update_parent_earliest_expiry(&stack[..stack_len], outdated_expiry, new_expiry);
         Some(removed_leaf)
     }
 
@@ -311,39 +316,36 @@ impl OrderTreeNodes {
         root: &mut OrderTreeRoot,
         new_leaf: &LeafNode,
     ) -> Result<(NodeHandle, Option<LeafNode>), ProgramError> {
-        // path of inner leaf handles that lead to new leaf
-        let mut stack: Vec<(NodeHandle, bool)> = vec![];
-
+        let mut stack: [(NodeHandle, bool); MAX_DEPTH] = [(0, false); MAX_DEPTH];
+        let mut stack_len: usize = 0;
+    
         let mut parent_handle: NodeHandle = match root.node() {
             Some(h) => h,
             None => {
-                // Create a new node if none exists
                 let handle = self.insert(new_leaf.as_ref())?;
                 root.maybe_node = handle;
                 root.leaf_count = 1;
                 return Ok((handle, None));
             }
         };
-
-        // Walk down the tree to find the leaf node to insert into
+    
         loop {
-            // required if the new node will be child of the root
             let parent_contents = *self.node(parent_handle).unwrap();
             let parent_key = parent_contents.key().unwrap();
             let new_leaf_key = u128::from_le_bytes(new_leaf.key);
+    
             if parent_key == new_leaf_key {
-                // Should never happen as keys should be unique
                 if let Some(NodeRef::Leaf(&old_parent_as_leaf)) = parent_contents.case() {
-                    // clobber the existing leaf
                     *self.node_mut(parent_handle).unwrap() = *new_leaf.as_ref();
                     self.update_parent_earliest_expiry(
-                        &stack,
+                        &stack[..stack_len],
                         old_parent_as_leaf.expiry(),
                         new_leaf.expiry(),
                     );
                     return Ok((parent_handle, Some(old_parent_as_leaf)));
                 }
             }
+    
             let shared_prefix_len: u32 = (parent_key ^ new_leaf_key).leading_zeros();
             match parent_contents.case() {
                 None => unreachable!(),
@@ -351,22 +353,21 @@ impl OrderTreeNodes {
                     let keep_old_parent = shared_prefix_len >= inner.prefix_len;
                     if keep_old_parent {
                         let (child, crit_bit) = inner.walk_down(new_leaf_key);
-                        stack.push((parent_handle, crit_bit));
+                        if stack_len < MAX_DEPTH {
+                            stack[stack_len] = (parent_handle, crit_bit);
+                            stack_len += 1;
+                        }
                         parent_handle = child;
                         continue;
                     }
                 }
                 _ => (),
             };
-            // implies parent is a leaf or inner with prefix_len>shared_prefix_len
-            // We will replace parent with a new inner node
-            //
-            // Change the parent with a new InnerNode that has new_leaf and parent as children
-
+    
             let crit_bit_mask: u128 = 1u128 << (127 - shared_prefix_len);
             let new_leaf_crit_bit = (crit_bit_mask & new_leaf_key) != 0;
             let old_parent_crit_bit = !new_leaf_crit_bit;
-
+    
             let new_leaf_handle = self.insert(new_leaf.as_ref())?;
             let moved_parent_handle = match self.insert(&parent_contents) {
                 Ok(h) => h,
@@ -375,27 +376,31 @@ impl OrderTreeNodes {
                     return Err(e);
                 }
             };
-
+    
             let new_parent: &mut InnerNode = cast_mut(self.node_mut(parent_handle).unwrap());
             *new_parent = InnerNode::new(shared_prefix_len, new_leaf_key);
-
+    
             new_parent.children[new_leaf_crit_bit as usize] = new_leaf_handle;
             new_parent.children[old_parent_crit_bit as usize] = moved_parent_handle;
-
+    
             let new_leaf_expiry = new_leaf.expiry();
             let old_parent_expiry = parent_contents.earliest_expiry();
             new_parent.child_earliest_expiry[new_leaf_crit_bit as usize] = new_leaf_expiry;
             new_parent.child_earliest_expiry[old_parent_crit_bit as usize] = old_parent_expiry;
-
+    
             if new_leaf_expiry < old_parent_expiry {
-                self.update_parent_earliest_expiry(&stack, old_parent_expiry, new_leaf_expiry);
+                self.update_parent_earliest_expiry(
+                    &stack[..stack_len],
+                    old_parent_expiry,
+                    new_leaf_expiry,
+                );
             }
-
+    
             root.leaf_count = root
                 .leaf_count
                 .checked_add(1)
-                .ok_or(ProgramError::ArithmeticOverflow)
-                .unwrap();
+                .ok_or(ProgramError::ArithmeticOverflow)?; // use ? not .unwrap()
+    
             return Ok((new_leaf_handle, None));
         }
     }
