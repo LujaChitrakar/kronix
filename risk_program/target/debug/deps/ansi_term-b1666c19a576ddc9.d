@@ -1,0 +1,13 @@
+/home/Luja/code/crypto-exchange/risk_program/target/debug/deps/ansi_term-b1666c19a576ddc9.d: /home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/lib.rs /home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/ansi.rs /home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/style.rs /home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/difference.rs /home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/display.rs /home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/write.rs /home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/windows.rs /home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/util.rs /home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/debug.rs
+
+/home/Luja/code/crypto-exchange/risk_program/target/debug/deps/libansi_term-b1666c19a576ddc9.rmeta: /home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/lib.rs /home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/ansi.rs /home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/style.rs /home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/difference.rs /home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/display.rs /home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/write.rs /home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/windows.rs /home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/util.rs /home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/debug.rs
+
+/home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/lib.rs:
+/home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/ansi.rs:
+/home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/style.rs:
+/home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/difference.rs:
+/home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/display.rs:
+/home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/write.rs:
+/home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/windows.rs:
+/home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/util.rs:
+/home/Luja/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ansi_term-0.12.1/src/debug.rs:
