@@ -21,19 +21,116 @@ pub use edit_order::*;
 pub use place_order::*;
 pub use place_take_order::*;
 pub use prune_orders::*;
+use shank::ShankInstruction;
 
+#[derive(ShankInstruction)]
 #[repr(u8)]
 pub enum OrderbookInstruction {
-    CreateMarket,
-    CreateOpenOrdersAccount,
-    PlaceOrder,
-    PlaceTakeOrder,
-    EditOrder,
-    CancelOrder,
-    CancelOrderByClientId,
-    CancelAllOrders,
-    ClaimFill,
-    PruneOrders,
+    #[account(0, writable, signer, name = "payer", desc = "Payer")]
+    #[account(1, writable, name = "market", desc = "Market account")]
+    #[account(2, writable, name = "bids", desc = "Bids account")]
+    #[account(3, writable, name = "asks", desc = "Asks account")]
+    #[account(4, name = "system_program", desc = "System program")]
+    CreateMarket=0,
+
+    #[account(0, writable, signer, name = "payer", desc = "Payer")]
+    #[account(
+        1,
+        writable,
+        name = "open_orders_account",
+        desc = "Open orders account"
+    )]
+    #[account(2, name = "market", desc = "Market account")]
+    #[account(3, name = "system_program", desc = "System program")]
+    CreateOpenOrdersAccount=1,
+
+    #[account(0, signer, name = "signer", desc = "Signer")]
+    #[account(
+        1,
+        writable,
+        name = "open_orders_account",
+        desc = "Open orders account"
+    )]
+    #[account(2, writable, name = "market", desc = "Market account")]
+    #[account(3, writable, name = "bids", desc = "Bids account")]
+    #[account(4, writable, name = "asks", desc = "Asks account")]
+    PlaceOrder=2,
+
+    #[account(0, signer, name = "signer", desc = "Signer")]
+    #[account(
+        1,
+        writable,
+        name = "open_orders_account",
+        desc = "Open orders account"
+    )]
+    #[account(2, writable, name = "market", desc = "Market account")]
+    #[account(3, writable, name = "bids", desc = "Bids account")]
+    #[account(4, writable, name = "asks", desc = "Asks account")]
+    PlaceTakeOrder=3,
+
+    #[account(0, signer, name = "signer", desc = "Signer")]
+    #[account(
+        1,
+        writable,
+        name = "open_orders_account",
+        desc = "Open orders account"
+    )]
+    #[account(2, writable, name = "market", desc = "Market account")]
+    #[account(3, writable, name = "bids", desc = "Bids account")]
+    #[account(4, writable, name = "asks", desc = "Asks account")]
+    EditOrder=4,
+
+    #[account(0, signer, name = "signer", desc = "Signer")]
+    #[account(
+        1,
+        writable,
+        name = "open_orders_account",
+        desc = "Open orders account"
+    )]
+    #[account(2, name = "market", desc = "Market account")]
+    #[account(3, writable, name = "bids", desc = "Bids account")]
+    #[account(4, writable, name = "asks", desc = "Asks account")]
+    CancelOrder=5,
+
+    #[account(0, signer, name = "signer", desc = "Signer")]
+    #[account(
+        1,
+        writable,
+        name = "open_orders_account",
+        desc = "Open orders account"
+    )]
+    #[account(2, name = "market", desc = "Market account")]
+    #[account(3, writable, name = "bids", desc = "Bids account")]
+    #[account(4, writable, name = "asks", desc = "Asks account")]
+    CancelOrderByClientId=6,
+
+    #[account(0, signer, name = "signer", desc = "Signer")]
+    #[account(
+        1,
+        writable,
+        name = "open_orders_account",
+        desc = "Open orders account"
+    )]
+    #[account(2, name = "market", desc = "Market account")]
+    #[account(3, writable, name = "bids", desc = "Bids account")]
+    #[account(4, writable, name = "asks", desc = "Asks account")]
+    CancelAllOrders=7,
+
+    #[account(0, signer, name = "signer", desc = "Signer")]
+    #[account(
+        1,
+        writable,
+        name = "open_orders_account",
+        desc = "Open orders account"
+    )]
+    #[account(2, name = "market", desc = "Market account")]
+    ClaimFill=8,
+
+    #[account(0, signer, name = "keeper", desc = "Keeper")]
+    #[account(1, name = "market", desc = "Market account")]
+    #[account(2, writable, name = "bids", desc = "Bids account")]
+    #[account(3, writable, name = "asks", desc = "Asks account")]
+    PruneOrders=9,
 }
 
 impl TryFrom<&u8> for OrderbookInstruction {

@@ -1,7 +1,8 @@
 use crate::states::{Side, new_node_key};
 use bytemuck::{Pod, Zeroable};
+use shank::ShankAccount;
 
-#[derive(Clone, Copy, Pod, Zeroable)]
+#[derive(ShankAccount,Clone, Copy, Pod, Zeroable)]
 #[repr(C)]
 pub struct MarketState {
     // Identity
