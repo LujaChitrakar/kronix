@@ -1,355 +1,146 @@
+@import "tailwindcss";
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@theme {
+  /* ── Palette ── */
+  --color-primary: #ffffff;
+  --color-on-primary: #003823;
+  --color-primary-container: #4dffb4;
+  --color-on-primary-container: #00734c;
+  --color-primary-fixed: #4dffb4;
+  --color-primary-fixed-dim: #17e29a;
+  --color-on-primary-fixed: #002113;
+  --color-on-primary-fixed-variant: #005234;
 
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #060810; overflow: hidden; }
+  --color-secondary: #b5ccc1;
+  --color-on-secondary: #20342d;
+  --color-secondary-container: #394d46;
+  --color-on-secondary-container: #a7bdb3;
+  --color-secondary-fixed: #d0e8dd;
+  --color-secondary-fixed-dim: #b5ccc1;
+  --color-on-secondary-fixed: #0b1f19;
+  --color-on-secondary-fixed-variant: #374b43;
 
-        .cx-root {
-          display: flex;
-          flex-direction: column;
-          width: 100vw;
-          height: 100vh;
-          background: #060810;
-          font-family: 'Space Grotesk', sans-serif;
-          position: relative;
-          overflow: hidden;
-        }
+  --color-tertiary: #ffffff;
+  --color-on-tertiary: #283330;
+  --color-tertiary-container: #d9e5e1;
+  --color-on-tertiary-container: #5b6764;
+  --color-tertiary-fixed: #d9e5e1;
+  --color-tertiary-fixed-dim: #bdc9c5;
+  --color-on-tertiary-fixed: #131e1b;
+  --color-on-tertiary-fixed-variant: #3e4946;
 
-        /* Dot-grid background */
-        .cx-root::before {
-          content: '';
-          position: fixed;
-          inset: 0;
-          background-image: radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px);
-          background-size: 32px 32px;
-          pointer-events: none;
-          z-index: 0;
-        }
+  --color-error: #ffb4ab;
+  --color-on-error: #690005;
+  --color-error-container: #93000a;
+  --color-on-error-container: #ffdad6;
 
-        /* ── Header ─────────────────── */
-        .cx-header {
-          position: relative;
-          z-index: 20;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0 20px;
-          height: 60px;
-          flex-shrink: 0;
-          background: rgba(6,8,16,0.96);
-          border-bottom: 1px solid rgba(255,255,255,0.05);
-          animation: cx-slideDown 0.5s cubic-bezier(0.16,1,0.3,1) both;
-        }
+  --color-background: #121319;
+  --color-on-background: #e3e1ea;
+  --color-surface: #121319;
+  --color-on-surface: #e3e1ea;
+  --color-surface-variant: #34343b;
+  --color-on-surface-variant: #bacbbe;
+  --color-surface-dim: #121319;
+  --color-surface-bright: #383940;
+  --color-surface-tint: #17e29a;
 
-        @keyframes cx-slideDown {
-          from { opacity: 0; transform: translateY(-12px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
+  --color-surface-container-lowest: #0d0e14;
+  --color-surface-container-low: #1a1b21;
+  --color-surface-container: #1e1f26;
+  --color-surface-container-high: #292a30;
+  --color-surface-container-highest: #34343b;
 
-        .cx-header-left { display: flex; align-items: center; gap: 14px; }
-        .cx-header-right { display: flex; align-items: center; gap: 10px; }
+  --color-outline: #859589;
+  --color-outline-variant: #3b4a41;
 
-        /* Brand */
-        .cx-brand {
-          display: flex;
-          align-items: center;
-          gap: 9px;
-          padding-right: 16px;
-          border-right: 1px solid rgba(255,255,255,0.06);
-          text-decoration: none;
-        }
+  --color-inverse-surface: #e3e1ea;
+  --color-inverse-on-surface: #2f3037;
+  --color-inverse-primary: #006c47;
 
-        .cx-brand-mark {
-          width: 28px;
-          height: 28px;
-          border-radius: 7px;
-          background: linear-gradient(135deg, #12172a 0%, #0a0d1a 100%);
-          border: 1px solid rgba(255,255,255,0.1);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 13px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-        }
+  /* ── Typography ── */
+  --font-headline: "Manrope", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-label: "Inter", sans-serif;
 
-        .cx-brand-name {
-          font-size: 12px;
-          font-weight: 600;
-          color: rgba(255,255,255,0.55);
-          letter-spacing: 2px;
-          font-family: 'JetBrains Mono', monospace;
-        }
+  /* ── Radius ── */
+  --radius: 0.125rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.5rem;
+  --radius-full: 0.75rem;
+}
 
-        /* ── Dropdown trigger ─────── */
-        .cx-dd-wrap { position: relative; }
+/* ── Font utilities ─────────────────────────────────────────────────────── */
+.font-headline { font-family: "Manrope", sans-serif; }
+.font-body     { font-family: "Inter", sans-serif; }
+.font-label    { font-family: "Inter", sans-serif; }
 
-        .cx-dd-btn {
-          display: flex;
-          align-items: center;
-          gap: 9px;
-          padding: 8px 13px 8px 11px;
-          background: rgba(255,255,255,0.025);
-          border: 1px solid rgba(255,255,255,0.07);
-          border-radius: 11px;
-          color: #fff;
-          font-family: 'Space Grotesk', sans-serif;
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
-          min-width: 170px;
-        }
+/*
+  ── Explicit utility overrides ──────────────────────────────────────────────
+  Tailwind v4 generates utilities from @theme automatically, but compound
+  token names with multiple hyphens (e.g. "on-surface-variant") can fail to
+  resolve at build time. These explicit rules guarantee every class used in
+  the components works regardless of JIT resolution order.
+*/
 
-        .cx-dd-btn:hover {
-          background: rgba(255,255,255,0.04);
-          border-color: var(--accent);
-          box-shadow: 0 0 0 1px var(--glow), 0 4px 20px rgba(0,0,0,0.4);
-        }
+/* Text utilities */
+.text-on-surface          { color: #e3e1ea; }
+.text-on-surface-variant  { color: #bacbbe; }
+.text-on-secondary-container { color: #a7bdb3; }
+.text-primary-fixed       { color: #4dffb4; }
+.text-primary             { color: #ffffff; }
+.text-secondary           { color: #b5ccc1; }
 
-        .cx-dd-btn.is-open {
-          border-color: var(--accent);
-          background: rgba(255,255,255,0.04);
-          box-shadow: 0 0 0 1px var(--glow), 0 4px 20px rgba(0,0,0,0.4);
-        }
+/* Background utilities */
+.bg-surface-container-low    { background-color: #1a1b21; }
+.bg-surface-container-lowest { background-color: #0d0e14; }
+.bg-surface-container        { background-color: #1e1f26; }
+.bg-surface-container-high   { background-color: #292a30; }
+.bg-primary-container        { background-color: #4dffb4; }
 
-        .cx-dot {
-          width: 9px;
-          height: 9px;
-          border-radius: 50%;
-          flex-shrink: 0;
-          position: relative;
-        }
+/* Border utilities */
+.border-outline-variant { border-color: #3b4a41; }
 
-        .cx-dot-live::after {
-          content: '';
-          position: absolute;
-          inset: -3px;
-          border-radius: 50%;
-          background: inherit;
-          animation: cx-ripple 2.5s ease-out infinite;
-        }
+/* Selection utilities */
+.selection\:bg-primary-container *::selection { background-color: #4dffb4; }
+.selection\:text-on-primary-container *::selection { color: #00734c; }
 
-        @keyframes cx-ripple {
-          0%   { transform: scale(1); opacity: 0.6; }
-          100% { transform: scale(2.8); opacity: 0; }
-        }
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+}
 
-        .cx-asset-icon { font-size: 16px; line-height: 1; }
-        .cx-ticker { font-weight: 700; letter-spacing: 0.2px; }
-        .cx-full-name { color: rgba(255,255,255,0.28); font-size: 12px; font-weight: 400; }
+body {
+  background-color: #0d0e14;
+  color: #e3e1ea;
+  -webkit-font-smoothing: antialiased;
+}
 
-        .cx-chevron {
-          margin-left: auto;
-          color: rgba(255,255,255,0.25);
-          transition: transform 0.25s cubic-bezier(0.16,1,0.3,1), color 0.2s;
-          flex-shrink: 0;
-        }
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) scale(1.15);
+  }
+}
 
-        .cx-dd-btn:hover .cx-chevron,
-        .cx-dd-btn.is-open .cx-chevron { color: rgba(255,255,255,0.6); }
-        .cx-dd-btn.is-open .cx-chevron { transform: rotate(180deg); }
-
-        /* ── Dropdown panel ────────── */
-        .cx-dd-panel {
-          position: absolute;
-          top: calc(100% + 8px);
-          left: 0;
-          min-width: 210px;
-          background: rgba(9,12,20,0.99);
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 14px;
-          overflow: hidden;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.05);
-          z-index: 300;
-          animation: cx-popIn 0.2s cubic-bezier(0.16,1,0.3,1) both;
-        }
-
-        @keyframes cx-popIn {
-          from { opacity: 0; transform: translateY(-6px) scale(0.98); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        .cx-dd-label {
-          padding: 10px 14px 7px;
-          font-size: 9.5px;
-          font-weight: 600;
-          letter-spacing: 1.4px;
-          color: rgba(255,255,255,0.18);
-          font-family: 'JetBrains Mono', monospace;
-          text-transform: uppercase;
-        }
-
-        .cx-dd-sep {
-          height: 1px;
-          background: rgba(255,255,255,0.05);
-          margin: 0 10px 4px;
-        }
-
-        .cx-dd-item {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          width: 100%;
-          padding: 11px 14px;
-          background: transparent;
-          border: none;
-          color: rgba(255,255,255,0.55);
-          font-size: 13px;
-          font-family: 'Space Grotesk', sans-serif;
-          cursor: pointer;
-          position: relative;
-          transition: background 0.12s, color 0.12s;
-          text-align: left;
-        }
-
-        .cx-dd-item::before {
-          content: '';
-          position: absolute;
-          left: 0; top: 10%; bottom: 10%;
-          width: 2px;
-          border-radius: 2px;
-          background: var(--item-color);
-          transform: scaleY(0);
-          transition: transform 0.2s cubic-bezier(0.16,1,0.3,1);
-        }
-
-        .cx-dd-item:hover { background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.85); }
-        .cx-dd-item.cx-active { background: rgba(255,255,255,0.04); color: #fff; }
-        .cx-dd-item.cx-active::before { transform: scaleY(1); }
-
-        .cx-dd-item-dot {
-          width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
-          transition: box-shadow 0.2s;
-        }
-
-        .cx-dd-item.cx-active .cx-dd-item-dot {
-          box-shadow: 0 0 10px var(--item-color);
-        }
-
-        .cx-dd-item-ticker { font-weight: 700; color: #fff; min-width: 30px; }
-        .cx-dd-item-name { color: rgba(255,255,255,0.25); font-size: 12px; flex: 1; }
-
-        /* ── Header right elements ── */
-        .cx-pill {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 5px 11px;
-          background: rgba(255,255,255,0.025);
-          border: 1px solid rgba(255,255,255,0.05);
-          border-radius: 20px;
-          font-size: 10.5px;
-          font-weight: 500;
-          color: rgba(255,255,255,0.3);
-          font-family: 'JetBrains Mono', monospace;
-          letter-spacing: 0.4px;
-        }
-
-        .cx-live-dot {
-          width: 6px; height: 6px; border-radius: 50%;
-          background: #22d07a;
-          animation: cx-liveGlow 2s ease-in-out infinite;
-        }
-
-        @keyframes cx-liveGlow {
-          0%,100% { box-shadow: 0 0 4px #22d07a88; }
-          50%      { box-shadow: 0 0 10px #22d07a; }
-        }
-
-        /* ── Accent bar ─────────────── */
-        .cx-accent-bar {
-          position: relative;
-          z-index: 15;
-          height: 2px;
-          flex-shrink: 0;
-          overflow: visible;
-        }
-
-        .cx-accent-fill {
-          height: 100%;
-          transition: background 0.6s ease, box-shadow 0.6s ease;
-          position: relative;
-        }
-
-        .cx-accent-fill::after {
-          content: '';
-          position: absolute;
-          top: -3px; left: 0; right: 0; bottom: -3px;
-          background: inherit;
-          filter: blur(6px);
-          opacity: 0.6;
-        }
-
-        /* ── Chart body ─────────────── */
-        .cx-body {
-          position: relative;
-          z-index: 5;
-          flex: 1;
-          min-height: 0;
-          animation: cx-fadeIn 0.6s cubic-bezier(0.16,1,0.3,1) 0.1s both;
-        }
-
-        @keyframes cx-fadeIn {
-          from { opacity: 0; }
-          to   { opacity: 1; }
-        }
-
-        /* Flash overlay on asset switch */
-        .cx-body::after {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: var(--accent);
-          opacity: 0;
-          pointer-events: none;
-          z-index: 50;
-          transition: opacity 0s;
-        }
-
-        .cx-body.cx-switching::after {
-          animation: cx-flash 0.4s ease forwards;
-        }
-
-        @keyframes cx-flash {
-          0%   { opacity: 0.05; }
-          100% { opacity: 0; }
-        }
-
-        /* ── Footer ─────────────────── */
-        .cx-footer {
-          position: relative;
-          z-index: 20;
-          height: 26px;
-          flex-shrink: 0;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0 18px;
-          background: rgba(6,8,16,0.97);
-          border-top: 1px solid rgba(255,255,255,0.04);
-          animation: cx-slideUp 0.5s cubic-bezier(0.16,1,0.3,1) 0.15s both;
-        }
-
-        @keyframes cx-slideUp {
-          from { opacity: 0; transform: translateY(8px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-
-        .cx-footer-left, .cx-footer-right {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .cx-footer-text {
-          font-size: 9.5px;
-          color: rgba(255,255,255,0.12);
-          font-family: 'JetBrains Mono', monospace;
-          letter-spacing: 0.5px;
-          text-transform: uppercase;
-        }
-
-        .cx-footer-sep {
-          width: 3px; height: 3px; border-radius: 50%;
-          background: rgba(255,255,255,0.1);
-        }
+.heartbeat-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 900px;
+  height: 900px;
+  background: radial-gradient(
+    circle,
+    rgba(34, 47, 43, 0.8) 0%,
+    rgba(23, 226, 154, 0.15) 35%,
+    transparent 75%
+  );
+  filter: blur(80px);
+  z-index: 0;
+  pointer-events: none;
+  animation: pulse-glow 4s ease-in-out infinite;
+}

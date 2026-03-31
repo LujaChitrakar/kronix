@@ -1,5 +1,19 @@
-import CryptoChart from '@/components/CryptoChart/CryptoChart';
 
+import Navbar from "@/components/Navbar";
+import Hero from "@/components/Hero";
+import Features from "@/components/Features";
+import InfrastructureStats from "@/components/InfrastructureStats";
+import Footer from "@/components/Footer";
+ 
 export default function Home() {
-  return <CryptoChart />;
+  return (
+    <>
+      <Navbar />
+      <Hero />
+      <Features />
+      <InfrastructureStats />
+      <Footer />
+    </>
+  );
 }
+ 
