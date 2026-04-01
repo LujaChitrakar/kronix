@@ -8,6 +8,7 @@ pub mod state;
 pub mod errors;
 pub mod math;
 pub mod oracle;
+pub mod helper;
 pub mod constants;
 
 #[cfg(test)]
