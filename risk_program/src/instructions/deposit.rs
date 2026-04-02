@@ -31,7 +31,6 @@ pub fn deposit(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
         user_token_account, // signer's USDC ATA
         vault,              // program USDC vault
         token_program,
-        associated_token_program,
         system_program,
         _remaining @ ..,
     ] = accounts
@@ -40,10 +39,6 @@ pub fn deposit(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     };
 
     verify_signer(signer)?;
-    verify_program_id(
-        associated_token_program,
-        &pinocchio_associated_token_account::ID,
-    )?;
     verify_program_id(token_program, &pinocchio_token::ID)?;
     verify_program_id(system_program, &pinocchio_system::ID)?;
 

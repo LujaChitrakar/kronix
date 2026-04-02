@@ -10,6 +10,7 @@ pub enum RiskProgramError {
     OracleConfidenceTooWide = 5,
     InvalidOraclePrice = 6,
     InvalidOwner = 7,
+    InsufficientCollateral = 8,
 }
 
 impl From<RiskProgramError> for ProgramError {

@@ -21,6 +21,8 @@ const _: () = assert!(size_of::<Position>() == 8 + 8 + 8 + 8 + 2 + 1 + 1 + 4 + 3
 const _: () = assert!(size_of::<Position>() % 8 == 0);
 
 impl Position {
+    pub const LEN: usize = size_of::<Position>();
+
     pub fn is_long(&self) -> bool {
         self.side == 0
     }
