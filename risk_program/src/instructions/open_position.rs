@@ -12,7 +12,6 @@ use crate::{
     errors::RiskProgramError,
     helper::{
         verify_account_owner, verify_initialized, verify_pda, verify_program_id, verify_signer,
-        verify_uninitialized,
     },
     oracle::validate_pyth_price,
     state::{FundingState, MarketConfig, Position, UserAccount},
@@ -47,7 +46,6 @@ pub fn process_open_position(accounts: &[AccountView], data: &[u8]) -> ProgramRe
 
     verify_signer(signer)?;
     verify_program_id(system_program, &pinocchio_system::ID)?;
-    verify_uninitialized(position)?;
     verify_initialized(user_account)?;
     verify_initialized(market_config)?;
     verify_initialized(funding_state)?;
@@ -125,21 +123,37 @@ pub fn process_open_position(accounts: &[AccountView], data: &[u8]) -> ProgramRe
         )?;
     }
 
-    let position_seeds = [
-        Seed::from(POSITION_SEED),
-        Seed::from(signer_key.as_ref()),
-        Seed::from(market_index_bytes.as_ref()),
-        Seed::from(&position_bump_bytes),
-    ];
-
-    CreateAccount {
-        from: signer,
-        to: position,
-        space: Position::LEN as u64,
-        lamports: Rent::get()?.try_minimum_balance(Position::LEN)?,
-        owner: &Address::from(crate::ID),
+    if !position.is_data_empty() {
+        unsafe {
+            verify_account_owner(position, &crate::ID)?;
+        }
+        let position_data = position.try_borrow()?;
+        let existing_pos_state = bytemuck::from_bytes::<Position>(&position_data[..Position::LEN]);
+        if existing_pos_state.size != 0 {
+            return Err(RiskProgramError::PositionAlreadyOpen.into());
+        }
+        if existing_pos_state.owner != *signer_key {
+            return Err(RiskProgramError::InvalidOwner.into());
+        }
     }
-    .invoke_signed(&[Signer::from(&position_seeds)])?;
+
+    if position.is_data_empty() {
+        let position_seeds = [
+            Seed::from(POSITION_SEED),
+            Seed::from(signer_key.as_ref()),
+            Seed::from(market_index_bytes.as_ref()),
+            Seed::from(&position_bump_bytes),
+        ];
+
+        CreateAccount {
+            from: signer,
+            to: position,
+            space: Position::LEN as u64,
+            lamports: Rent::get()?.try_minimum_balance(Position::LEN)?,
+            owner: &Address::from(crate::ID),
+        }
+        .invoke_signed(&[Signer::from(&position_seeds)])?;
+    }
 
     {
         let mut position_data = position.try_borrow_mut()?;
