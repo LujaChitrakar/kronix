@@ -6,7 +6,7 @@ use crate::{
     state::{FundingState, MarketConfig, Position, UserAccount},
 };
 
-// CAlled lazily before positoin change, called internally
+// Called lazily before positoin change, called internally
 pub fn settle_funding_internal(
     user_account: &mut UserAccount,
     position: &mut Position,
@@ -25,7 +25,7 @@ pub fn settle_funding_internal(
     Ok(())
 }
 
-pub fn process_settle_funding(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+pub fn process_settle_funding(accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
     let [
         signer,
         user_account,

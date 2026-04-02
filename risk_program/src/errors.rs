@@ -11,6 +11,8 @@ pub enum RiskProgramError {
     InvalidOraclePrice = 6,
     InvalidOwner = 7,
     InsufficientCollateral = 8,
+    InvalidSide = 9,
+    InvalidMarketIndex = 10,
 }
 
 impl From<RiskProgramError> for ProgramError {
