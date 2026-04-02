@@ -20,6 +20,8 @@ const _: () = assert!(size_of::<MarketConfig>() == 8 + 8 + 2 + 2 + 2 + 2 + 1 + 1
 const _: () = assert!(size_of::<MarketConfig>() % 8 == 0);
 
 impl MarketConfig {
+    pub const LEN: usize = size_of::<MarketConfig>();
+
     pub fn required_initial_margin(&self, size_lots: i64, price_lots: i64) -> i64 {
         let notional = (size_lots.abs() as i128)
             .saturating_mul(price_lots as i128)

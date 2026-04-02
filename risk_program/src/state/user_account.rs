@@ -16,6 +16,8 @@ const _: () = assert!(size_of::<UserAccount>() == 8 + 8 + 1 + 1 + 6 + 32 + 32);
 const _: () = assert!(size_of::<UserAccount>() % 8 == 0);
 
 impl UserAccount {
+    pub const LEN: usize = size_of::<UserAccount>();
+
     pub fn free_collateral(&self) -> i64 {
         self.collateral.saturating_sub(self.margin_used)
     }

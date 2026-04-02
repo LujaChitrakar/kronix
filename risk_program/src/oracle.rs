@@ -1,6 +1,9 @@
 use pinocchio::error::ProgramError;
 
-use crate::{constants::{MAX_CONF_RATIO_BPS, MAX_PRICE_AGE_SLOTS}, errors::RiskProgramError};
+use crate::{
+    constants::{MAX_CONF_RATIO_BPS, MAX_PRICE_AGE_SLOTS},
+    errors::RiskProgramError,
+};
 
 pub struct ValidatedPrice {
     pub price: i64, // price in USD * 10^6

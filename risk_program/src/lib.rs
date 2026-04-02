@@ -1,15 +1,15 @@
 #![allow(unexpected_cfgs)]
 
-#[cfg(not(feature="no-entrypoint"))]
+#[cfg(not(feature = "no-entrypoint"))]
 mod entrypoint;
 
-pub mod instructions;
-pub mod state;
+pub mod constants;
 pub mod errors;
+pub mod helper;
+pub mod instructions;
 pub mod math;
 pub mod oracle;
-pub mod helper;
-pub mod constants;
+pub mod state;
 
 #[cfg(test)]
 pub mod tests;

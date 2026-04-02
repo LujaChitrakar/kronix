@@ -16,6 +16,7 @@ const _: () = assert!(size_of::<FundingState>() == 8 + 8 + 8 + 2 + 1 + 5 + 32);
 const _: () = assert!(size_of::<FundingState>() % 8 == 0);
 
 impl FundingState {
+    pub const LEN: usize = size_of::<FundingState>();
     /// Funding owed by a position since it was opened
     /// Returns USDC native units — positive = trader pays, negative = trader receives
     pub fn funding_owed(

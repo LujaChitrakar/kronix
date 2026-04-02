@@ -9,6 +9,7 @@ pub enum RiskProgramError {
     StalePriceFeed = 4,
     OracleConfidenceTooWide = 5,
     InvalidOraclePrice = 6,
+    InvalidOwner = 7,
 }
 
 impl From<RiskProgramError> for ProgramError {

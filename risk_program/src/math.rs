@@ -7,9 +7,7 @@ pub fn funding_rate_bps(mark_price: i64, index_price: i64) -> i64 {
     if index_price == 0 {
         return 0;
     }
-    let premium_bps = (mark_price as i128 - index_price as i128)
-        * 10_000
-        / index_price as i128;
+    let premium_bps = (mark_price as i128 - index_price as i128) * 10_000 / index_price as i128;
 
     // Clamp to ±500 bps
     premium_bps.max(-500).min(500) as i64
