@@ -49,6 +49,7 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
         orderbook_program,
         &Address::from(crate::ORDERBOOK_PROGRAM_ID),
     )?;
+    verify_program_id(system_program, &pinocchio_system::ID)?;
 
     unsafe {
         verify_account_owner(market_config, &crate::ID)?;
@@ -57,8 +58,6 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
 
     let params = bytemuck::try_from_bytes::<SettleFillParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
-
-    let clock = Clock::get()?;
 
     let market_config_data = market_config.try_borrow()?;
     let market_config_state =
