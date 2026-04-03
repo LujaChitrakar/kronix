@@ -16,6 +16,9 @@ pub enum RiskProgramError {
     InvalidPositionSize = 11,
     PositionAlreadyOpen = 12,
     FundingNotDue = 13,
+    InsufficientMaintenanceMargin = 14,
+    InsuranceFundDepleted = 15,
+    NotLiquidatable = 16,
 }
 
 impl From<RiskProgramError> for ProgramError {
