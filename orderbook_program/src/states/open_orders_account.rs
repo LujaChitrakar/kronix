@@ -8,7 +8,7 @@ use crate::{
     states::{BookSide, LeafNode, Side},
 };
 
-#[derive( Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy)]
 #[repr(C)]
 pub struct OpenOrdersAccount {
     pub owner: [u8; 32],                           // 32

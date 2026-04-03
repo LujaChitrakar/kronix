@@ -1,4 +1,4 @@
-use pinocchio::{AccountView, error::ProgramError};
+use pinocchio::{error::ProgramError, AccountView};
 
 pub trait DataLen {
     const LEN: usize;

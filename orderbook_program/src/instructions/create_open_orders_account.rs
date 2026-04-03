@@ -1,9 +1,9 @@
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{
-    AccountView, Address, ProgramResult,
     cpi::{Seed, Signer},
     error::ProgramError,
-    sysvars::{Sysvar, rent::Rent},
+    sysvars::{rent::Rent, Sysvar},
+    AccountView, Address, ProgramResult,
 };
 use pinocchio_system::instructions::CreateAccount;
 
@@ -25,14 +25,7 @@ pub struct CreateOpenOrdersAccountParams {
 }
 
 pub fn process_create_open_orders_account(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [
-        payer,
-        open_orders_account,
-        market,
-        system_program,
-        _remaining @ ..,
-    ] = accounts
-    else {
+    let [payer, open_orders_account, market, system_program, _remaining @ ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
     verify_signer(payer)?;

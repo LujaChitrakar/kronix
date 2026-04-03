@@ -1,8 +1,8 @@
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{
-    AccountView, ProgramResult,
     error::ProgramError,
-    sysvars::{Sysvar, clock::Clock},
+    sysvars::{clock::Clock, Sysvar},
+    AccountView, ProgramResult,
 };
 
 use crate::{
@@ -21,15 +21,7 @@ pub struct CancelOrderByClientIdParams {
 }
 
 pub fn process_cancel_order_by_client_id(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [
-        signer,
-        open_orders_account,
-        market,
-        bids,
-        asks,
-        _remaining @ ..,
-    ] = accounts
-    else {
+    let [signer, open_orders_account, market, bids, asks, _remaining @ ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 

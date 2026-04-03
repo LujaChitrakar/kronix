@@ -1,5 +1,5 @@
 use litesvm::LiteSVM;
-use solana_address::{Address, address};
+use solana_address::{address, Address};
 use solana_keypair::Keypair;
 use solana_message::{AccountMeta, Instruction, Message};
 use solana_native_token::LAMPORTS_PER_SOL;

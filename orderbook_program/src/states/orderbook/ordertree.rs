@@ -1,6 +1,6 @@
 use bytemuck::{
-    Pod, Zeroable,
     checked::{cast, cast_mut, cast_ref},
+    Pod, Zeroable,
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use pinocchio::error::ProgramError;
@@ -459,8 +459,8 @@ mod tests {
     use crate::{
         constants::MAX_ORDERTREE_NODES,
         states::{
-            LeafNode, NodeHandle, NodeRef, OrderTreeNodes, OrderTreeRoot, OrderTreeType, Side,
-            fixed_price_data, new_node_key,
+            fixed_price_data, new_node_key, LeafNode, NodeHandle, NodeRef, OrderTreeNodes,
+            OrderTreeRoot, OrderTreeType, Side,
         },
     };
     use bytemuck::Zeroable;

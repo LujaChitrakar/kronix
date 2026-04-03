@@ -1,8 +1,8 @@
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{
-    AccountView, ProgramResult,
     error::ProgramError,
-    sysvars::{Sysvar, clock::Clock},
+    sysvars::{clock::Clock, Sysvar},
+    AccountView, ProgramResult,
 };
 
 use crate::{

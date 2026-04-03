@@ -195,7 +195,7 @@ impl BookSide {
 mod tests {
     use crate::{
         constants::MAX_ORDERTREE_NODES,
-        states::{OrderTreeType, fixed_price_data, new_node_key},
+        states::{fixed_price_data, new_node_key, OrderTreeType},
     };
 
     use super::*;
@@ -421,7 +421,7 @@ mod tests {
 
         // Quantity available at price >= 150
         assert_eq!(bids.quantity_at_price(150, 0), 30); // 200 + 150 levels
-        // Quantity available at price >= 200
+                                                        // Quantity available at price >= 200
         assert_eq!(bids.quantity_at_price(200, 0), 10);
     }
 

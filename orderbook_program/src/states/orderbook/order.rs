@@ -2,7 +2,7 @@ use pinocchio::error::ProgramError;
 
 use crate::{
     errors::OrderBookError,
-    states::{BookSideOrderTree, Orderbook, PostOrderType, Side, fixed_price_data},
+    states::{fixed_price_data, BookSideOrderTree, Orderbook, PostOrderType, Side},
 };
 
 pub struct Order {
@@ -139,7 +139,7 @@ fn post_only_slide_limit(side: Side, best_other_side: i64, limit: i64) -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::states::{BookSide, LeafNode, OrderTreeType, new_node_key};
+    use crate::states::{new_node_key, BookSide, LeafNode, OrderTreeType};
     use bytemuck::Zeroable;
 
     fn make_orderbook_stub() -> (BookSide, BookSide) {

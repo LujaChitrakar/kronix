@@ -1,4 +1,4 @@
-use crate::states::{BookSide, LeafNode, OrderTreeIter, fixed_price_lots};
+use crate::states::{fixed_price_lots, BookSide, LeafNode, OrderTreeIter};
 
 pub struct BookSideIterItem<'a> {
     pub node: &'a LeafNode,

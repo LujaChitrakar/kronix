@@ -37,7 +37,11 @@ impl<'a> OrderTreeIter<'a> {
     }
 
     pub fn side(&self) -> Side {
-        if self.left == 1 { Side::Bid } else { Side::Ask }
+        if self.left == 1 {
+            Side::Bid
+        } else {
+            Side::Ask
+        }
     }
 
     pub fn peek(&self) -> Option<(NodeHandle, &'a LeafNode)> {

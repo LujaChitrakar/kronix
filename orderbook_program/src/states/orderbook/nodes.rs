@@ -1,5 +1,5 @@
 use crate::{constants::NODE_SIZE, errors::OrderBookError, states::Side};
-use bytemuck::{Pod, Zeroable, cast_mut, cast_ref};
+use bytemuck::{cast_mut, cast_ref, Pod, Zeroable};
 use core::mem::size_of;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use pinocchio::error::ProgramError;
