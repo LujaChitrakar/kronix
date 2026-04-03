@@ -19,6 +19,7 @@ pub enum RiskProgramError {
     InsufficientMaintenanceMargin = 14,
     InsuranceFundDepleted = 15,
     NotLiquidatable = 16,
+    NotInBadDebt = 17,
 }
 
 impl From<RiskProgramError> for ProgramError {
