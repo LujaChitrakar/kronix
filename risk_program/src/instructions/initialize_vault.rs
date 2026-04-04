@@ -1,0 +1,79 @@
+use bytemuck::{Pod, Zeroable};
+use pinocchio::{
+    AccountView, Address, ProgramResult,
+    cpi::{Seed, Signer},
+    error::ProgramError,
+    sysvars::{Sysvar, rent::Rent},
+};
+use pinocchio_system::instructions::CreateAccount;
+use pinocchio_token::instructions::InitializeAccount3;
+
+use crate::{
+    constants::{VAULT_AUTHORITY_SEED, VAULT_SEED},
+    helper::{verify_pda, verify_program_id, verify_signer, verify_uninitialized},
+};
+
+#[derive(Pod, Zeroable, Clone, Copy)]
+#[repr(C)]
+pub struct InitializeVaultParams {
+    pub vault_bump: u8,
+    pub authority_bump: u8,
+    pub padding: [u8; 6],
+}
+
+pub fn process_initialize_vault(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    let [
+        payer,
+        vault,           // SPL token account PDA
+        vault_authority, // PDA that signs for vault withdrawals
+        mint,            // USDC mint
+        token_program,
+        system_program,
+        _remaining @ ..,
+    ] = accounts
+    else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
+    verify_signer(payer)?;
+    verify_program_id(token_program, &pinocchio_token::ID)?;
+    verify_program_id(system_program, &pinocchio_system::ID)?;
+
+    verify_uninitialized(vault)?;
+
+    let params = bytemuck::try_from_bytes::<InitializeVaultParams>(data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    let vault_bump = [params.vault_bump];
+    let authority_bump = [params.authority_bump];
+
+    verify_pda(vault, &[VAULT_SEED, &vault_bump], &crate::ID)?;
+
+    verify_pda(
+        vault_authority,
+        &[VAULT_AUTHORITY_SEED, &authority_bump],
+        &crate::ID,
+    )?;
+
+    let vault_seeds = [Seed::from(VAULT_SEED), Seed::from(vault_bump.as_ref())];
+
+    // SPL token account = 165 bytes
+    let rent = Rent::get()?;
+    CreateAccount {
+        from: payer,
+        to: vault,
+        lamports: rent.try_minimum_balance(165)?,
+        space: 165,
+        owner: &Address::from(pinocchio_token::ID),
+    }
+    .invoke_signed(&[Signer::from(&vault_seeds)])?;
+
+    InitializeAccount3 {
+        account: vault,
+        mint,
+        owner: vault_authority.address(),
+    }
+    .invoke()?;
+
+    Ok(())
+}

@@ -24,7 +24,7 @@ pub struct DepositParams {
     pub padding: [u8; 6],
 }
 
-pub fn deposit(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+pub fn process_deposit(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     let [
         signer,
         user_account,
@@ -107,7 +107,7 @@ pub fn deposit(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     }
     .invoke()?;
 
-    user_account_state
+    user_account_state.collateral = user_account_state
         .collateral
         .checked_add(params.amount as i64)
         .ok_or(ProgramError::ArithmeticOverflow)?;

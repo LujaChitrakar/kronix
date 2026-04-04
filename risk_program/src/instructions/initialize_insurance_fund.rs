@@ -20,7 +20,7 @@ pub struct InitInsuranceFundParams {
     pub padding: [u8; 7],
 }
 
-pub fn initialize_insurance_fund(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+pub fn process_initialize_insurance_fund(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     let [payer, insurance_fund, system_program, _remaining @ ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };

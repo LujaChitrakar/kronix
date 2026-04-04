@@ -7,7 +7,7 @@ use pinocchio::{
 use pinocchio_token::instructions::Transfer;
 
 use crate::{
-    constants::{USER_ACCOUNT_SEED, VAULT_SEED},
+    constants::{USER_ACCOUNT_SEED, VAULT_AUTHORITY_SEED, VAULT_SEED},
     errors::RiskProgramError,
     helper::{verify_initialized, verify_pda, verify_program_id, verify_signer, verify_writtable},
     state::UserAccount,
@@ -19,7 +19,8 @@ pub struct WithdrawParams {
     pub amount: u64,
     pub bump_user: u8,
     pub bump_vault: u8,
-    pub padding: [u8; 6],
+    pub bump_authority: u8,
+    pub padding: [u8; 5],
 }
 
 pub fn process_withdraw(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
@@ -28,6 +29,7 @@ pub fn process_withdraw(accounts: &[AccountView], data: &[u8]) -> ProgramResult 
         user_account,
         user_token_account,
         vault,
+        vault_authority,
         token_program,
         _remaining @ ..,
     ] = accounts
@@ -55,6 +57,11 @@ pub fn process_withdraw(accounts: &[AccountView], data: &[u8]) -> ProgramResult 
             &crate::ID,
         )?;
         verify_pda(vault, &[VAULT_SEED, &[params.bump_vault]], &crate::ID)?;
+        verify_pda(
+            vault_authority,
+            &[VAULT_AUTHORITY_SEED, &[params.bump_authority]],
+            &crate::ID,
+        )?;
     }
 
     let mut user_account_data = user_account.try_borrow_mut()?;
@@ -75,15 +82,19 @@ pub fn process_withdraw(accounts: &[AccountView], data: &[u8]) -> ProgramResult 
         .collateral
         .checked_sub(amount as i64)
         .ok_or(ProgramError::ArithmeticOverflow)?;
-    let vault_bump = [params.bump_vault];
-    let vault_seed = [Seed::from(VAULT_SEED), Seed::from(vault_bump.as_ref())];
+
+    let vault_authority_bump = [params.bump_authority];
+    let vault_authority_seed = [
+        Seed::from(VAULT_AUTHORITY_SEED),
+        Seed::from(vault_authority_bump.as_ref()),
+    ];
 
     Transfer {
         from: vault,
         to: user_token_account,
         amount,
-        authority: vault,
+        authority: vault_authority,
     }
-    .invoke_signed(&[Signer::from(&vault_seed)])?;
+    .invoke_signed(&[Signer::from(&vault_authority_seed)])?;
     Ok(())
 }
