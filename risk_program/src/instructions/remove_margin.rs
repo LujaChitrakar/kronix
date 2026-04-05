@@ -44,7 +44,7 @@ pub fn process_remove_margin(accounts: &[AccountView], data: &[u8]) -> ProgramRe
 
     let clock = Clock::get()?;
 
-    let params = bytemuck::try_from_bytes::<RemoveMarginParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<RemoveMarginParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
     if params.amount <= 0 {
         return Err(RiskProgramError::InvalidAmount.into());
@@ -58,8 +58,10 @@ pub fn process_remove_margin(accounts: &[AccountView], data: &[u8]) -> ProgramRe
         return Err(RiskProgramError::InvalidMarketIndex.into());
     }
 
-    let validated = validate_pyth_price(oracle, clock.slot, &market_config_state.oracle)?;
-    let mark_price = validated.price;
+    // uncomment during oracle tests
+    // let validated = validate_pyth_price(oracle, clock.slot, &market_config_state.oracle)?;
+    // let mark_price = validated.price;
+    let mark_price: i64 = 10;
 
     let mut user_account_data = user_account.try_borrow_mut()?;
     let user_account_state =

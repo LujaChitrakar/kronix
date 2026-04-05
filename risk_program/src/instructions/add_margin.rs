@@ -36,7 +36,7 @@ pub fn process_add_margin(accounts: &[AccountView], data: &[u8]) -> ProgramResul
         verify_writtable(position)?;
     }
 
-    let params = bytemuck::try_from_bytes::<AddMarginParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<AddMarginParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
     if params.amount <= 0 {
         return Err(RiskProgramError::InvalidAmount.into());

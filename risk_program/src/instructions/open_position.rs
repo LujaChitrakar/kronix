@@ -55,7 +55,7 @@ pub fn process_open_position(accounts: &[AccountView], data: &[u8]) -> ProgramRe
         verify_account_owner(funding_state, &crate::ID)?;
     }
 
-    let params = bytemuck::try_from_bytes::<OpenPositionParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<OpenPositionParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     if params.size_lots <= 0 {
@@ -76,9 +76,11 @@ pub fn process_open_position(accounts: &[AccountView], data: &[u8]) -> ProgramRe
         return Err(RiskProgramError::InvalidMarketIndex.into());
     }
 
-    // validate oracle price
-    let validated = validate_pyth_price(oracle, clock.slot, &market_config_state.oracle)?;
-    let mark_price = validated.price;
+    // validate oracle price uncomment this later
+    // let validated = validate_pyth_price(oracle, clock.slot, &market_config_state.oracle)?;
+    // let mark_price = validated.price;
+
+    let mark_price = 1_000;
 
     // calculate required margin
     let required_margin = market_config_state.required_initial_margin(params.size_lots, mark_price);

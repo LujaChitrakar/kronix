@@ -41,7 +41,7 @@ pub fn process_withdraw(accounts: &[AccountView], data: &[u8]) -> ProgramResult 
     verify_initialized(user_account)?;
     verify_writtable(user_account)?;
 
-    let params = bytemuck::try_from_bytes::<WithdrawParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<WithdrawParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     if params.amount == 0 {

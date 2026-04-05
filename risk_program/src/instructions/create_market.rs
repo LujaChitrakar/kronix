@@ -17,12 +17,12 @@ use crate::{
 #[derive(Pod, Zeroable, Clone, Copy)]
 #[repr(C)]
 pub struct CreateMarketParams {
+    pub base_lot_size: i64,
+    pub quote_lot_size: i64,
     pub market_index: u16,
     pub initial_margin_bps: u16,
     pub maintenance_margin_bps: u16,
     pub liquidation_fee_bps: u16,
-    pub base_lot_size: i64,
-    pub quote_lot_size: i64,
     pub bump_config: u8,
     pub bump_funding: u8,
     pub max_leverage: u8,
@@ -46,7 +46,7 @@ pub fn process_create_market(accounts: &[AccountView], data: &[u8]) -> ProgramRe
     verify_uninitialized(funding_state)?;
     verify_program_id(system_program, &pinocchio_system::ID)?;
 
-    let params = bytemuck::try_from_bytes::<CreateMarketParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<CreateMarketParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
     if params.base_lot_size <= 0 || params.quote_lot_size <= 0 {
         return Err(RiskProgramError::InvalidAmount.into());

@@ -42,7 +42,7 @@ pub fn process_deposit(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     verify_program_id(token_program, &pinocchio_token::ID)?;
     verify_program_id(system_program, &pinocchio_system::ID)?;
 
-    let params = bytemuck::try_from_bytes::<DepositParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<DepositParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     if params.amount == 0 {

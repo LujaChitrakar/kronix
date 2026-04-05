@@ -49,7 +49,7 @@ pub fn process_close_position(accounts: &[AccountView], data: &[u8]) -> ProgramR
         verify_account_owner(funding_state, &crate::ID)?;
     }
 
-    let params = bytemuck::try_from_bytes::<ClosePositionParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<ClosePositionParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     let clock = Clock::get()?;
@@ -62,9 +62,10 @@ pub fn process_close_position(accounts: &[AccountView], data: &[u8]) -> ProgramR
     if market_config_state.market_index != params.market_index {
         return Err(ProgramError::InvalidInstructionData);
     }
-
-    let validated = validate_pyth_price(oracle, clock.slot, &market_config_state.oracle)?;
-    let mark_price = validated.price;
+    // uncomment later on first testing without oracle
+    // let validated = validate_pyth_price(oracle, clock.slot, &market_config_state.oracle)?;
+    // let mark_price = validated.price;
+    let mark_price: i64 = 10;
 
     let mut position_data = position.try_borrow_mut()?;
     let position_state = bytemuck::from_bytes_mut::<Position>(&mut position_data[..Position::LEN]);

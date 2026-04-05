@@ -8,9 +8,9 @@ use pinocchio::{
 use pinocchio_token::instructions::Transfer;
 
 use crate::{
-    constants::VAULT_SEED,
+    constants::{VAULT_AUTHORITY_SEED, VAULT_SEED},
     errors::RiskProgramError,
-    helper::{verify_account_owner, verify_signer, verify_writtable},
+    helper::{verify_account_owner, verify_program_id, verify_signer, verify_writtable},
     instructions::settle_funding_internal,
     oracle::validate_pyth_price,
     state::{FundingState, InsuranceFund, MarketConfig, Position, UserAccount},
@@ -21,7 +21,7 @@ use crate::{
 #[repr(C)]
 pub struct LiquidateParams {
     pub market_index: u16,
-    pub bump_vault: u8,
+    pub bump_authority: u8,
     pub padding: [u8; 5],
 }
 
@@ -34,8 +34,10 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
         funding_state,
         insurance_fund,
         vault,
+        vault_authority,
         liquidator_token_account,
         oracle,
+        token_program,
         _remaining @ ..,
     ] = accounts
     else {
@@ -43,7 +45,7 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
     };
 
     verify_signer(liquidator)?;
-
+    verify_program_id(token_program, &pinocchio_token::ID)?;
     // ── Owner checks ──────────────────────────────────────────────
     unsafe {
         verify_account_owner(user_account, &crate::ID)?;
@@ -51,13 +53,12 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
         verify_account_owner(market_config, &crate::ID)?;
         verify_account_owner(funding_state, &crate::ID)?;
         verify_account_owner(insurance_fund, &crate::ID)?;
-        verify_account_owner(vault, &crate::ID)?;
         verify_writtable(user_account)?;
         verify_writtable(position)?;
         verify_writtable(insurance_fund)?;
     }
 
-    let params = bytemuck::try_from_bytes::<LiquidateParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<LiquidateParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     let clock = Clock::get()?;
@@ -69,9 +70,10 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
     if market_config_state.market_index != params.market_index {
         return Err(RiskProgramError::InvalidMarketIndex.into());
     }
-
-    let validated = validate_pyth_price(oracle, clock.slot, &market_config_state.oracle)?;
-    let mark_price = validated.price;
+    // uncommet during oracle fixed
+    // let validated = validate_pyth_price(oracle, clock.slot, &market_config_state.oracle)?;
+    // let mark_price = validated.price;
+    let mark_price: i64 = 10000;
 
     let mut position_data = position.try_borrow_mut()?;
     let position_state = bytemuck::from_bytes_mut::<Position>(&mut position_data[..Position::LEN]);
@@ -133,9 +135,11 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
     let insurance_state =
         bytemuck::from_bytes_mut::<InsuranceFund>(&mut insurance_data[..InsuranceFund::LEN]);
 
-    let vault_bump = [params.bump_vault];
-    let vault_seed = [Seed::from(VAULT_SEED), Seed::from(vault_bump.as_ref())];
-
+    let vault_authority_bump = [params.bump_authority];
+    let vault_authority_seed = [
+        Seed::from(VAULT_AUTHORITY_SEED),
+        Seed::from(vault_authority_bump.as_ref()),
+    ];
     if is_solvent {
         // deduct full fee from user_collateral
         user_account_state.collateral = user_account_state
@@ -149,10 +153,10 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
         Transfer {
             from: vault,
             to: liquidator_token_account,
-            authority: vault,
+            authority: vault_authority,
             amount: liquidator_reward,
         }
-        .invoke_signed(&[Signer::from(&vault_seed)])?;
+        .invoke_signed(&[Signer::from(&vault_authority_seed)])?;
     } else {
         // bad debt
         let shortfall = (total_fee - collateral).max(0) as u64;

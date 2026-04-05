@@ -46,7 +46,7 @@ pub fn process_cover_bad_debt(accounts: &[AccountView], data: &[u8]) -> ProgramR
         verify_writtable(insurance_fund)?;
     }
 
-    let params = bytemuck::try_from_bytes::<CoverBadDebtParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<CoverBadDebtParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     let clock = Clock::get()?;
@@ -59,8 +59,10 @@ pub fn process_cover_bad_debt(accounts: &[AccountView], data: &[u8]) -> ProgramR
         return Err(RiskProgramError::InvalidMarketIndex.into());
     }
 
-    let validated = validate_pyth_price(oracle, clock.slot, &market_config_state.oracle)?;
-    let mark_price = validated.price;
+    // uncomment later on oracle validation
+    // let validated = validate_pyth_price(oracle, clock.slot, &market_config_state.oracle)?;
+    // let mark_price = validated.price;
+    let mark_price = 10000;
 
     let mut position_data = position.try_borrow_mut()?;
     let position_state = bytemuck::from_bytes_mut::<Position>(&mut position_data[..Position::LEN]);
