@@ -4,6 +4,7 @@
 mod entrypoint;
 
 pub mod constants;
+pub mod cpi;
 pub mod errors;
 pub mod events;
 pub mod helper;

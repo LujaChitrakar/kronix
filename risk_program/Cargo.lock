@@ -2703,6 +2703,7 @@ dependencies = [
  "pinocchio-system",
  "pinocchio-token",
  "rand 0.8.5",
+ "risk_program_cpi",
  "shank",
  "solana-account 4.1.0",
  "solana-address 2.4.0",
@@ -2718,6 +2719,13 @@ dependencies = [
  "solana-transaction",
  "spl-associated-token-account",
  "spl-token-2022",
+]
+
+[[package]]
+name = "risk_program_cpi"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
 ]
 
 [[package]]

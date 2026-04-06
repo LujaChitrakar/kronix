@@ -44,7 +44,7 @@ pub enum RiskProgramInstruction {
     SettleFunding = 10,
     UpdateFundingRate = 11, //LEFT
     Liquidate = 12,
-    CoverBadDebt = 13, //LEFT
+    CoverBadDebt = 13,
 }
 
 impl TryFrom<&u8> for RiskProgramInstruction {

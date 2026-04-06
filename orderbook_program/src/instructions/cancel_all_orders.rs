@@ -11,7 +11,6 @@ use crate::{
     helper::{verify_account_owner, verify_pda, verify_signer, verify_writtable},
     states::{BookSide, MarketState, OpenOrdersAccount, Orderbook, Side},
 };
-
 #[derive(Pod, Zeroable, Clone, Copy)]
 #[repr(C)]
 pub struct CancelAllOrdersParams {

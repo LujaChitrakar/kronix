@@ -18,6 +18,7 @@ num-derive = "0.4.2"
 solana-clock = "3.0.1"
 num_enum = "0.5.1"
 shank = "0.4.8"
+risk_program_cpi = { path = "../crates/risk_program_cpi" }
 
 [dev-dependencies]
 rand = { version = "0.8", features = ["small_rng"] }

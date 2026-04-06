@@ -7,6 +7,7 @@ use pinocchio::{
 
 use crate::{
     constants::{MARKET_SEED, MAX_FILLS_PER_ORDER, OPEN_ORDERS_SEED},
+    cpi::settle_fill_cpi,
     errors::OrderBookError,
     helper::{
         verify_account_owner, verify_initialized, verify_pda, verify_signer, verify_writtable,
@@ -20,29 +21,22 @@ use crate::{
 #[derive(Pod, Zeroable, Clone, Copy)]
 #[repr(C)]
 pub struct PlaceOrderParams {
-    pub side: u8,
-    pub order_type: u8,
-    pub limit: u8,
-    pub padding: [u8; 5],
     pub max_base_lots: i64,
     pub max_quote_lots: i64,
     pub client_order_id: u64,
     pub expiry_timestamp: u64,
     pub price_lots: i64,
+    pub side: u8,
+    pub order_type: u8,
+    pub limit: u8,
+    pub bump_position: u8,
+    pub bump_user: u8,
+    pub padding: [u8; 3],
 }
 
 pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [
-        signer,
-        open_orders_account,
-        market,
-        bids,
-        asks,
-        // risk_program,
-        // taker_user_account,
-        // taker_position,
-        _remaining @ ..,
-    ] = accounts
+    let [signer, open_orders_account, market, bids, asks, risk_program, taker_user_account, taker_position, market_config, funding_state, system_program, _remaining @ ..] =
+        accounts
     else {
         return Err(pinocchio::error::ProgramError::InvalidAccountData);
     };
@@ -212,22 +206,21 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
                     }
                 }
             }
+            settle_fill_cpi(
+                risk_program,
+                taker_user_account,
+                taker_position,
+                market_config,
+                funding_state,
+                system_program,
+                fill,
+                market_state.market_index,
+                true,
+                params.bump_position,
+                params.bump_user,
+            )?;
         }
     }
-
-    // ── TODO: CPI to risk_program::settle_fill ────────────────────
-    // Uncomment when risk_program is built:
-    //
-    // settle_fill_cpi(
-    //     risk_program,
-    //     maker_user_account,
-    //     maker_position,
-    //     market_config,
-    //     funding_state,
-    //     oracle,
-    //     &fill,
-    //     false,  // is_taker = false, this is maker
-    // )?;
 
     Ok(())
 }

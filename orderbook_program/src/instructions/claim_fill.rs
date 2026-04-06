@@ -7,6 +7,7 @@ use pinocchio::{
 
 use crate::{
     constants::{MARKET_SEED, OPEN_ORDERS_SEED},
+    cpi::settle_fill_cpi,
     errors::OrderBookError,
     helper::{
         verify_account_owner, verify_initialized, verify_pda, verify_signer, verify_writtable,
@@ -18,22 +19,14 @@ use crate::{
 #[repr(C)]
 pub struct ClaimFillParams {
     pub order_slot: u8,
-    pub padding: [u8; 7],
+    pub bump_position: u8,
+    pub bump_user: u8,
+    pub padding: [u8; 5],
 }
 
 pub fn process_claim_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [
-        signer,
-        open_orders_account,
-        market,
-        // risk_program,
-        // maker_user_account,
-        // maker_position,
-        // market_config,
-        // funding_state,
-        // oracle,
-        _remaining @ ..,
-    ] = accounts
+    let [signer, open_orders_account, market, risk_program, maker_user_account, maker_position, market_config, funding_state, system_program, _remaining @ ..] =
+        accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
@@ -107,11 +100,7 @@ pub fn process_claim_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResul
         return Err(OrderBookError::InvalidOrderSlot.into());
     }
 
-    // ── Reconstruct FillEvent for CPI ─────────────────────────────
-    // We stored filled_qty and fill_price on the OpenOrder
-    // Reconstruct enough of FillEvent for risk_program::settle_fill
-
-    let _fill = FillEvent {
+    let fill = FillEvent {
         event_type: 0,
         taker_side: oo.side().invert_side() as u8,
         maker_out: if oo.filled_qty == 0 { 1 } else { 0 },
@@ -131,19 +120,19 @@ pub fn process_claim_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResul
 
     let maker_out = oo.has_pending_fill() && oo.filled_qty > 0;
 
-    // ── TODO: CPI to risk_program::settle_fill ────────────────────
-    // Uncomment when risk_program is built:
-    //
-    // settle_fill_cpi(
-    //     risk_program,
-    //     maker_user_account,
-    //     maker_position,
-    //     market_config,
-    //     funding_state,
-    //     oracle,
-    //     &fill,
-    //     false,  // is_taker = false, this is maker
-    // )?;
+    settle_fill_cpi(
+        risk_program,
+        maker_user_account,
+        maker_position,
+        market_config,
+        funding_state,
+        system_program,
+        &fill,
+        market_state.market_index,
+        false, // is_taker = false, this is maker
+        params.bump_position,
+        params.bump_user,
+    )?;
 
     {
         let oo_mut = oo_account_state.open_order_mut_by_raw_index(slot);
