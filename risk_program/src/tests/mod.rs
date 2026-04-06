@@ -1,11 +1,11 @@
 use pinocchio::Address;
 
 use crate::{
-    constants::{POSITION_SEED, USER_ACCOUNT_SEED},
+    constants::{POSITION_SEED, USER_ACCOUNT_SEED, VAULT_SEED},
     state::{Position, UserAccount},
     tests::helper::{
         PROGRAM_ID, add_margin, close_position, cover_bad_debt, create_market, create_mint,
-        deposit, initialize_insurance_fund, initialize_vault, liquidate, open_position,
+        deposit, initialize_insurance_fund, initialize_vault, liquidate, mint_to, open_position,
         remove_margin, settle_funding, setup, update_funding_rate, withdraw,
     },
 };
@@ -46,7 +46,7 @@ pub fn test_deposit() {
     let (mut svm, user1, _, _) = setup();
     let mint = create_mint(&mut svm, &user1);
     initialize_vault(&mut svm, &user1, &mint);
-    deposit(&mut svm, &user1, &mint, 10);
+    deposit(&mut svm, &user1, &user1, &mint, 10);
 }
 
 #[test]
@@ -54,7 +54,7 @@ pub fn test_withdraw() {
     let (mut svm, user1, _, _) = setup();
     let mint = create_mint(&mut svm, &user1);
     initialize_vault(&mut svm, &user1, &mint);
-    deposit(&mut svm, &user1, &mint, 10);
+    deposit(&mut svm, &user1, &user1, &mint, 10);
     withdraw(&mut svm, &user1, &mint, 1);
 }
 #[test]
@@ -76,7 +76,7 @@ pub fn test_open_position() {
     );
 
     initialize_vault(&mut svm, &user1, &mint);
-    deposit(&mut svm, &user1, &mint, 10000000);
+    deposit(&mut svm, &user1, &user1, &mint, 10000000);
     open_position(&mut svm, &user1, market_index, 0, 100, 1000);
 }
 #[test]
@@ -98,7 +98,7 @@ pub fn test_close_position() {
     );
 
     initialize_vault(&mut svm, &user1, &mint);
-    deposit(&mut svm, &user1, &mint, 10000000);
+    deposit(&mut svm, &user1, &user1, &mint, 10000000);
     open_position(&mut svm, &user1, market_index, 0, 100, 1000);
     close_position(&mut svm, &user1, market_index, 100);
 }
@@ -121,7 +121,7 @@ pub fn test_add_margin() {
     );
 
     initialize_vault(&mut svm, &user1, &mint);
-    deposit(&mut svm, &user1, &mint, 10000000);
+    deposit(&mut svm, &user1, &user1, &mint, 10000000);
     open_position(&mut svm, &user1, market_index, 0, 100, 1000);
     add_margin(&mut svm, &user1, market_index, 100);
 }
@@ -144,7 +144,7 @@ pub fn test_remove_margin() {
     );
 
     initialize_vault(&mut svm, &user1, &mint);
-    deposit(&mut svm, &user1, &mint, 10000000);
+    deposit(&mut svm, &user1, &user1, &mint, 10000000);
     open_position(&mut svm, &user1, market_index, 0, 100, 1000);
     remove_margin(&mut svm, &user1, market_index, 100);
 }
@@ -167,7 +167,7 @@ pub fn test_update_funding_rate() {
     );
 
     initialize_vault(&mut svm, &user1, &mint);
-    deposit(&mut svm, &user1, &mint, 10000000);
+    deposit(&mut svm, &user1, &user1, &mint, 10000000);
     open_position(&mut svm, &user1, market_index, 0, 100, 1000);
     update_funding_rate(&mut svm, &user1, market_index, 1000);
 }
@@ -190,7 +190,7 @@ pub fn test_settle_funding() {
         oracle,
     );
     initialize_vault(&mut svm, &user1, &mint);
-    deposit(&mut svm, &user1, &mint, 10000000);
+    deposit(&mut svm, &user1, &user1, &mint, 10000000);
     open_position(&mut svm, &user1, market_index, 0, 100, 1000);
     settle_funding(&mut svm, &user1, market_index);
 }
@@ -216,14 +216,14 @@ pub fn test_liquidate() {
 
     initialize_insurance_fund(&mut svm, &user1);
     initialize_vault(&mut svm, &user1, &mint);
-    deposit(&mut svm, &user1, &mint, 5_000);
-    open_position(&mut svm, &user1, market_index, 1, 10, 1000);
+    deposit(&mut svm, &user1, &user1, &mint, 5_000);
+    open_position(&mut svm, &user1, market_index, 0, 10, 1000);
     liquidate(&mut svm, &user1, market_index, &mint);
 }
 
 #[test]
 pub fn test_cover_bad_debt() {
-    let (mut svm, user1, _, oracle) = setup();
+    let (mut svm, user1, user2, oracle) = setup();
     let mint = create_mint(&mut svm, &user1);
     let market_index = 1u16;
 
@@ -231,19 +231,24 @@ pub fn test_cover_bad_debt() {
         &mut svm,
         &user1,
         market_index,
-        100, // base_lot_size
-        1,   // quote_lot_size
-        100, // initial_margin_bps = 1%
-        50,  // maintenance_margin_bps = 0.5%
-        100, // liquidation_fee_bps = 1%
-        20,  // max_leverage
+        100,
+        1,
+        100,
+        50,
+        100,
+        20,
         oracle,
     );
-
     initialize_insurance_fund(&mut svm, &user1);
     initialize_vault(&mut svm, &user1, &mint);
-    deposit(&mut svm, &user1, &mint, 5_000);
-    open_position(&mut svm, &user1, market_index, 1, 10, 1000);
 
-    cover_bad_debt(&mut svm, &user1, market_index);
+    // user1 liquidated → funds insurance with 2 units
+    deposit(&mut svm, &user1, &user1, &mint, 5_000);
+    open_position(&mut svm, &user1, market_index, 0, 10, 1000);
+    liquidate(&mut svm, &user1, market_index, &mint);
+
+    // user2: shortfall = 1, insurance has 2 → covered
+    deposit(&mut svm, &user1, &user2, &mint, 898);
+    open_position(&mut svm, &user2, market_index, 0, 1, 1000);
+    cover_bad_debt(&mut svm, &user1, &user2, market_index);
 }

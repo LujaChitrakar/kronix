@@ -176,11 +176,11 @@ pub fn process_open_position(accounts: &[AccountView], data: &[u8]) -> ProgramRe
         };
     }
 
-    user_account_state
+    user_account_state.margin_used = user_account_state
         .margin_used
         .checked_add(required_margin)
         .ok_or(ProgramError::ArithmeticOverflow)?;
-    user_account_state
+    user_account_state.position_count = user_account_state
         .position_count
         .checked_add(1)
         .ok_or(ProgramError::ArithmeticOverflow)?;

@@ -5,6 +5,7 @@ use pinocchio::{
     error::ProgramError,
     sysvars::{Sysvar, clock::Clock},
 };
+use pinocchio_log::log;
 use pinocchio_token::instructions::Transfer;
 
 use crate::{
@@ -73,7 +74,7 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
     // uncommet during oracle fixed
     // let validated = validate_pyth_price(oracle, clock.slot, &market_config_state.oracle)?;
     // let mark_price = validated.price;
-    let mark_price: i64 = 10000;
+    let mark_price: i64 = 100;
 
     let mut position_data = position.try_borrow_mut()?;
     let position_state = bytemuck::from_bytes_mut::<Position>(&mut position_data[..Position::LEN]);
@@ -149,6 +150,9 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
 
         // insurance fund collect its share
         insurance_state.collect(insurance_fee as u64);
+
+        log!("insurance collected: {}", insurance_fee);
+        log!("insurance balance after: {}", insurance_state.balance);
 
         Transfer {
             from: vault,

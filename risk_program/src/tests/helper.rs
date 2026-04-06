@@ -20,7 +20,7 @@ use crate::{
         DepositParams, InitInsuranceFundParams, InitializeVaultParams, LiquidateParams,
         OpenPositionParams, RemoveMarginParams, UpdateFundingRateParams, WithdrawParams,
     },
-    state::{FundingState, InsuranceFund, MarketConfig, UserAccount},
+    state::{FundingState, InsuranceFund, MarketConfig, Position, UserAccount},
 };
 
 pub const PROGRAM_ID: Address = address!("2c88D4ELFGsJnxTvxWGY92GqcE7RNqXwXPMFjTXhnxLQ");
@@ -181,22 +181,21 @@ pub fn initialize_vault(svm: &mut LiteSVM, payer: &Keypair, mint: &Address) -> (
     (vault_pda, authority_pda)
 }
 
-pub fn deposit(svm: &mut LiteSVM, payer: &Keypair, mint: &Address, amount: u64) -> Address {
+pub fn deposit(
+    svm: &mut LiteSVM,
+    mint_authority: &Keypair,
+    payer: &Keypair,
+    mint: &Address,
+    amount: u64,
+) -> Address {
     let signer_key = payer.pubkey().to_bytes();
 
     let (user_account_pda, bump_user) =
         Address::find_program_address(&[USER_ACCOUNT_SEED, &signer_key], &PROGRAM_ID);
     let (vault_pda, bump_vault) = Address::find_program_address(&[VAULT_SEED], &PROGRAM_ID);
 
-    if svm.get_account(&vault_pda).is_none() {
-        create_token_account(svm, payer, mint, &vault_pda);
-    }
     let user_ata = create_token_account(svm, payer, mint, &payer.pubkey());
-    mint_to(svm, payer, mint, &user_ata, amount);
-
-    let (insurance_pda, bump) = Address::find_program_address(&[INSURANCE_SEED], &PROGRAM_ID);
-
-    mint_to(svm, payer, mint, &insurance_pda, amount);
+    mint_to(svm, mint_authority, mint, &user_ata, amount);
 
     let params = DepositParams {
         amount,
@@ -657,12 +656,12 @@ pub fn liquidate(svm: &mut LiteSVM, payer: &Keypair, market_index: u16, mint: &A
     assert!(result.is_ok(), "Failed to liquidate: {:?}", result.err());
 }
 
-pub fn cover_bad_debt(svm: &mut LiteSVM, payer: &Keypair, market_index: u16) {
-    let signer_key = payer.pubkey().to_bytes();
+pub fn cover_bad_debt(svm: &mut LiteSVM, caller: &Keypair, user: &Keypair, market_index: u16) {
+    let user_key = user.pubkey().to_bytes();
     let market_index_bytes = market_index.to_le_bytes();
 
     let (user_account_pda, _) =
-        Address::find_program_address(&[USER_ACCOUNT_SEED, &signer_key], &PROGRAM_ID);
+        Address::find_program_address(&[USER_ACCOUNT_SEED, &user_key], &PROGRAM_ID);
     let (market_config_pda, _) = Address::find_program_address(
         &[MARKET_CONFIG_SEED, market_index_bytes.as_ref()],
         &PROGRAM_ID,
@@ -670,21 +669,16 @@ pub fn cover_bad_debt(svm: &mut LiteSVM, payer: &Keypair, market_index: u16) {
     let (funding_pda, _) =
         Address::find_program_address(&[FUNDING_SEED, market_index_bytes.as_ref()], &PROGRAM_ID);
     let (position_pda, _) = Address::find_program_address(
-        &[POSITION_SEED, &signer_key, market_index_bytes.as_ref()],
+        &[POSITION_SEED, &user_key, market_index_bytes.as_ref()],
         &PROGRAM_ID,
     );
-    let (authority_pda, bump_authority) =
-        Address::find_program_address(&[VAULT_AUTHORITY_SEED], &PROGRAM_ID);
-
-    let (vault_pda, bump_vault) = Address::find_program_address(&[VAULT_SEED], &PROGRAM_ID);
-    let (insurance_pda, bump) = Address::find_program_address(&[INSURANCE_SEED], &PROGRAM_ID);
+    let (insurance_pda, _) = Address::find_program_address(&[INSURANCE_SEED], &PROGRAM_ID);
 
     let market_account = svm
         .get_account(&market_config_pda)
         .expect("Market not found");
-    let market_state: &MarketConfig =
-        bytemuck::from_bytes(&market_account.data[..MarketConfig::LEN]);
-
+    let market_state =
+        bytemuck::from_bytes::<MarketConfig>(&market_account.data[..MarketConfig::LEN]);
     let oracle = Address::from(market_state.oracle);
 
     let params = CoverBadDebtParams {
@@ -692,11 +686,11 @@ pub fn cover_bad_debt(svm: &mut LiteSVM, payer: &Keypair, market_index: u16) {
         padding: [0u8; 6],
     };
 
-    let mut ix_data = vec![13u8];
+    let mut ix_data = vec![13u8]; // CoverBadDebt discriminator
     ix_data.extend_from_slice(bytemuck::bytes_of(&params));
 
     let accounts = vec![
-        AccountMeta::new(payer.pubkey(), true),
+        AccountMeta::new(caller.pubkey(), true),
         AccountMeta::new(user_account_pda, false),
         AccountMeta::new(position_pda, false),
         AccountMeta::new(market_config_pda, false),
@@ -710,10 +704,25 @@ pub fn cover_bad_debt(svm: &mut LiteSVM, payer: &Keypair, market_index: u16) {
         accounts,
         data: ix_data,
     };
-    let msg = Message::new(&[ix], Some(&payer.pubkey()));
-    let tx = Transaction::new(&[payer], msg, svm.latest_blockhash());
+    let msg = Message::new(&[ix], Some(&caller.pubkey()));
+    let tx = Transaction::new(&[caller], msg, svm.latest_blockhash());
     let result = svm.send_transaction(tx);
-    assert!(result.is_ok(), "Failed to liquidate: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to cover bad debt: {:?}",
+        result.err()
+    );
+
+    // verify position wiped
+    let pos_data = svm.get_account(&position_pda).unwrap();
+    let pos = bytemuck::from_bytes::<Position>(&pos_data.data[..Position::LEN]);
+    assert_eq!(pos.size, 0, "Position should be wiped");
+    assert_eq!(pos.initial_margin, 0);
+
+    // verify user collateral zeroed
+    let ua_data = svm.get_account(&user_account_pda).unwrap();
+    let ua = bytemuck::from_bytes::<UserAccount>(&ua_data.data[..UserAccount::LEN]);
+    assert_eq!(ua.collateral, 0, "Collateral should be zeroed");
 }
 
 // EXTRA HELPERS

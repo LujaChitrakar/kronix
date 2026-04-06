@@ -4,6 +4,7 @@ use pinocchio::{
     error::ProgramError,
     sysvars::{Sysvar, clock::Clock},
 };
+use pinocchio_log::log;
 
 use crate::{
     errors::RiskProgramError,
@@ -20,6 +21,7 @@ pub struct CoverBadDebtParams {
     pub padding: [u8; 6],
 }
 pub fn process_cover_bad_debt(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    log!("cover_bad_debt start");
     let [
         caller,       // liquidator bot or anyone — permissionless
         user_account, // underwater account
@@ -46,6 +48,8 @@ pub fn process_cover_bad_debt(accounts: &[AccountView], data: &[u8]) -> ProgramR
         verify_writtable(insurance_fund)?;
     }
 
+    log!("owners ok");
+
     let params = bytemuck::try_pod_read_unaligned::<CoverBadDebtParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
@@ -62,8 +66,9 @@ pub fn process_cover_bad_debt(accounts: &[AccountView], data: &[u8]) -> ProgramR
     // uncomment later on oracle validation
     // let validated = validate_pyth_price(oracle, clock.slot, &market_config_state.oracle)?;
     // let mark_price = validated.price;
-    let mark_price = 10000;
+    let mark_price = 100;
 
+    log!("mark_price: {}", mark_price);
     let mut position_data = position.try_borrow_mut()?;
     let position_state = bytemuck::from_bytes_mut::<Position>(&mut position_data[..Position::LEN]);
 
@@ -74,6 +79,8 @@ pub fn process_cover_bad_debt(accounts: &[AccountView], data: &[u8]) -> ProgramR
         return Err(RiskProgramError::InvalidPositionSize.into());
     }
 
+    log!("position size: {}", position_state.size);
+
     let mut user_account_data = user_account.try_borrow_mut()?;
     let user_account_state =
         bytemuck::from_bytes_mut::<UserAccount>(&mut user_account_data[..UserAccount::LEN]);
@@ -81,6 +88,7 @@ pub fn process_cover_bad_debt(accounts: &[AccountView], data: &[u8]) -> ProgramR
     if user_account_state.owner != position_state.owner {
         return Err(RiskProgramError::InvalidOwner.into());
     }
+    log!("user owner match ok");
 
     let mut funding_data = funding_state.try_borrow_mut()?;
     let funding = bytemuck::from_bytes_mut::<FundingState>(&mut funding_data[..FundingState::LEN]);
@@ -92,24 +100,35 @@ pub fn process_cover_bad_debt(accounts: &[AccountView], data: &[u8]) -> ProgramR
         market_config_state.quote_lot_size,
     )?;
 
+    log!("settle funding ok");
     // verify account is actually in bad debt
     let unrealised_pnl =
         position_state.unrealised_pnl(mark_price, market_config_state.quote_lot_size);
+
+    log!("pnl: {}", unrealised_pnl);
     let equity = user_account_state
         .collateral
         .checked_add(unrealised_pnl)
         .ok_or(ProgramError::ArithmeticOverflow)?;
+    log!("equity: {}", equity);
 
     if equity >= 0 {
         return Err(RiskProgramError::NotInBadDebt.into());
     }
 
+    log!("shortfall");
     let shortfall = equity.unsigned_abs() as u64;
+    log!("shortfall: {}", shortfall);
 
     let mut insurance_data = insurance_fund.try_borrow_mut()?;
     let insurance_state =
         bytemuck::from_bytes_mut::<InsuranceFund>(&mut insurance_data[..InsuranceFund::LEN]);
 
+    log!("insurance balance: {}", insurance_state.balance);
+    log!("shortfall: {}", shortfall);
+    log!("equity: {}", equity);
+    log!("unrealised_pnl: {}", unrealised_pnl);
+    log!("collateral: {}", user_account_state.collateral);
     let uncovered = insurance_state.cover_bad_debt(shortfall);
 
     user_account_state.collateral = 0;
