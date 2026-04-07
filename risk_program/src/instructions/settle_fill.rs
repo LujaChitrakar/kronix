@@ -56,7 +56,7 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
         verify_account_owner(funding_state, &crate::ID)?;
     }
 
-    let params = bytemuck::try_from_bytes::<SettleFillParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<SettleFillParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     let market_config_data = market_config.try_borrow()?;

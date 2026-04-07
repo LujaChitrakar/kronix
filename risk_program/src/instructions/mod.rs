@@ -40,7 +40,7 @@ pub enum RiskProgramInstruction {
     ClosePosition = 6,
     AddMargin = 7,
     RemoveMargin = 8,
-    SettleFill = 9, //LEFT
+    SettleFill = 9,
     SettleFunding = 10,
     UpdateFundingRate = 11, //LEFT
     Liquidate = 12,

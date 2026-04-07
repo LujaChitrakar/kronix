@@ -1,5 +1,5 @@
 use litesvm::LiteSVM;
-use litesvm_token::{CreateAccount, CreateAssociatedTokenAccount, CreateMint, MintTo, spl_token};
+use litesvm_token::{CreateAccount, CreateMint, MintTo, spl_token};
 
 use solana_address::{Address, address};
 use solana_clock::Clock;
@@ -18,9 +18,10 @@ use crate::{
     instructions::{
         AddMarginParams, ClosePositionParams, CoverBadDebtParams, CreateMarketParams,
         DepositParams, InitInsuranceFundParams, InitializeVaultParams, LiquidateParams,
-        OpenPositionParams, RemoveMarginParams, UpdateFundingRateParams, WithdrawParams,
+        OpenPositionParams, RemoveMarginParams, SettleFillParams, UpdateFundingRateParams,
+        WithdrawParams,
     },
-    state::{FundingState, InsuranceFund, MarketConfig, Position, UserAccount},
+    state::{MarketConfig, Position, UserAccount},
 };
 
 pub const PROGRAM_ID: Address = address!("2c88D4ELFGsJnxTvxWGY92GqcE7RNqXwXPMFjTXhnxLQ");
@@ -284,7 +285,7 @@ pub fn open_position(
 
     let (user_account_pda, bump_user) =
         Address::find_program_address(&[USER_ACCOUNT_SEED, &signer_key], &PROGRAM_ID);
-    let (market_config_pda, bump_market_config) = Address::find_program_address(
+    let (market_config_pda, _) = Address::find_program_address(
         &[MARKET_CONFIG_SEED, market_index_bytes.as_ref()],
         &PROGRAM_ID,
     );
@@ -496,7 +497,6 @@ pub fn remove_margin(svm: &mut LiteSVM, payer: &Keypair, market_index: u16, amou
 }
 
 pub fn update_funding_rate(svm: &mut LiteSVM, payer: &Keypair, market_index: u16, mark_price: i64) {
-    let signer_key = payer.pubkey().to_bytes();
     let market_index_bytes = market_index.to_le_bytes();
 
     let clock: Clock = svm.get_sysvar();
@@ -564,7 +564,7 @@ pub fn settle_funding(svm: &mut LiteSVM, payer: &Keypair, market_index: u16) {
         &PROGRAM_ID,
     );
 
-    let mut ix_data = vec![10u8];
+    let ix_data = vec![10u8];
 
     let accounts = vec![
         AccountMeta::new(payer.pubkey(), true),
@@ -608,8 +608,8 @@ pub fn liquidate(svm: &mut LiteSVM, payer: &Keypair, market_index: u16, mint: &A
     let (authority_pda, bump_authority) =
         Address::find_program_address(&[VAULT_AUTHORITY_SEED], &PROGRAM_ID);
 
-    let (vault_pda, bump_vault) = Address::find_program_address(&[VAULT_SEED], &PROGRAM_ID);
-    let (insurance_pda, bump) = Address::find_program_address(&[INSURANCE_SEED], &PROGRAM_ID);
+    let (vault_pda, _) = Address::find_program_address(&[VAULT_SEED], &PROGRAM_ID);
+    let (insurance_pda, _) = Address::find_program_address(&[INSURANCE_SEED], &PROGRAM_ID);
 
     let market_account = svm
         .get_account(&market_config_pda)
@@ -723,6 +723,76 @@ pub fn cover_bad_debt(svm: &mut LiteSVM, caller: &Keypair, user: &Keypair, marke
     let ua_data = svm.get_account(&user_account_pda).unwrap();
     let ua = bytemuck::from_bytes::<UserAccount>(&ua_data.data[..UserAccount::LEN]);
     assert_eq!(ua.collateral, 0, "Collateral should be zeroed");
+}
+
+pub fn settle_fill(
+    svm: &mut LiteSVM,
+    caller: &Keypair, // acts as orderbook_program signer in tests
+    market_index: u16,
+    price_lots: i64,
+    base_lots: i64,
+    is_taker: u8,
+    taker_side: u8,
+    maker_pubkey: [u8; 32],
+    taker_pubkey: [u8; 32],
+) {
+    let market_index_bytes = market_index.to_le_bytes();
+    let trader_pubkey = if is_taker == 1 {
+        taker_pubkey
+    } else {
+        maker_pubkey
+    };
+    let (user_account_pda, bump_user) =
+        Address::find_program_address(&[USER_ACCOUNT_SEED, trader_pubkey.as_ref()], &PROGRAM_ID);
+    let (position_pda, bump_position) = Address::find_program_address(
+        &[
+            POSITION_SEED,
+            trader_pubkey.as_ref(),
+            market_index_bytes.as_ref(),
+        ],
+        &PROGRAM_ID,
+    );
+    let (market_config_pda, _) = Address::find_program_address(
+        &[MARKET_CONFIG_SEED, market_index_bytes.as_ref()],
+        &PROGRAM_ID,
+    );
+    let (funding_pda, _) =
+        Address::find_program_address(&[FUNDING_SEED, market_index_bytes.as_ref()], &PROGRAM_ID);
+
+    let params = SettleFillParams {
+        price_lots,
+        base_lots,
+        market_index,
+        is_taker,
+        taker_side,
+        bump_position,
+        bump_user,
+        padding: [0u8; 2],
+        maker_pubkey,
+        taker_pubkey,
+    };
+
+    let mut ix_data = vec![9u8]; // SettleFill discriminator
+    ix_data.extend_from_slice(bytemuck::bytes_of(&params));
+
+    let accounts = vec![
+        AccountMeta::new(caller.pubkey(), true), // orderbook_program signer
+        AccountMeta::new(user_account_pda, false),
+        AccountMeta::new(position_pda, false),
+        AccountMeta::new(market_config_pda, false),
+        AccountMeta::new(funding_pda, false),
+        AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
+    ];
+
+    let ix = Instruction {
+        program_id: PROGRAM_ID,
+        accounts,
+        data: ix_data,
+    };
+    let msg = Message::new(&[ix], Some(&caller.pubkey()));
+    let tx = Transaction::new(&[caller], msg, svm.latest_blockhash());
+    let result = svm.send_transaction(tx);
+    assert!(result.is_ok(), "Failed to settle fill: {:?}", result.err());
 }
 
 // EXTRA HELPERS
