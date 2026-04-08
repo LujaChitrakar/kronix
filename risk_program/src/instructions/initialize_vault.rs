@@ -1,19 +1,20 @@
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{
-    AccountView, Address, ProgramResult,
     cpi::{Seed, Signer},
     error::ProgramError,
-    sysvars::{Sysvar, rent::Rent},
+    sysvars::{rent::Rent, Sysvar},
+    AccountView, Address, ProgramResult,
 };
 use pinocchio_system::instructions::CreateAccount;
 use pinocchio_token::instructions::InitializeAccount3;
+use shank::ShankType;
 
 use crate::{
     constants::{VAULT_AUTHORITY_SEED, VAULT_SEED},
     helper::{verify_pda, verify_program_id, verify_signer, verify_uninitialized},
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct InitializeVaultParams {
     pub vault_bump: u8,

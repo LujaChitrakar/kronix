@@ -4,7 +4,7 @@ use crate::instructions::{
     process_cancel_all_orders, process_cancel_order, process_cancel_order_by_client_id,
     process_claim_fill, process_create_market, process_create_open_orders_account,
     process_edit_order, process_place_order, process_place_take_order, process_prune_orders,
-    OrderbookInstruction,
+    OrderbookProgramInstruction,
 };
 use pinocchio::{
     default_panic_handler, error::ProgramError, no_allocator, program_entrypoint, AccountView,
@@ -30,21 +30,21 @@ fn process_instruction(
         .split_first()
         .ok_or(ProgramError::InvalidInstructionData)?;
 
-    match OrderbookInstruction::try_from(disc)? {
-        OrderbookInstruction::CreateMarket => process_create_market(accounts, data)?,
-        OrderbookInstruction::CreateOpenOrdersAccount => {
+    match OrderbookProgramInstruction::try_from(disc)? {
+        OrderbookProgramInstruction::CreateMarket => process_create_market(accounts, data)?,
+        OrderbookProgramInstruction::CreateOpenOrdersAccount => {
             process_create_open_orders_account(accounts, data)?
         }
-        OrderbookInstruction::PlaceOrder => process_place_order(accounts, data)?,
-        OrderbookInstruction::PlaceTakeOrder => process_place_take_order(accounts, data)?,
-        OrderbookInstruction::CancelOrder => process_cancel_order(accounts, data)?,
-        OrderbookInstruction::CancelOrderByClientId => {
+        OrderbookProgramInstruction::PlaceOrder => process_place_order(accounts, data)?,
+        OrderbookProgramInstruction::PlaceTakeOrder => process_place_take_order(accounts, data)?,
+        OrderbookProgramInstruction::CancelOrder => process_cancel_order(accounts, data)?,
+        OrderbookProgramInstruction::CancelOrderByClientId => {
             process_cancel_order_by_client_id(accounts, data)?
         }
-        OrderbookInstruction::CancelAllOrders => process_cancel_all_orders(accounts, data)?,
-        OrderbookInstruction::EditOrder => process_edit_order(accounts, data)?,
-        OrderbookInstruction::ClaimFill => process_claim_fill(accounts, data)?,
-        OrderbookInstruction::PruneOrders => process_prune_orders(accounts, data)?,
+        OrderbookProgramInstruction::CancelAllOrders => process_cancel_all_orders(accounts, data)?,
+        OrderbookProgramInstruction::EditOrder => process_edit_order(accounts, data)?,
+        OrderbookProgramInstruction::ClaimFill => process_claim_fill(accounts, data)?,
+        OrderbookProgramInstruction::PruneOrders => process_prune_orders(accounts, data)?,
     }
     Ok(())
 }

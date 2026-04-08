@@ -12,6 +12,8 @@ use crate::{
 };
 
 #[cfg(test)]
+pub mod client;
+#[cfg(test)]
 pub mod helper;
 
 #[test]

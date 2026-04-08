@@ -27,12 +27,28 @@ use crate::{
 pub const PROGRAM_ID: Address = address!("2c88D4ELFGsJnxTvxWGY92GqcE7RNqXwXPMFjTXhnxLQ");
 
 pub fn setup() -> (LiteSVM, Keypair, Keypair, Address) {
+    #[cfg(not(feature = "devnet"))]
     let mut svm = LiteSVM::new();
+
+    #[cfg(feature = "devnet")]
+    let mut svm = LiteSVM::new_with_rpc("https://api.devnet.solana.com");
+    
+    #[cfg(not(feature = "devnet"))]
     let user1 = Keypair::new();
+    
+    #[cfg(feature = "devnet")]
+    let user1 = solana_sdk::signature::read_keypair_file(
+        std::env::var("HOME").unwrap() + "/.config/solana/id.json"
+    ).unwrap();
     let user2 = Keypair::new();
 
-    let oracle = Keypair::new().pubkey();
+    #[cfg(not(feature = "devnet"))]
+    let oracle = Keypair::new().pubkey(); // mock
 
+    #[cfg(feature = "devnet")]
+    let oracle = address!("0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d");
+
+    #[cfg(not(feature = "devnet"))]
     svm.airdrop(&user1.pubkey(), 10 * LAMPORTS_PER_SOL).unwrap();
     svm.airdrop(&user2.pubkey(), 10 * LAMPORTS_PER_SOL).unwrap();
 
@@ -40,6 +56,7 @@ pub fn setup() -> (LiteSVM, Keypair, Keypair, Address) {
         env!("CARGO_MANIFEST_DIR"),
         "/target/sbpf-solana-solana/release/risk_program.so"
     ));
+    #[cfg(not(feature = "devnet"))]
     svm.add_program(PROGRAM_ID, program_bytes).unwrap();
 
     (svm, user1, user2, oracle)

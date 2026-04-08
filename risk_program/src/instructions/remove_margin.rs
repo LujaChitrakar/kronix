@@ -1,9 +1,10 @@
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{
-    AccountView, ProgramResult,
     error::ProgramError,
-    sysvars::{Sysvar, clock::Clock},
+    sysvars::{clock::Clock, Sysvar},
+    AccountView, ProgramResult,
 };
+use shank::ShankType;
 
 use crate::{
     errors::RiskProgramError,
@@ -12,7 +13,7 @@ use crate::{
     state::{MarketConfig, Position, UserAccount},
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct RemoveMarginParams {
     pub amount: i64, // USDC native units to remove as margin
@@ -21,15 +22,7 @@ pub struct RemoveMarginParams {
 }
 
 pub fn process_remove_margin(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [
-        signer,
-        user_account,
-        position,
-        market_config,
-        oracle,
-        _remaining @ ..,
-    ] = accounts
-    else {
+    let [signer, user_account, position, market_config, oracle, _remaining @ ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 
@@ -59,9 +52,9 @@ pub fn process_remove_margin(accounts: &[AccountView], data: &[u8]) -> ProgramRe
     }
 
     // uncomment during oracle tests
-    // let validated = validate_pyth_price(oracle, clock.slot, &market_config_state.oracle)?;
+    let mark_price = validate_pyth_price(oracle, clock.unix_timestamp)?;
     // let mark_price = validated.price;
-    let mark_price: i64 = 10;
+    // let mark_price: i64 = 10;
 
     let mut user_account_data = user_account.try_borrow_mut()?;
     let user_account_state =

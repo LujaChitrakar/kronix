@@ -1,4 +1,5 @@
 use pinocchio::error::ProgramError;
+use shank::ShankInstruction;
 
 pub mod cancel_all_orders;
 pub mod cancel_order;
@@ -21,133 +22,123 @@ pub use edit_order::*;
 pub use place_order::*;
 pub use place_take_order::*;
 pub use prune_orders::*;
-use shank::ShankInstruction;
 
 #[derive(ShankInstruction)]
-#[repr(u8)]
 pub enum OrderbookInstruction {
-    #[account(0, writable, signer, name = "payer", desc = "Payer")]
-    #[account(1, writable, name = "market", desc = "Market account")]
-    #[account(2, writable, name = "bids", desc = "Bids account")]
-    #[account(3, writable, name = "asks", desc = "Asks account")]
+    #[account(0, name = "payer", desc = "Fee payer", signer, writable)]
+    #[account(1, name = "market", desc = "Market state PDA", writable)]
+    #[account(2, name = "bids", desc = "Bids BookSide PDA", writable)]
+    #[account(3, name = "asks", desc = "Asks BookSide PDA", writable)]
     #[account(4, name = "system_program", desc = "System program")]
-    CreateMarket = 0,
+    CreateMarket(CreateMarketParams),
 
-    #[account(0, writable, signer, name = "payer", desc = "Payer")]
-    #[account(
-        1,
-        writable,
-        name = "open_orders_account",
-        desc = "Open orders account"
-    )]
-    #[account(2, name = "market", desc = "Market account")]
+    #[account(0, name = "payer", desc = "Fee payer", signer, writable)]
+    #[account(1, name = "open_orders_account", desc = "OO account PDA", writable)]
+    #[account(2, name = "market", desc = "Market state PDA")]
     #[account(3, name = "system_program", desc = "System program")]
+    CreateOpenOrdersAccount(CreateOpenOrdersAccountParams),
+
+    #[account(0, name = "signer", desc = "Order placer", signer, writable)]
+    #[account(1, name = "open_orders_account", desc = "Taker OO account", writable)]
+    #[account(2, name = "market", desc = "Market state PDA", writable)]
+    #[account(3, name = "bids", desc = "Bids BookSide", writable)]
+    #[account(4, name = "asks", desc = "Asks BookSide", writable)]
+    #[account(5, name = "risk_program", desc = "Risk program")]
+    #[account(6, name = "taker_user_account", desc = "Taker UserAccount", writable)]
+    #[account(7, name = "taker_position", desc = "Taker Position", writable)]
+    #[account(8, name = "market_config", desc = "Market config")]
+    #[account(9, name = "funding_state", desc = "Funding state", writable)]
+    #[account(10, name = "system_program", desc = "System program")]
+    PlaceOrder(PlaceOrderParams),
+
+    #[account(0, name = "signer", desc = "Order placer", signer)]
+    #[account(1, name = "open_orders_account", desc = "Taker OO account", writable)]
+    #[account(2, name = "market", desc = "Market state PDA", writable)]
+    #[account(3, name = "bids", desc = "Bids BookSide", writable)]
+    #[account(4, name = "asks", desc = "Asks BookSide", writable)]
+    #[account(5, name = "risk_program", desc = "Risk program")]
+    #[account(6, name = "taker_user_account", desc = "Taker UserAccount", writable)]
+    #[account(7, name = "taker_position", desc = "Taker Position", writable)]
+    #[account(8, name = "market_config", desc = "Market config")]
+    #[account(9, name = "funding_state", desc = "Funding state", writable)]
+    #[account(10, name = "system_program", desc = "System program")]
+    PlaceTakeOrder(PlaceTakeOrderParams),
+
+    #[account(0, name = "signer", desc = "Order owner", signer)]
+    #[account(1, name = "open_orders_account", desc = "OO account", writable)]
+    #[account(2, name = "market", desc = "Market state")]
+    #[account(3, name = "bids", desc = "Bids BookSide", writable)]
+    #[account(4, name = "asks", desc = "Asks BookSide", writable)]
+    CancelOrder(CancelOrderParams),
+
+    #[account(0, name = "signer", desc = "Order owner", signer)]
+    #[account(1, name = "open_orders_account", desc = "OO account", writable)]
+    #[account(2, name = "market", desc = "Market state")]
+    #[account(3, name = "bids", desc = "Bids BookSide", writable)]
+    #[account(4, name = "asks", desc = "Asks BookSide", writable)]
+    CancelOrderByClientId(CancelOrderByClientIdParams),
+
+    #[account(0, name = "signer", desc = "Order owner", signer)]
+    #[account(1, name = "open_orders_account", desc = "OO account", writable)]
+    #[account(2, name = "market", desc = "Market state")]
+    #[account(3, name = "bids", desc = "Bids BookSide", writable)]
+    #[account(4, name = "asks", desc = "Asks BookSide", writable)]
+    CancelAllOrders(CancelAllOrdersParams),
+
+    #[account(0, name = "signer", desc = "Order owner", signer, writable)]
+    #[account(1, name = "open_orders_account", desc = "OO account", writable)]
+    #[account(2, name = "market", desc = "Market state", writable)]
+    #[account(3, name = "bids", desc = "Bids BookSide", writable)]
+    #[account(4, name = "asks", desc = "Asks BookSide", writable)]
+    EditOrder(EditOrderParams),
+
+    #[account(0, name = "signer", desc = "Maker", signer)]
+    #[account(1, name = "open_orders_account", desc = "Maker OO account", writable)]
+    #[account(2, name = "market", desc = "Market state")]
+    #[account(3, name = "risk_program", desc = "Risk program")]
+    #[account(4, name = "maker_user_account", desc = "Maker UserAccount", writable)]
+    #[account(5, name = "maker_position", desc = "Maker Position", writable)]
+    #[account(6, name = "market_config", desc = "Market config")]
+    #[account(7, name = "funding_state", desc = "Funding state", writable)]
+    #[account(8, name = "system_program", desc = "System program")]
+    ClaimFill(ClaimFillParams),
+
+    #[account(0, name = "keeper", desc = "Keeper signer", signer)]
+    #[account(1, name = "market", desc = "Market state")]
+    #[account(2, name = "bids", desc = "Bids BookSide", writable)]
+    #[account(3, name = "asks", desc = "Asks BookSide", writable)]
+    PruneOrders(PruneOrdersParams),
+}
+
+#[repr(u8)]
+pub enum OrderbookProgramInstruction {
+    CreateMarket = 0,
     CreateOpenOrdersAccount = 1,
-
-    #[account(0, signer, name = "signer", desc = "Signer")]
-    #[account(
-        1,
-        writable,
-        name = "open_orders_account",
-        desc = "Open orders account"
-    )]
-    #[account(2, writable, name = "market", desc = "Market account")]
-    #[account(3, writable, name = "bids", desc = "Bids account")]
-    #[account(4, writable, name = "asks", desc = "Asks account")]
     PlaceOrder = 2,
-
-    #[account(0, signer, name = "signer", desc = "Signer")]
-    #[account(
-        1,
-        writable,
-        name = "open_orders_account",
-        desc = "Open orders account"
-    )]
-    #[account(2, writable, name = "market", desc = "Market account")]
-    #[account(3, writable, name = "bids", desc = "Bids account")]
-    #[account(4, writable, name = "asks", desc = "Asks account")]
     PlaceTakeOrder = 3,
-
-    #[account(0, signer, name = "signer", desc = "Signer")]
-    #[account(
-        1,
-        writable,
-        name = "open_orders_account",
-        desc = "Open orders account"
-    )]
-    #[account(2, writable, name = "market", desc = "Market account")]
-    #[account(3, writable, name = "bids", desc = "Bids account")]
-    #[account(4, writable, name = "asks", desc = "Asks account")]
     EditOrder = 4,
-
-    #[account(0, signer, name = "signer", desc = "Signer")]
-    #[account(
-        1,
-        writable,
-        name = "open_orders_account",
-        desc = "Open orders account"
-    )]
-    #[account(2, name = "market", desc = "Market account")]
-    #[account(3, writable, name = "bids", desc = "Bids account")]
-    #[account(4, writable, name = "asks", desc = "Asks account")]
     CancelOrder = 5,
-
-    #[account(0, signer, name = "signer", desc = "Signer")]
-    #[account(
-        1,
-        writable,
-        name = "open_orders_account",
-        desc = "Open orders account"
-    )]
-    #[account(2, name = "market", desc = "Market account")]
-    #[account(3, writable, name = "bids", desc = "Bids account")]
-    #[account(4, writable, name = "asks", desc = "Asks account")]
     CancelOrderByClientId = 6,
-
-    #[account(0, signer, name = "signer", desc = "Signer")]
-    #[account(
-        1,
-        writable,
-        name = "open_orders_account",
-        desc = "Open orders account"
-    )]
-    #[account(2, name = "market", desc = "Market account")]
-    #[account(3, writable, name = "bids", desc = "Bids account")]
-    #[account(4, writable, name = "asks", desc = "Asks account")]
     CancelAllOrders = 7,
-
-    #[account(0, signer, name = "signer", desc = "Signer")]
-    #[account(
-        1,
-        writable,
-        name = "open_orders_account",
-        desc = "Open orders account"
-    )]
-    #[account(2, name = "market", desc = "Market account")]
     ClaimFill = 8,
-
-    #[account(0, signer, name = "keeper", desc = "Keeper")]
-    #[account(1, name = "market", desc = "Market account")]
-    #[account(2, writable, name = "bids", desc = "Bids account")]
-    #[account(3, writable, name = "asks", desc = "Asks account")]
     PruneOrders = 9,
 }
 
-impl TryFrom<&u8> for OrderbookInstruction {
+impl TryFrom<&u8> for OrderbookProgramInstruction {
     type Error = ProgramError;
 
     fn try_from(value: &u8) -> Result<Self, Self::Error> {
         match value {
-            0 => Ok(OrderbookInstruction::CreateMarket),
-            1 => Ok(OrderbookInstruction::CreateOpenOrdersAccount),
-            2 => Ok(OrderbookInstruction::PlaceOrder),
-            3 => Ok(OrderbookInstruction::PlaceTakeOrder),
-            4 => Ok(OrderbookInstruction::EditOrder),
-            5 => Ok(OrderbookInstruction::CancelOrder),
-            6 => Ok(OrderbookInstruction::CancelOrderByClientId),
-            7 => Ok(OrderbookInstruction::CancelAllOrders),
-            8 => Ok(OrderbookInstruction::ClaimFill),
-            9 => Ok(OrderbookInstruction::PruneOrders),
+            0 => Ok(Self::CreateMarket),
+            1 => Ok(Self::CreateOpenOrdersAccount),
+            2 => Ok(Self::PlaceOrder),
+            3 => Ok(Self::PlaceTakeOrder),
+            4 => Ok(Self::EditOrder),
+            5 => Ok(Self::CancelOrder),
+            6 => Ok(Self::CancelOrderByClientId),
+            7 => Ok(Self::CancelAllOrders),
+            8 => Ok(Self::ClaimFill),
+            9 => Ok(Self::PruneOrders),
             _ => Err(ProgramError::InvalidInstructionData),
         }
     }

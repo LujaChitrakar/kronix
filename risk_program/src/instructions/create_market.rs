@@ -1,11 +1,12 @@
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{
-    AccountView, Address, ProgramResult,
     cpi::{Seed, Signer},
     error::ProgramError,
-    sysvars::{Sysvar, clock::Clock, rent::Rent},
+    sysvars::{clock::Clock, rent::Rent, Sysvar},
+    AccountView, Address, ProgramResult,
 };
 use pinocchio_system::instructions::CreateAccount;
+use shank::ShankType;
 
 use crate::{
     constants::{FUNDING_SEED, MARKET_CONFIG_SEED},
@@ -14,7 +15,7 @@ use crate::{
     state::{FundingState, MarketConfig},
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct CreateMarketParams {
     pub base_lot_size: i64,
@@ -31,14 +32,7 @@ pub struct CreateMarketParams {
 }
 
 pub fn process_create_market(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [
-        payer,
-        market_config,
-        funding_state,
-        system_program,
-        _remaining @ ..,
-    ] = accounts
-    else {
+    let [payer, market_config, funding_state, system_program, _remaining @ ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
     verify_signer(payer)?;

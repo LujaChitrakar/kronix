@@ -1,11 +1,12 @@
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{
-    AccountView, Address, ProgramResult,
     cpi::{Seed, Signer},
     error::ProgramError,
-    sysvars::{Sysvar, clock::Clock, rent::Rent},
+    sysvars::{clock::Clock, rent::Rent, Sysvar},
+    AccountView, Address, ProgramResult,
 };
 use pinocchio_system::instructions::CreateAccount;
+use shank::ShankType;
 
 use crate::{
     constants::{POSITION_SEED, USER_ACCOUNT_SEED},
@@ -17,7 +18,7 @@ use crate::{
     state::{FundingState, MarketConfig, Position, UserAccount},
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct OpenPositionParams {
     pub size_lots: i64,    // base lots
@@ -30,16 +31,8 @@ pub struct OpenPositionParams {
 }
 
 pub fn process_open_position(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [
-        signer,
-        user_account,
-        position,
-        market_config,
-        funding_state,
-        oracle,
-        system_program,
-        _remaining @ ..,
-    ] = accounts
+    let [signer, user_account, position, market_config, funding_state, oracle, system_program, _remaining @ ..] =
+        accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
@@ -76,11 +69,7 @@ pub fn process_open_position(accounts: &[AccountView], data: &[u8]) -> ProgramRe
         return Err(RiskProgramError::InvalidMarketIndex.into());
     }
 
-    // validate oracle price uncomment this later
-    // let validated = validate_pyth_price(oracle, clock.slot, &market_config_state.oracle)?;
-    // let mark_price = validated.price;
-
-    let mark_price = 1_000;
+    let mark_price = validate_pyth_price(oracle, clock.unix_timestamp)?;
 
     // calculate required margin
     let required_margin = market_config_state.required_initial_margin(params.size_lots, mark_price);

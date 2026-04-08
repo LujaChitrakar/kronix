@@ -1,9 +1,7 @@
 use pinocchio::cpi::invoke;
 use pinocchio::instruction::{InstructionAccount, InstructionView};
 use pinocchio::{AccountView, ProgramResult};
-
 use risk_program_cpi::{SettleFillParams, SETTLE_FILL_IX};
-
 use crate::states::heap::FillEvent;
 
 pub fn settle_fill_cpi(

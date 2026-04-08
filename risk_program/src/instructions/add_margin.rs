@@ -1,5 +1,6 @@
 use bytemuck::{Pod, Zeroable};
-use pinocchio::{AccountView, ProgramResult, error::ProgramError};
+use pinocchio::{error::ProgramError, AccountView, ProgramResult};
+use shank::ShankType;
 
 use crate::{
     errors::RiskProgramError,
@@ -7,7 +8,7 @@ use crate::{
     state::{MarketConfig, Position, UserAccount},
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct AddMarginParams {
     pub amount: i64, // USDC native units to add as margin
@@ -16,14 +17,7 @@ pub struct AddMarginParams {
 }
 
 pub fn process_add_margin(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [
-        signer,
-        user_account,
-        position,
-        market_config,
-        _remaining @ ..,
-    ] = accounts
-    else {
+    let [signer, user_account, position, market_config, _remaining @ ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 

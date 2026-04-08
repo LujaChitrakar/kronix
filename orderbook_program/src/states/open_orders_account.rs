@@ -1,6 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 use pinocchio::error::ProgramError;
-use shank::ShankAccount;
+use shank::{ShankAccount, ShankType};
 
 use crate::{
     constants::MAX_OPEN_ORDERS,
@@ -8,16 +8,16 @@ use crate::{
     states::{BookSide, LeafNode, Side},
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankAccount)]
 #[repr(C)]
 pub struct OpenOrdersAccount {
-    pub owner: [u8; 32],                           // 32
-    pub market: [u8; 32],                          // 32
-    pub delegate: [u8; 32],                        // 32 — [0;32] = no delegate
-    pub bump: u8,                                  // 1
-    pub padding: [u8; 7],                          // 7
-    pub open_orders: [OpenOrder; MAX_OPEN_ORDERS], // 24 * 40 = 960
-    pub reserved: [u8; 32],                        // 32
+    pub owner: [u8; 32],              // 32
+    pub market: [u8; 32],             // 32
+    pub delegate: [u8; 32],           // 32 — [0;32] = no delegate
+    pub bump: u8,                     // 1
+    pub padding: [u8; 7],             // 7
+    pub open_orders: [OpenOrder; 24], // 24 * 40 = 960
+    pub reserved: [u8; 32],           // 32
 }
 
 const _: () = assert!(
@@ -135,7 +135,7 @@ impl OpenOrdersAccount {
     }
 }
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct OpenOrder {
     pub id: [u8; 16],

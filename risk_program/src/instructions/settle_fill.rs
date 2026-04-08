@@ -1,11 +1,12 @@
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{
-    AccountView, Address, ProgramResult,
     cpi::{Seed, Signer},
     error::ProgramError,
-    sysvars::{Sysvar, rent::Rent},
+    sysvars::{rent::Rent, Sysvar},
+    AccountView, Address, ProgramResult,
 };
 use pinocchio_system::instructions::CreateAccount;
+use shank::ShankType;
 
 use crate::{
     constants::{POSITION_SEED, USER_ACCOUNT_SEED},
@@ -15,7 +16,7 @@ use crate::{
     state::{FundingState, MarketConfig, Position, UserAccount},
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct SettleFillParams {
     pub price_lots: i64, // fill price in price lots

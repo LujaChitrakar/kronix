@@ -1,7 +1,10 @@
-use pinocchio::error::ProgramError;
+use pinocchio::{AccountView, error::ProgramError};
 
 use crate::{
-    constants::{MAX_CONF_RATIO_BPS, MAX_PRICE_AGE_SLOTS},
+    constants::{
+        FEED_ID, MAX_CONF_RATIO_BPS, MAX_PRICE_AGE_SLOTS, PRICE_ACC_LEN, PRICE_ACC_OFFSET_CONF,
+        PRICE_ACC_OFFSET_EXPONENT, PRICE_ACC_OFFSET_FEED_ID, PRICE_ACC_OFFSET_PRICE,
+    },
     errors::RiskProgramError,
 };
 
@@ -14,50 +17,63 @@ pub struct ValidatedPrice {
 /// Validate a Pyth price feed account
 /// Must be called before using any price in risk calculations
 pub fn validate_pyth_price(
-    oracle_account: &pinocchio::AccountView,
-    current_slot: u64,
-    expected_feed: &[u8; 32],
-) -> Result<ValidatedPrice, ProgramError> {
-    // 1. Verify this is the expected oracle feed
-    if oracle_account.address().as_array() != expected_feed {
-        return Err(RiskProgramError::InvalidOracle.into());
+    price_account: &AccountView,
+    _clock_unix_timestamp: i64,
+) -> Result<i64, ProgramError> {
+    let data = price_account.try_borrow()?;
+
+    if data.len() < PRICE_ACC_LEN {
+        return Err(ProgramError::InvalidAccountData);
     }
 
-    // 2. Read raw price data
-    // Pyth account layout — manual deserialization
-    let data = oracle_account.try_borrow()?;
+    let feed_id = &data[PRICE_ACC_OFFSET_FEED_ID..PRICE_ACC_OFFSET_FEED_ID + 32];
+    // if feed_id != FEED_ID {
+    //     return Err(MakerError::InvalidFeedId.into());
+    // }
 
-    if data.len() < 208 {
-        return Err(RiskProgramError::InvalidOracle.into());
-    }
+    let raw_price = i64::from_le_bytes(
+        data[PRICE_ACC_OFFSET_PRICE..PRICE_ACC_OFFSET_PRICE + 8]
+            .try_into()
+            .map_err(|_| ProgramError::InvalidAccountData)?,
+    );
 
-    // Pyth price account magic check
-    let magic = u32::from_le_bytes(data[0..4].try_into().unwrap());
-    if magic != 0xa1b2c3d4 {
-        return Err(RiskProgramError::InvalidOracle.into());
-    }
+    let _ = u64::from_le_bytes(
+        data[PRICE_ACC_OFFSET_CONF..PRICE_ACC_OFFSET_CONF + 8]
+            .try_into()
+            .map_err(|_| ProgramError::InvalidAccountData)?,
+    );
 
-    // Read price, conf, and publish slot
-    // Offsets from Pyth price account layout
-    let price = i64::from_le_bytes(data[208..216].try_into().unwrap());
-    let conf = u64::from_le_bytes(data[216..224].try_into().unwrap());
-    let slot = u64::from_le_bytes(data[136..144].try_into().unwrap());
+    let exponent = i32::from_le_bytes(
+        data[PRICE_ACC_OFFSET_EXPONENT..PRICE_ACC_OFFSET_EXPONENT + 4]
+            .try_into()
+            .map_err(|_| ProgramError::InvalidAccountData)?,
+    );
 
-    // 3. Staleness check
-    let age = current_slot.saturating_sub(slot);
-    if age > MAX_PRICE_AGE_SLOTS {
-        return Err(RiskProgramError::StalePriceFeed.into());
-    }
+    // let publish_time = i64::from_le_bytes(
+    //     data[PRICE_ACC_OFFSET_PUBLISH_TIME..PRICE_ACC_OFFSET_PUBLISH_TIME + 8]
+    //         .try_into()
+    //         .map_err(|_| MakerError::InvalidAccountData)?,
+    // );
+    //
+    // if clock_unix_timestamp.saturating_sub(publish_time) > MAX_PRICE_AGE {
+    //     return Err(MakerError::StalePythPrice.into());
+    // }
 
-    // 4. Confidence interval check
-    // conf/price < MAX_CONF_RATIO_BPS / 10_000
-    if price <= 0 {
-        return Err(RiskProgramError::InvalidOraclePrice.into());
-    }
-    let conf_ratio_bps = conf * 10_000 / price.unsigned_abs();
-    if conf_ratio_bps > MAX_CONF_RATIO_BPS {
-        return Err(RiskProgramError::OracleConfidenceTooWide.into());
-    }
+    let scale_exp: i32 = 6 + exponent; // target expo (6) + pyth expo
 
-    Ok(ValidatedPrice { price, conf, slot })
+    let normalized = if scale_exp >= 0 {
+        // multiply
+        let scale = 10i64.pow(scale_exp as u32);
+        raw_price
+            .checked_mul(scale)
+            .ok_or(ProgramError::ArithmeticOverflow)?
+    } else {
+        // divide
+        let scale = 10i64.pow((-scale_exp) as u32);
+        raw_price
+            .checked_div(scale)
+            .ok_or(ProgramError::ArithmeticOverflow)?
+    };
+
+    Ok(normalized)
 }

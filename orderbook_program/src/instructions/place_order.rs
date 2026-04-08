@@ -4,6 +4,7 @@ use pinocchio::{
     sysvars::{clock::Clock, Sysvar},
     AccountView, ProgramResult,
 };
+use shank::ShankType;
 
 use crate::{
     constants::{MARKET_SEED, MAX_FILLS_PER_ORDER, OPEN_ORDERS_SEED},
@@ -18,7 +19,7 @@ use crate::{
     },
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct PlaceOrderParams {
     pub max_base_lots: i64,

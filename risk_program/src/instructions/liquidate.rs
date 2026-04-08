@@ -1,15 +1,16 @@
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{
-    AccountView, ProgramResult,
     cpi::{Seed, Signer},
     error::ProgramError,
-    sysvars::{Sysvar, clock::Clock},
+    sysvars::{clock::Clock, Sysvar},
+    AccountView, ProgramResult,
 };
 use pinocchio_log::log;
 use pinocchio_token::instructions::Transfer;
+use shank::ShankType;
 
 use crate::{
-    constants::{VAULT_AUTHORITY_SEED, VAULT_SEED},
+    constants::VAULT_AUTHORITY_SEED,
     errors::RiskProgramError,
     helper::{verify_account_owner, verify_program_id, verify_signer, verify_writtable},
     instructions::settle_funding_internal,
@@ -18,7 +19,7 @@ use crate::{
 };
 
 // CALLED BY Crankers
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct LiquidateParams {
     pub market_index: u16,
@@ -72,9 +73,9 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
         return Err(RiskProgramError::InvalidMarketIndex.into());
     }
     // uncommet during oracle fixed
-    // let validated = validate_pyth_price(oracle, clock.slot, &market_config_state.oracle)?;
+    let mark_price = validate_pyth_price(oracle, clock.unix_timestamp)?;
     // let mark_price = validated.price;
-    let mark_price: i64 = 100;
+    // let mark_price: i64 = 100;
 
     let mut position_data = position.try_borrow_mut()?;
     let position_state = bytemuck::from_bytes_mut::<Position>(&mut position_data[..Position::LEN]);

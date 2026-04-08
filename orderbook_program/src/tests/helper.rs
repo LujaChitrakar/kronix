@@ -3,11 +3,15 @@ use solana_address::{address, Address};
 use solana_keypair::Keypair;
 use solana_message::{AccountMeta, Instruction, Message};
 use solana_native_token::LAMPORTS_PER_SOL;
+use solana_sdk_ids::system_program;
 use solana_signer::Signer;
 use solana_transaction::Transaction;
 
 use crate::{
-    constants::{ASKS_SEED, BIDS_SEED, MARKET_SEED, OPEN_ORDERS_SEED},
+    constants::{
+        ASKS_SEED, BIDS_SEED, FUNDING_SEED, MARKET_CONFIG_SEED, MARKET_SEED, OPEN_ORDERS_SEED,
+        POSITION_SEED, USER_ACCOUNT_SEED,
+    },
     instructions::{
         CancelAllOrdersParams, CancelOrderByClientIdParams, CancelOrderParams, ClaimFillParams,
         CreateMarketParams, CreateOpenOrdersAccountParams, EditOrderParams, PlaceOrderParams,
@@ -17,6 +21,7 @@ use crate::{
 };
 
 pub const PROGRAM_ID: Address = address!("j8VeDggFuwtiCjM8uo7am8i1bWWH2sj7mBRxqTaZniU");
+pub const RISK_PROGRAM_ID: Address = address!("C8kAYt7vpmFxhguEJxbg6hMZY3LLNYACrU8mKveZ8eMu");
 
 pub fn setup() -> (LiteSVM, Keypair, Keypair) {
     let mut svm = LiteSVM::new();
@@ -33,6 +38,11 @@ pub fn setup() -> (LiteSVM, Keypair, Keypair) {
     ));
     svm.add_program(PROGRAM_ID, program_bytes)
         .expect("Failed to add program");
+    let risk_bytes = include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../risk_program/target/sbpf-solana-solana/release/risk_program.so"
+    ));
+    svm.add_program(RISK_PROGRAM_ID, risk_bytes).unwrap();
     (svm, user1, user2)
 }
 
@@ -147,8 +157,9 @@ pub fn place_order(
     client_order_id: u64,
     price_lots: i64,
     maker_oo: Option<Address>,
-) -> u8 {
+) {
     let payer = user;
+    let signer_key = payer.pubkey().to_bytes();
     let market_index_bytes = market_index.to_le_bytes();
     let (market_pda, _) =
         Address::find_program_address(&[MARKET_SEED, &market_index_bytes], &PROGRAM_ID);
@@ -166,16 +177,29 @@ pub fn place_order(
     let (asks_pda, _) =
         Address::find_program_address(&[ASKS_SEED, &market_index_bytes], &PROGRAM_ID);
 
+    let (taker_user_account_pda, bump_user) =
+        Address::find_program_address(&[USER_ACCOUNT_SEED, &signer_key], &RISK_PROGRAM_ID);
+    let (taker_position_pda, bump_position) = Address::find_program_address(
+        &[POSITION_SEED, &signer_key, &market_index_bytes],
+        &RISK_PROGRAM_ID,
+    );
+    let (market_config_pda, _) =
+        Address::find_program_address(&[MARKET_CONFIG_SEED, &market_index_bytes], &RISK_PROGRAM_ID);
+    let (funding_pda, _) =
+        Address::find_program_address(&[FUNDING_SEED, &market_index_bytes], &RISK_PROGRAM_ID);
+
     let params = PlaceOrderParams {
-        side: side,
-        order_type,
-        limit: 10,
-        padding: [0u8; 5],
         max_base_lots: 10,
         max_quote_lots: 1000,
         client_order_id,
         expiry_timestamp: 0,
         price_lots,
+        side: side,
+        order_type,
+        limit: 10,
+        bump_position,
+        bump_user,
+        padding: [0u8; 3],
     };
 
     let mut ix_data = vec![2u8];
@@ -187,6 +211,12 @@ pub fn place_order(
         AccountMeta::new(market_pda, false),
         AccountMeta::new(bids_pda, false),
         AccountMeta::new(asks_pda, false),
+        AccountMeta::new(RISK_PROGRAM_ID, false),
+        AccountMeta::new(taker_user_account_pda, false),
+        AccountMeta::new(taker_position_pda, false),
+        AccountMeta::new(market_config_pda, false),
+        AccountMeta::new(funding_pda, false),
+        AccountMeta::new_readonly(system_program::ID, false),
     ];
 
     if let Some(maker_oo_pda) = maker_oo {
@@ -212,8 +242,6 @@ pub fn place_order(
         "Failed to create open orders account: {:?}",
         result.err()
     );
-
-    side
 }
 
 pub fn cancel_order(svm: &mut LiteSVM, market_index: &u16, user: &Keypair, side: u8) -> [u8; 16] {
@@ -285,10 +313,18 @@ pub fn cancel_order(svm: &mut LiteSVM, market_index: &u16, user: &Keypair, side:
 
 pub fn claim_fill(svm: &mut LiteSVM, market_index: &u16, user: &Keypair, maker_oo_pda: Address) {
     let payer = user;
+
+    let signer_key = payer.pubkey().to_bytes();
     let market_index_bytes = market_index.to_le_bytes();
 
     let (market_pda, _) =
         Address::find_program_address(&[MARKET_SEED, &market_index_bytes], &PROGRAM_ID);
+    let (position_pda, bump_position) = Address::find_program_address(
+        &[POSITION_SEED, &signer_key, market_index_bytes.as_ref()],
+        &PROGRAM_ID,
+    );
+    let (user_account_pda, bump_user) =
+        Address::find_program_address(&[USER_ACCOUNT_SEED, &signer_key], &PROGRAM_ID);
 
     let maker_oo_data = svm.get_account(&maker_oo_pda).expect("Maker OO not found");
     let maker_oo_state =
@@ -303,7 +339,9 @@ pub fn claim_fill(svm: &mut LiteSVM, market_index: &u16, user: &Keypair, maker_o
 
     let params = ClaimFillParams {
         order_slot: slot as u8,
-        padding: [0u8; 7],
+        bump_position,
+        bump_user,
+        padding: [0u8; 5],
     };
 
     let mut ix_data = vec![8u8];
@@ -474,6 +512,8 @@ pub fn edit_order(
     expiry_timestamp: u64,
 ) {
     let payer = user;
+
+    let signer_key = payer.pubkey().to_bytes();
     let market_index_bytes = market_index.to_le_bytes();
 
     let (market_pda, _) =
@@ -491,6 +531,17 @@ pub fn edit_order(
     let (asks_pda, _) =
         Address::find_program_address(&[ASKS_SEED, &market_index_bytes], &PROGRAM_ID);
 
+    let (taker_user_account_pda, bump_user) =
+        Address::find_program_address(&[USER_ACCOUNT_SEED, &signer_key], &RISK_PROGRAM_ID);
+    let (taker_position_pda, bump_position) = Address::find_program_address(
+        &[POSITION_SEED, &signer_key, &market_index_bytes],
+        &RISK_PROGRAM_ID,
+    );
+    let (market_config_pda, _) =
+        Address::find_program_address(&[MARKET_CONFIG_SEED, &market_index_bytes], &RISK_PROGRAM_ID);
+    let (funding_pda, _) =
+        Address::find_program_address(&[FUNDING_SEED, &market_index_bytes], &RISK_PROGRAM_ID);
+
     let oo_account_data = svm
         .get_account(&oo_account_pda)
         .expect("OO account not found");
@@ -507,13 +558,15 @@ pub fn edit_order(
         side,
         order_type,
         limit,
-        padding: [0u8; 5],
+        padding: [0u8; 3],
         order_id,
         new_price_lots,
         new_base_lots,
         new_quote_lots,
         client_order_id,
         expiry_timestamp,
+        bump_position,
+        bump_user,
     };
 
     let mut ix_data = vec![4u8];
@@ -525,6 +578,12 @@ pub fn edit_order(
         AccountMeta::new(market_pda, false),
         AccountMeta::new(bids_pda, false),
         AccountMeta::new(asks_pda, false),
+        AccountMeta::new(RISK_PROGRAM_ID, false),
+        AccountMeta::new(taker_user_account_pda, false),
+        AccountMeta::new(taker_position_pda, false),
+        AccountMeta::new(market_config_pda, false),
+        AccountMeta::new(funding_pda, false),
+        AccountMeta::new_readonly(system_program::ID, false),
     ];
 
     let ix = Instruction {
@@ -558,6 +617,8 @@ pub fn place_take_order(
     maker_oo: Option<Address>,
 ) {
     let payer = user;
+
+    let signer_key = payer.pubkey().to_bytes();
     let market_index_bytes = market_index.to_le_bytes();
 
     let (market_pda, _) =
@@ -575,15 +636,28 @@ pub fn place_take_order(
     let (asks_pda, _) =
         Address::find_program_address(&[ASKS_SEED, &market_index_bytes], &PROGRAM_ID);
 
+    let (taker_user_account_pda, bump_user) =
+        Address::find_program_address(&[USER_ACCOUNT_SEED, &signer_key], &RISK_PROGRAM_ID);
+    let (taker_position_pda, bump_position) = Address::find_program_address(
+        &[POSITION_SEED, &signer_key, &market_index_bytes],
+        &RISK_PROGRAM_ID,
+    );
+    let (market_config_pda, _) =
+        Address::find_program_address(&[MARKET_CONFIG_SEED, &market_index_bytes], &RISK_PROGRAM_ID);
+    let (funding_pda, _) =
+        Address::find_program_address(&[FUNDING_SEED, &market_index_bytes], &RISK_PROGRAM_ID);
+
     let params = PlaceTakeOrderParams {
         side,
         order_type,
         limit,
-        padding: [0u8; 5],
+        padding: [0u8; 3],
         max_base_lots,
         max_quote_lots,
         client_order_id,
         price_lots,
+        bump_position,
+        bump_user,
     };
 
     let mut ix_data = vec![3u8];
@@ -595,6 +669,12 @@ pub fn place_take_order(
         AccountMeta::new(market_pda, false),
         AccountMeta::new(bids_pda, false),
         AccountMeta::new(asks_pda, false),
+        AccountMeta::new(RISK_PROGRAM_ID, false),
+        AccountMeta::new(taker_user_account_pda, false),
+        AccountMeta::new(taker_position_pda, false),
+        AccountMeta::new(market_config_pda, false),
+        AccountMeta::new(funding_pda, false),
+        AccountMeta::new_readonly(system_program::ID, false),
     ];
 
     if let Some(maker_oo_pda) = maker_oo {

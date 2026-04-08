@@ -1,10 +1,11 @@
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{
-    AccountView, ProgramResult,
     error::ProgramError,
-    sysvars::{Sysvar, clock::Clock},
+    sysvars::{clock::Clock, Sysvar},
+    AccountView, ProgramResult,
 };
 use pinocchio_log::log;
+use shank::ShankType;
 
 use crate::{
     errors::RiskProgramError,
@@ -14,7 +15,7 @@ use crate::{
     state::{FundingState, InsuranceFund, MarketConfig, Position, UserAccount},
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct CoverBadDebtParams {
     pub market_index: u16,
@@ -64,9 +65,9 @@ pub fn process_cover_bad_debt(accounts: &[AccountView], data: &[u8]) -> ProgramR
     }
 
     // uncomment later on oracle validation
-    // let validated = validate_pyth_price(oracle, clock.slot, &market_config_state.oracle)?;
+    let mark_price = validate_pyth_price(oracle, clock.unix_timestamp)?;
     // let mark_price = validated.price;
-    let mark_price = 100;
+    // let mark_price = 100;
 
     log!("mark_price: {}", mark_price);
     let mut position_data = position.try_borrow_mut()?;

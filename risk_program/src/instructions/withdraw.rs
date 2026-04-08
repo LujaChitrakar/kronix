@@ -1,10 +1,11 @@
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{
-    AccountView, ProgramResult,
     cpi::{Seed, Signer},
     error::ProgramError,
+    AccountView, ProgramResult,
 };
 use pinocchio_token::instructions::Transfer;
+use shank::ShankType;
 
 use crate::{
     constants::{USER_ACCOUNT_SEED, VAULT_AUTHORITY_SEED, VAULT_SEED},
@@ -13,7 +14,7 @@ use crate::{
     state::UserAccount,
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct WithdrawParams {
     pub amount: u64,
@@ -24,15 +25,8 @@ pub struct WithdrawParams {
 }
 
 pub fn process_withdraw(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [
-        signer,
-        user_account,
-        user_token_account,
-        vault,
-        vault_authority,
-        token_program,
-        _remaining @ ..,
-    ] = accounts
+    let [signer, user_account, user_token_account, vault, vault_authority, token_program, _remaining @ ..] =
+        accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };

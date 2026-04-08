@@ -1,6 +1,7 @@
 use bytemuck::{Pod, Zeroable};
+use shank::ShankAccount;
 
-#[derive(Pod, Zeroable, Copy, Clone)]
+#[derive(Pod, Zeroable, Copy, Clone, ShankAccount)]
 #[repr(C)]
 pub struct FundingState {
     pub cumulative_index: i64,  // grows every funding period

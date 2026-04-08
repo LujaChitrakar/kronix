@@ -6,6 +6,7 @@ use pinocchio::{
     AccountView, Address, ProgramResult,
 };
 use pinocchio_system::instructions::CreateAccount;
+use shank::ShankType;
 
 use crate::{
     constants::{MARKET_SEED, MAX_OPEN_ORDERS, OPEN_ORDERS_SEED},
@@ -16,7 +17,7 @@ use crate::{
     states::{MarketState, OpenOrder, OpenOrdersAccount},
 };
 
-#[derive(Pod, Zeroable, Clone, Copy, PartialEq, Eq)]
+#[derive(Pod, Zeroable, Clone, Copy, PartialEq, Eq, ShankType)]
 #[repr(C)]
 pub struct CreateOpenOrdersAccountParams {
     pub owner: [u8; 32],

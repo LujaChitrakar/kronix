@@ -1,9 +1,10 @@
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{
-    AccountView, ProgramResult,
     error::ProgramError,
-    sysvars::{Sysvar, clock::Clock},
+    sysvars::{clock::Clock, Sysvar},
+    AccountView, ProgramResult,
 };
+use shank::ShankType;
 
 use crate::{
     errors::RiskProgramError,
@@ -13,7 +14,7 @@ use crate::{
     state::{FundingState, MarketConfig, Position, UserAccount},
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct ClosePositionParams {
     pub size_lots: i64, // how many lots to close, 0 = close all
@@ -22,15 +23,8 @@ pub struct ClosePositionParams {
 }
 
 pub fn process_close_position(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [
-        signer,
-        user_account,
-        position,
-        market_config,
-        funding_state,
-        oracle,
-        _remaining @ ..,
-    ] = accounts
+    let [signer, user_account, position, market_config, funding_state, oracle, _remaining @ ..] =
+        accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
@@ -63,9 +57,9 @@ pub fn process_close_position(accounts: &[AccountView], data: &[u8]) -> ProgramR
         return Err(ProgramError::InvalidInstructionData);
     }
     // uncomment later on first testing without oracle
-    // let validated = validate_pyth_price(oracle, clock.slot, &market_config_state.oracle)?;
+    let mark_price = validate_pyth_price(oracle, clock.unix_timestamp)?;
     // let mark_price = validated.price;
-    let mark_price: i64 = 10;
+    // let mark_price: i64 = 10;
 
     let mut position_data = position.try_borrow_mut()?;
     let position_state = bytemuck::from_bytes_mut::<Position>(&mut position_data[..Position::LEN]);

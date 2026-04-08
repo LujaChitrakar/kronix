@@ -4,9 +4,11 @@ use pinocchio::{
     sysvars::{clock::Clock, Sysvar},
     AccountView, ProgramResult,
 };
+use shank::ShankType;
 
 use crate::{
     constants::{MARKET_SEED, MAX_FILLS_PER_ORDER, OPEN_ORDERS_SEED},
+    cpi::settle_fill_cpi,
     errors::OrderBookError,
     helper::{
         verify_account_owner, verify_initialized, verify_pda, verify_signer, verify_writtable,
@@ -17,33 +19,26 @@ use crate::{
     },
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct EditOrderParams {
-    pub side: u8,
-    pub order_type: u8,
-    pub limit: u8,
-    pub padding: [u8; 5],
-    pub order_id: [u8; 16],
     pub new_price_lots: i64,
     pub new_base_lots: i64,
     pub new_quote_lots: i64,
     pub client_order_id: u64,
     pub expiry_timestamp: u64,
+    pub side: u8,
+    pub order_type: u8,
+    pub limit: u8,
+    pub bump_position: u8,
+    pub bump_user: u8,
+    pub padding: [u8; 3],
+    pub order_id: [u8; 16],
 }
 
 pub fn process_edit_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [
-        signer,
-        open_orders_account,
-        market,
-        bids,
-        asks,
-        // risk_program,
-        // taker_user_account,
-        // taker_position,
-        _remaining @ ..,
-    ] = accounts
+    let [signer, open_orders_account, market, bids, asks, risk_program, taker_user_account, taker_position, market_config, funding_state, system_program, _remaining @ ..] =
+        accounts
     else {
         return Err(ProgramError::InvalidAccountData);
     };
@@ -173,6 +168,13 @@ pub fn process_edit_order(accounts: &[AccountView], data: &[u8]) -> ProgramResul
         asks: asks_state,
     };
 
+    if new_order.max_base_lots <= 0 {
+        return Err(OrderBookError::InvalidInputLotsSize.into());
+    }
+    if new_order.max_quote_lots <= 0 {
+        return Err(OrderBookError::InvalidInputLotsSize.into());
+    }
+
     // cancel existing order
     match order_book.cancel_order(
         oo_account_state,
@@ -226,17 +228,19 @@ pub fn process_edit_order(accounts: &[AccountView], data: &[u8]) -> ProgramResul
                 }
             }
         }
-
-        // TODO: CPI to risk_program::settle_fill for taker
-        // Uncomment when risk_program is built:
-        //
-        // settle_fill_cpi(
-        //     risk_program,
-        //     taker_user_account,
-        //     taker_position,
-        //     fill,
-        //     true,  // is_taker
-        // )?;
+        settle_fill_cpi(
+            risk_program,
+            taker_user_account,
+            taker_position,
+            market_config,
+            funding_state,
+            system_program,
+            fill,
+            market_state.market_index,
+            true,
+            params.bump_position,
+            params.bump_user,
+        )?;
     }
     Ok(())
 }

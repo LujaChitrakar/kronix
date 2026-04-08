@@ -2,10 +2,11 @@
 
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{
-    AccountView, ProgramResult,
     error::ProgramError,
-    sysvars::{Sysvar, clock::Clock},
+    sysvars::{clock::Clock, Sysvar},
+    AccountView, ProgramResult,
 };
+use shank::ShankType;
 
 use crate::{
     constants::FUNDING_INTERVAL_SECS,
@@ -16,7 +17,7 @@ use crate::{
     state::{FundingState, MarketConfig},
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct UpdateFundingRateParams {
     pub mark_price: i64, // off-chain computed mark price in price lots . Must be close to oracle — validated on-chain
@@ -72,9 +73,9 @@ pub fn process_update_funding_rate(accounts: &[AccountView], data: &[u8]) -> Pro
     }
 
     // uncomment after oracle integration
-    // let validated = validate_pyth_price(oracle, clock.slot, &market_config_state.oracle)?;
+    let index_price = validate_pyth_price(oracle, clock.unix_timestamp)?;
     // let index_price = validated.price;
-    let index_price = 1000;
+    // let index_price = 1000;
 
     // ── Validate mark price is reasonable ─────────────────────────
     // Mark price passed by cranker must be within 5% of oracle

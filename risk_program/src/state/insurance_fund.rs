@@ -1,6 +1,7 @@
 use bytemuck::{Pod, Zeroable};
+use shank::ShankAccount;
 
-#[derive(Pod, Zeroable, Copy, Clone)]
+#[derive(Pod, Zeroable, Copy, Clone, ShankAccount)]
 #[repr(C)]
 pub struct InsuranceFund {
     pub balance: u64,         // USDC native units

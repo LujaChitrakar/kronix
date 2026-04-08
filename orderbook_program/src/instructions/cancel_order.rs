@@ -4,6 +4,7 @@ use pinocchio::{
     sysvars::{clock::Clock, Sysvar},
     AccountView, ProgramResult,
 };
+use shank::ShankType;
 
 use crate::{
     constants::{MARKET_SEED, OPEN_ORDERS_SEED},
@@ -14,7 +15,7 @@ use crate::{
     states::{BookSide, MarketState, OpenOrdersAccount, Orderbook, Side},
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy,ShankType)]
 #[repr(C)]
 pub struct CancelOrderParams {
     pub order_id: [u8; 16],

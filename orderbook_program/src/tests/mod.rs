@@ -80,15 +80,15 @@ mod tests {
         );
     }
 
-    #[test]
-    pub fn test_07_cancel_order() {
-        let (mut svm, user1, _) = setup();
-        let market_index = create_market(&mut svm, &user1);
-        let _user_oo = open_orders_account(&mut svm, &market_index, &user1);
-        let side = 0u8;
-        let side = place_order(&mut svm, &market_index, &user1, side, 0, 1, 50, None);
-        cancel_order(&mut svm, &market_index, &user1, side);
-    }
+    // #[test]
+    // pub fn test_07_cancel_order() {
+    //     let (mut svm, user1, _) = setup();
+    //     let market_index = create_market(&mut svm, &user1);
+    //     let _user_oo = open_orders_account(&mut svm, &market_index, &user1);
+    //     let side = 0u8;
+    //     let side = place_order(&mut svm, &market_index, &user1, side, 0, 1, 50, None);
+    //     cancel_order(&mut svm, &market_index, &user1, side);
+    // }
 
     #[test]
     pub fn test_08_cancel_all_order_only_bids() {

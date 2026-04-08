@@ -4,6 +4,7 @@ use pinocchio::{
     sysvars::{clock::Clock, Sysvar},
     AccountView, ProgramResult,
 };
+use shank::ShankType;
 
 use crate::{
     constants::{MARKET_SEED, MAX_OPEN_ORDERS, OPEN_ORDERS_SEED},
@@ -11,14 +12,14 @@ use crate::{
     helper::{verify_account_owner, verify_pda, verify_signer, verify_writtable},
     states::{BookSide, MarketState, OpenOrdersAccount, Orderbook, Side},
 };
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct CancelAllOrdersParams {
+    pub client_id_filter: u64,
     pub side_filter: u8,       // 0=Bid, 1=Ask, 255=no filter
     pub has_client_filter: u8, // 1 = filter by client_id
     pub limit: u8,             // max cancels, 0 = use MAX_OPEN_ORDERS
     pub padding: [u8; 5],
-    pub client_id_filter: u64,
 }
 
 pub fn process_cancel_all_orders(accounts: &[AccountView], data: &[u8]) -> ProgramResult {

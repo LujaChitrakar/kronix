@@ -6,6 +6,7 @@ use pinocchio::{
     AccountView, Address, ProgramResult,
 };
 use pinocchio_system::instructions::CreateAccount;
+use shank::ShankType;
 
 use crate::{
     constants::{ASKS_SEED, BIDS_SEED, MARKET_SEED},
@@ -14,19 +15,19 @@ use crate::{
     states::{BookSide, MarketState, OrderTreeType},
 };
 
-#[derive(Pod, Zeroable, Clone, Copy, PartialEq, Eq)]
+#[derive(Pod, Zeroable, Clone, Copy, PartialEq, Eq, ShankType)]
 #[repr(C)]
 pub struct CreateMarketParams {
-    pub admin: [u8; 32],
+    pub base_lot_size: i64,
+    pub quote_lot_size: i64,
+    pub time_expiry: i64,
     pub market_index: u16,
     pub bump: u8,
     pub bids_bump: u8,
     pub asks_bump: u8,
     pub padding: [u8; 3],
-    pub base_lot_size: i64,
-    pub quote_lot_size: i64,
-    pub time_expiry: i64,
     pub name: [u8; 16],
+    pub admin: [u8; 32],
 }
 
 pub fn process_create_market(accounts: &[AccountView], data: &[u8]) -> ProgramResult {

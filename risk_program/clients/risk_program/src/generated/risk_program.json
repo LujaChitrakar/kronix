@@ -1,0 +1,1574 @@
+{
+  "version": "0.1.0",
+  "name": "risk_program",
+  "instructions": [
+    {
+      "name": "CreateMarket",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Fee payer"
+          ]
+        },
+        {
+          "name": "marketConfig",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "MarketConfig PDA"
+          ]
+        },
+        {
+          "name": "fundingState",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "FundingState PDA"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "System program"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "createMarketParams",
+          "type": {
+            "defined": "CreateMarketParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 0
+      }
+    },
+    {
+      "name": "InitializeInsuranceFund",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Fee payer"
+          ]
+        },
+        {
+          "name": "insuranceFund",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "InsuranceFund PDA"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "System program"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "initInsuranceFundParams",
+          "type": {
+            "defined": "InitInsuranceFundParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 1
+      }
+    },
+    {
+      "name": "InitializeVault",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Fee payer"
+          ]
+        },
+        {
+          "name": "vault",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Vault token account"
+          ]
+        },
+        {
+          "name": "vaultAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Vault authority PDA"
+          ]
+        },
+        {
+          "name": "mint",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "USDC mint"
+          ]
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Token program"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "System program"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "initializeVaultParams",
+          "type": {
+            "defined": "InitializeVaultParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 2
+      }
+    },
+    {
+      "name": "Deposit",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Depositor"
+          ]
+        },
+        {
+          "name": "userAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "UserAccount PDA"
+          ]
+        },
+        {
+          "name": "userTokenAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "User USDC ATA"
+          ]
+        },
+        {
+          "name": "vault",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Program vault"
+          ]
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Token program"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "System program"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "depositParams",
+          "type": {
+            "defined": "DepositParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 3
+      }
+    },
+    {
+      "name": "Withdraw",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "Withdrawer"
+          ]
+        },
+        {
+          "name": "userAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "UserAccount PDA"
+          ]
+        },
+        {
+          "name": "userTokenAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "User USDC ATA"
+          ]
+        },
+        {
+          "name": "vault",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Program vault"
+          ]
+        },
+        {
+          "name": "vaultAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Vault authority PDA"
+          ]
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Token program"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "withdrawParams",
+          "type": {
+            "defined": "WithdrawParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 4
+      }
+    },
+    {
+      "name": "OpenPosition",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Trader"
+          ]
+        },
+        {
+          "name": "userAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "UserAccount PDA"
+          ]
+        },
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Position PDA"
+          ]
+        },
+        {
+          "name": "marketConfig",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "MarketConfig"
+          ]
+        },
+        {
+          "name": "fundingState",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "FundingState"
+          ]
+        },
+        {
+          "name": "oracle",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Pyth oracle"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "System program"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "openPositionParams",
+          "type": {
+            "defined": "OpenPositionParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 5
+      }
+    },
+    {
+      "name": "ClosePosition",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "Trader"
+          ]
+        },
+        {
+          "name": "userAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "UserAccount PDA"
+          ]
+        },
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Position PDA"
+          ]
+        },
+        {
+          "name": "marketConfig",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "MarketConfig"
+          ]
+        },
+        {
+          "name": "fundingState",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "FundingState"
+          ]
+        },
+        {
+          "name": "oracle",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Pyth oracle"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "closePositionParams",
+          "type": {
+            "defined": "ClosePositionParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 6
+      }
+    },
+    {
+      "name": "AddMargin",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "Trader"
+          ]
+        },
+        {
+          "name": "userAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "UserAccount PDA"
+          ]
+        },
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Position PDA"
+          ]
+        },
+        {
+          "name": "marketConfig",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "MarketConfig"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "addMarginParams",
+          "type": {
+            "defined": "AddMarginParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 7
+      }
+    },
+    {
+      "name": "RemoveMargin",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "Trader"
+          ]
+        },
+        {
+          "name": "userAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "UserAccount PDA"
+          ]
+        },
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Position PDA"
+          ]
+        },
+        {
+          "name": "marketConfig",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "MarketConfig"
+          ]
+        },
+        {
+          "name": "oracle",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Pyth oracle"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "removeMarginParams",
+          "type": {
+            "defined": "RemoveMarginParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 8
+      }
+    },
+    {
+      "name": "SettleFill",
+      "accounts": [
+        {
+          "name": "orderbookProgram",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "Orderbook program"
+          ]
+        },
+        {
+          "name": "userAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "UserAccount PDA"
+          ]
+        },
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Position PDA"
+          ]
+        },
+        {
+          "name": "marketConfig",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "MarketConfig"
+          ]
+        },
+        {
+          "name": "fundingState",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "FundingState"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "System program"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "settleFillParams",
+          "type": {
+            "defined": "SettleFillParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 9
+      }
+    },
+    {
+      "name": "SettleFunding",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "Trader"
+          ]
+        },
+        {
+          "name": "userAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "UserAccount PDA"
+          ]
+        },
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Position PDA"
+          ]
+        },
+        {
+          "name": "marketConfig",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "MarketConfig"
+          ]
+        },
+        {
+          "name": "fundingState",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "FundingState"
+          ]
+        }
+      ],
+      "args": [],
+      "discriminant": {
+        "type": "u8",
+        "value": 10
+      }
+    },
+    {
+      "name": "UpdateFundingRate",
+      "accounts": [
+        {
+          "name": "cranker",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "Permissionless crank"
+          ]
+        },
+        {
+          "name": "marketConfig",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "MarketConfig"
+          ]
+        },
+        {
+          "name": "fundingState",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "FundingState"
+          ]
+        },
+        {
+          "name": "oracle",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Pyth oracle"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "updateFundingRateParams",
+          "type": {
+            "defined": "UpdateFundingRateParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 11
+      }
+    },
+    {
+      "name": "Liquidate",
+      "accounts": [
+        {
+          "name": "liquidator",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "Liquidator bot"
+          ]
+        },
+        {
+          "name": "userAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Underwater account"
+          ]
+        },
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Underwater position"
+          ]
+        },
+        {
+          "name": "marketConfig",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "MarketConfig"
+          ]
+        },
+        {
+          "name": "fundingState",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "FundingState"
+          ]
+        },
+        {
+          "name": "insuranceFund",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "InsuranceFund"
+          ]
+        },
+        {
+          "name": "vault",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Program vault"
+          ]
+        },
+        {
+          "name": "vaultAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Vault authority PDA"
+          ]
+        },
+        {
+          "name": "liquidatorTokenAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Liquidator USDC ATA"
+          ]
+        },
+        {
+          "name": "oracle",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Pyth oracle"
+          ]
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Token program"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "liquidateParams",
+          "type": {
+            "defined": "LiquidateParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 12
+      }
+    },
+    {
+      "name": "CoverBadDebt",
+      "accounts": [
+        {
+          "name": "caller",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "Anyone"
+          ]
+        },
+        {
+          "name": "userAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Bad debt account"
+          ]
+        },
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Bad debt position"
+          ]
+        },
+        {
+          "name": "marketConfig",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "MarketConfig"
+          ]
+        },
+        {
+          "name": "fundingState",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "FundingState"
+          ]
+        },
+        {
+          "name": "insuranceFund",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "InsuranceFund"
+          ]
+        },
+        {
+          "name": "oracle",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Pyth oracle"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "coverBadDebtParams",
+          "type": {
+            "defined": "CoverBadDebtParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 13
+      }
+    }
+  ],
+  "accounts": [
+    {
+      "name": "FundingState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "cumulativeIndex",
+            "type": "i64"
+          },
+          {
+            "name": "lastFundingRate",
+            "type": "i64"
+          },
+          {
+            "name": "lastUpdated",
+            "type": "i64"
+          },
+          {
+            "name": "marketIndex",
+            "type": "u16"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                5
+              ]
+            }
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "InsuranceFund",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "balance",
+            "type": "u64"
+          },
+          {
+            "name": "totalCollected",
+            "type": "u64"
+          },
+          {
+            "name": "totalPaidOut",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                7
+              ]
+            }
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "MarketConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "baseLotSize",
+            "type": "i64"
+          },
+          {
+            "name": "quoteLotSize",
+            "type": "i64"
+          },
+          {
+            "name": "marketIndex",
+            "type": "u16"
+          },
+          {
+            "name": "initialMarginBps",
+            "type": "u16"
+          },
+          {
+            "name": "maintenanceMarginBps",
+            "type": "u16"
+          },
+          {
+            "name": "liquidationFeeBps",
+            "type": "u16"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "maxLeverage",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                6
+              ]
+            }
+          },
+          {
+            "name": "oracle",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Position",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "size",
+            "type": "i64"
+          },
+          {
+            "name": "entryPrice",
+            "type": "i64"
+          },
+          {
+            "name": "entryFundingIndex",
+            "type": "i64"
+          },
+          {
+            "name": "initialMargin",
+            "type": "i64"
+          },
+          {
+            "name": "marketIndex",
+            "type": "u16"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "side",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                4
+              ]
+            }
+          },
+          {
+            "name": "owner",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "UserAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "collateral",
+            "type": "i64"
+          },
+          {
+            "name": "marginUsed",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "positionCount",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                6
+              ]
+            }
+          },
+          {
+            "name": "owner",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "AddMarginParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amount",
+            "type": "i64"
+          },
+          {
+            "name": "marketIndex",
+            "type": "u16"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                6
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ClosePositionParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "sizeLots",
+            "type": "i64"
+          },
+          {
+            "name": "marketIndex",
+            "type": "u16"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                6
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "CoverBadDebtParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "marketIndex",
+            "type": "u16"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                6
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "CreateMarketParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "baseLotSize",
+            "type": "i64"
+          },
+          {
+            "name": "quoteLotSize",
+            "type": "i64"
+          },
+          {
+            "name": "marketIndex",
+            "type": "u16"
+          },
+          {
+            "name": "initialMarginBps",
+            "type": "u16"
+          },
+          {
+            "name": "maintenanceMarginBps",
+            "type": "u16"
+          },
+          {
+            "name": "liquidationFeeBps",
+            "type": "u16"
+          },
+          {
+            "name": "bumpConfig",
+            "type": "u8"
+          },
+          {
+            "name": "bumpFunding",
+            "type": "u8"
+          },
+          {
+            "name": "maxLeverage",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                5
+              ]
+            }
+          },
+          {
+            "name": "oracle",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "DepositParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "bumpUser",
+            "type": "u8"
+          },
+          {
+            "name": "bumpVault",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                6
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitInsuranceFundParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                7
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitializeVaultParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vaultBump",
+            "type": "u8"
+          },
+          {
+            "name": "authorityBump",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                6
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "LiquidateParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "marketIndex",
+            "type": "u16"
+          },
+          {
+            "name": "bumpAuthority",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                5
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "OpenPositionParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "sizeLots",
+            "type": "i64"
+          },
+          {
+            "name": "leverageBps",
+            "type": "u16"
+          },
+          {
+            "name": "marketIndex",
+            "type": "u16"
+          },
+          {
+            "name": "side",
+            "type": "u8"
+          },
+          {
+            "name": "bumpPosition",
+            "type": "u8"
+          },
+          {
+            "name": "bumpUser",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                1
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "RemoveMarginParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amount",
+            "type": "i64"
+          },
+          {
+            "name": "marketIndex",
+            "type": "u16"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                6
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "SettleFillParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "priceLots",
+            "type": "i64"
+          },
+          {
+            "name": "baseLots",
+            "type": "i64"
+          },
+          {
+            "name": "marketIndex",
+            "type": "u16"
+          },
+          {
+            "name": "isTaker",
+            "type": "u8"
+          },
+          {
+            "name": "takerSide",
+            "type": "u8"
+          },
+          {
+            "name": "bumpPosition",
+            "type": "u8"
+          },
+          {
+            "name": "bumpUser",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                2
+              ]
+            }
+          },
+          {
+            "name": "makerPubkey",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "takerPubkey",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "UpdateFundingRateParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "markPrice",
+            "type": "i64"
+          },
+          {
+            "name": "marketIndex",
+            "type": "u16"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                6
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "WithdrawParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "bumpUser",
+            "type": "u8"
+          },
+          {
+            "name": "bumpVault",
+            "type": "u8"
+          },
+          {
+            "name": "bumpAuthority",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                5
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "origin": "shank",
+    "address": "C8kAYt7vpmFxhguEJxbg6hMZY3LLNYACrU8mKveZ8eMu"
+  }
+}

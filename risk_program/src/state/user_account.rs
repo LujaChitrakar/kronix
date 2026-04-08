@@ -1,6 +1,7 @@
 use bytemuck::{Pod, Zeroable};
+use shank::ShankAccount;
 
-#[derive(Pod, Zeroable, Copy, Clone)]
+#[derive(Pod, Zeroable, Copy, Clone, ShankAccount)]
 #[repr(C)]
 pub struct UserAccount {
     pub collateral: i64,  // total deposited USDC in native units

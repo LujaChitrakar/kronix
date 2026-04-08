@@ -4,6 +4,7 @@ use pinocchio::{
     sysvars::{clock::Clock, Sysvar},
     AccountView, ProgramResult,
 };
+use shank::ShankType;
 
 use crate::{
     constants::MARKET_SEED,
@@ -14,7 +15,7 @@ use crate::{
     states::{BookSide, MarketState},
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct PruneOrdersParams {
     pub side: u8,  // 0=Bid, 1=Ask, 255=both

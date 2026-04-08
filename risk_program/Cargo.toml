@@ -1,7 +1,7 @@
 [package]
 name = "risk_program"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "lib"]
@@ -19,9 +19,14 @@ solana-clock = "3.0.1"
 num_enum = "0.5.1"
 shank = "0.4.8"
 risk_program_cpi = { path = "../crates/risk_program_cpi" }
+pyth-solana-receiver-sdk = "1.1.0"
+
+[features]
+devnet = []
 
 [dev-dependencies]
 rand = { version = "0.8", features = ["small_rng"] }
+solana-sdk = "3.0.0"
 litesvm = "0.9.1"
 litesvm-token = "0.9.1"
 solana-instruction = "3.1.0"

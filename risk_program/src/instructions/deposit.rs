@@ -1,12 +1,13 @@
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{
-    AccountView, Address, ProgramResult,
     cpi::{Seed, Signer},
     error::ProgramError,
-    sysvars::{Sysvar, rent::Rent},
+    sysvars::{rent::Rent, Sysvar},
+    AccountView, Address, ProgramResult,
 };
 use pinocchio_system::instructions::CreateAccount;
 use pinocchio_token::instructions::Transfer;
+use shank::ShankType;
 
 use crate::{
     constants::USER_ACCOUNT_SEED,
@@ -15,7 +16,7 @@ use crate::{
     state::UserAccount,
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct DepositParams {
     pub amount: u64, // USDC native units

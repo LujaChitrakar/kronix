@@ -27,3 +27,7 @@ pub const MARKET_SEED: &[u8] = b"market";
 pub const BIDS_SEED: &[u8] = b"bids";
 pub const ASKS_SEED: &[u8] = b"asks";
 pub const OPEN_ORDERS_SEED: &[u8] = b"open_orders";
+pub const USER_ACCOUNT_SEED: &[u8] = b"user";
+pub const POSITION_SEED: &[u8] = b"position";
+pub const MARKET_CONFIG_SEED: &[u8] = b"market_config";
+pub const FUNDING_SEED: &[u8] = b"funding";
