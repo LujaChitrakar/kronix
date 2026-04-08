@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@codama/renderers-rust": "^3.0.0"
+  }
+}
