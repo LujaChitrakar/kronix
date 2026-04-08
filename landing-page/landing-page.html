@@ -1,226 +1,407 @@
-<!DOCTYPE html>
+<!doctype html>
 
-<html class="dark" lang="en"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>KRONIX | High-Performance Perpetual Futures</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "tertiary-container": "#d9e5e1",
-                        "background": "#121319",
-                        "on-surface": "#e3e1ea",
-                        "on-error": "#690005",
-                        "tertiary-fixed": "#d9e5e1",
-                        "surface-bright": "#383940",
-                        "primary-fixed": "#4dffb4",
-                        "tertiary-fixed-dim": "#bdc9c5",
-                        "on-tertiary-fixed": "#131e1b",
-                        "secondary-container": "#394d46",
-                        "surface-container-low": "#1a1b21",
-                        "error": "#ffb4ab",
-                        "surface-container-highest": "#34343b",
-                        "on-primary-fixed-variant": "#005234",
-                        "outline": "#859589",
-                        "surface-container": "#1e1f26",
-                        "on-tertiary-fixed-variant": "#3e4946",
-                        "secondary-fixed": "#d0e8dd",
-                        "surface-dim": "#121319",
-                        "primary-container": "#4dffb4",
-                        "on-secondary-fixed-variant": "#374b43",
-                        "surface-tint": "#17e29a",
-                        "on-secondary-container": "#a7bdb3",
-                        "primary-fixed-dim": "#17e29a",
-                        "on-secondary": "#20342d",
-                        "on-error-container": "#ffdad6",
-                        "primary": "#ffffff",
-                        "inverse-surface": "#e3e1ea",
-                        "on-primary-container": "#00734c",
-                        "on-secondary-fixed": "#0b1f19",
-                        "inverse-on-surface": "#2f3037",
-                        "on-surface-variant": "#bacbbe",
-                        "outline-variant": "#3b4a41",
-                        "inverse-primary": "#006c47",
-                        "surface-container-lowest": "#0d0e14",
-                        "on-tertiary-container": "#5b6764",
-                        "on-primary": "#003823",
-                        "tertiary": "#ffffff",
-                        "secondary": "#b5ccc1",
-                        "on-tertiary": "#283330",
-                        "on-primary-fixed": "#002113",
-                        "secondary-fixed-dim": "#b5ccc1",
-                        "surface-container-high": "#292a30",
-                        "surface": "#121319",
-                        "error-container": "#93000a",
-                        "on-background": "#e3e1ea",
-                        "surface-variant": "#34343b"
-                    },
-                    fontFamily: {
-                        "headline": ["Manrope", "sans-serif"],
-                        "body": ["Inter", "sans-serif"],
-                        "label": ["Inter", "sans-serif"]
-                    },
-                    borderRadius: {
-                        "DEFAULT": "0.125rem",
-                        "lg": "0.25rem",
-                        "xl": "0.5rem",
-                        "full": "0.75rem"
+<html class="dark" lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+        <title>KRONIX | High-Performance Perpetual Futures</title>
+        <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap"
+            rel="stylesheet"
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+            rel="stylesheet"
+        />
+        <script id="tailwind-config">
+            tailwind.config = {
+                darkMode: "class",
+                theme: {
+                    extend: {
+                        colors: {
+                            "tertiary-container": "#d9e5e1",
+                            background: "#121319",
+                            "on-surface": "#e3e1ea",
+                            "on-error": "#690005",
+                            "tertiary-fixed": "#d9e5e1",
+                            "surface-bright": "#383940",
+                            "primary-fixed": "#4dffb4",
+                            "tertiary-fixed-dim": "#bdc9c5",
+                            "on-tertiary-fixed": "#131e1b",
+                            "secondary-container": "#394d46",
+                            "surface-container-low": "#1a1b21",
+                            error: "#ffb4ab",
+                            "surface-container-highest": "#34343b",
+                            "on-primary-fixed-variant": "#005234",
+                            outline: "#859589",
+                            "surface-container": "#1e1f26",
+                            "on-tertiary-fixed-variant": "#3e4946",
+                            "secondary-fixed": "#d0e8dd",
+                            "surface-dim": "#121319",
+                            "primary-container": "#4dffb4",
+                            "on-secondary-fixed-variant": "#374b43",
+                            "surface-tint": "#17e29a",
+                            "on-secondary-container": "#a7bdb3",
+                            "primary-fixed-dim": "#17e29a",
+                            "on-secondary": "#20342d",
+                            "on-error-container": "#ffdad6",
+                            primary: "#ffffff",
+                            "inverse-surface": "#e3e1ea",
+                            "on-primary-container": "#00734c",
+                            "on-secondary-fixed": "#0b1f19",
+                            "inverse-on-surface": "#2f3037",
+                            "on-surface-variant": "#bacbbe",
+                            "outline-variant": "#3b4a41",
+                            "inverse-primary": "#006c47",
+                            "surface-container-lowest": "#0d0e14",
+                            "on-tertiary-container": "#5b6764",
+                            "on-primary": "#003823",
+                            tertiary: "#ffffff",
+                            secondary: "#b5ccc1",
+                            "on-tertiary": "#283330",
+                            "on-primary-fixed": "#002113",
+                            "secondary-fixed-dim": "#b5ccc1",
+                            "surface-container-high": "#292a30",
+                            surface: "#121319",
+                            "error-container": "#93000a",
+                            "on-background": "#e3e1ea",
+                            "surface-variant": "#34343b",
+                        },
+                        fontFamily: {
+                            headline: ["Manrope", "sans-serif"],
+                            body: ["Inter", "sans-serif"],
+                            label: ["Inter", "sans-serif"],
+                        },
+                        borderRadius: {
+                            DEFAULT: "0.125rem",
+                            lg: "0.25rem",
+                            xl: "0.5rem",
+                            full: "0.75rem",
+                        },
                     },
                 },
-            },
-        }
-    </script>
-<style>
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-        }
-        body {
-            background-color: #0D0E14;
-            color: #e3e1ea;
-            -webkit-font-smoothing: antialiased;
-        }
-        @keyframes pulse-glow {
-            0%, 100% {
-                opacity: 0.5;
-                transform: translate(-50%, -50%) scale(1);
+            };
+        </script>
+        <style>
+            .material-symbols-outlined {
+                font-variation-settings:
+                    "FILL" 0,
+                    "wght" 400,
+                    "GRAD" 0,
+                    "opsz" 24;
             }
-            50% {
-                opacity: 0.95;
-                transform: translate(-50%, -50%) scale(1.15);
+            body {
+                background-color: #0d0e14;
+                color: #e3e1ea;
+                -webkit-font-smoothing: antialiased;
             }
-        }
-        .heartbeat-glow {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 900px;
-            height: 900px;
-            background: radial-gradient(circle, rgba(34, 47, 43, 0.8) 0%, rgba(23, 226, 154, 0.15) 35%, transparent 75%);
-            filter: blur(80px);
-            z-index: 0;
-            pointer-events: none;
-            animation: pulse-glow 4s ease-in-out infinite;
-        }
-    </style>
-</head>
-<body class="font-body selection:bg-primary-container selection:text-on-primary-container">
-<!-- TopNavBar Navigation Shell -->
-<nav class="fixed top-6 left-1/2 -translate-x-1/2 w-[95%] max-w-6xl z-50 bg-[#222F2B]/20 backdrop-blur-3xl flex justify-between items-center px-8 h-16 rounded-full border border-[#222F2B]/30 shadow-2xl shadow-black/20 transition-all duration-300">
-<div class="text-xl font-bold tracking-tighter text-on-surface font-headline uppercase flex items-center gap-2">
-<span class="material-symbols-outlined text-primary-fixed" style="font-variation-settings: 'FILL' 1, 'wght' 700, 'GRAD' 0, 'opsz' 48;">bubble_chart</span>
-            KRONIX
-        </div>
-<div class="hidden md:flex items-center gap-8">
-<a class="text-on-surface hover:text-primary-fixed font-headline font-semibold tracking-tight transition-colors duration-150" href="#">GitHub</a>
-<a class="text-on-surface/60 hover:text-on-surface font-headline font-semibold tracking-tight transition-colors duration-150" href="#">Docs</a>
-<a class="text-on-surface/60 hover:text-on-surface font-headline font-semibold tracking-tight transition-colors duration-150" href="#">App</a>
-</div>
-<button class="bg-[#222F2B] text-[#4DFFB4] px-6 py-2.5 text-sm font-headline font-bold rounded-full border border-[#4DFFB4]/20 hover:shadow-lg hover:shadow-[#222F2B]/40 transition-all duration-150 active:scale-95">
-            Launch App
-        </button>
-</nav>
-<!-- Hero Section -->
-<main class="relative min-h-screen flex flex-col items-center justify-center pt-16 overflow-hidden">
-<!-- Technical Grid Background -->
-<div class="heartbeat-glow"></div>
-<!-- Hero Content -->
-<div class="relative z-10 text-center px-4">
-<h1 class="font-headline text-[5rem] md:text-[8rem] font-extrabold tracking-tighter text-primary leading-none mb-4 select-none">
+            @keyframes pulse-glow {
+                0%,
+                100% {
+                    opacity: 0.5;
+                    transform: translate(-50%, -50%) scale(1);
+                }
+                50% {
+                    opacity: 0.95;
+                    transform: translate(-50%, -50%) scale(1.15);
+                }
+            }
+            .heartbeat-glow {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 900px;
+                height: 900px;
+                background: radial-gradient(
+                    circle,
+                    rgba(34, 47, 43, 0.8) 0%,
+                    rgba(23, 226, 154, 0.15) 35%,
+                    transparent 75%
+                );
+                filter: blur(80px);
+                z-index: 0;
+                pointer-events: none;
+                animation: pulse-glow 4s ease-in-out infinite;
+            }
+        </style>
+    </head>
+    <body
+        class="font-body selection:bg-primary-container selection:text-on-primary-container"
+    >
+        <!-- TopNavBar Navigation Shell -->
+        <nav
+            class="fixed top-6 left-1/2 -translate-x-1/2 w-[95%] max-w-6xl z-50 bg-[#222F2B]/20 backdrop-blur-3xl flex justify-between items-center px-8 h-16 rounded-full border border-[#222F2B]/30 shadow-2xl shadow-black/20 transition-all duration-300"
+        >
+            <div
+                class="text-xl font-bold tracking-tighter text-on-surface font-headline uppercase flex items-center gap-2"
+            >
+                <span
+                    class="material-symbols-outlined text-primary-fixed"
+                    style="
+                        font-variation-settings:
+                            &quot;FILL&quot; 1,
+                            &quot;wght&quot; 700,
+                            &quot;GRAD&quot; 0,
+                            &quot;opsz&quot; 48;
+                    "
+                    >bubble_chart</span
+                >
                 KRONIX
-            </h1>
-<p class="font-headline text-xl md:text-2xl text-on-surface-variant font-semibold tracking-tight uppercase opacity-80">
-                Perpetual. Precise. On-chain.
-            </p>
-<p class="font-body text-sm md:text-base text-[#E8F4F0] font-medium tracking-[0.3em] uppercase mt-4 opacity-90 select-none transition-all duration-700">
-                Coming Soon
-            </p>
-</div>
-</main>
-<!-- Feature Section: Pillars -->
-<section class="relative z-10 py-32 px-8 max-w-7xl mx-auto bg-transparent">
-<div class="grid grid-cols-1 md:grid-cols-3 gap-0.5 bg-[#3B4A41]/10">
-<!-- Feature 1: CLOB -->
-<div class="bg-[#0D0E14]/50 backdrop-blur-sm p-12 group transition-colors duration-300 hover:bg-[#222F2B]/40">
-<div class="mb-8">
-<span class="material-symbols-outlined text-primary-fixed text-3xl" data-icon="account_tree">account_tree</span>
-</div>
-<h3 class="font-headline text-headline-sm text-primary mb-4 font-bold">On-Chain Matching</h3>
-<p class="text-on-surface-variant leading-relaxed font-body">
-                    Fully on-chain central limit order book (CLOB). Deterministic execution with zero reliance on off-chain components or sequencers.
+            </div>
+            <div class="hidden md:flex items-center gap-8">
+                <a
+                    class="text-on-surface hover:text-primary-fixed font-headline font-semibold tracking-tight transition-colors duration-150"
+                    href="#"
+                    >GitHub</a
+                >
+                <a
+                    class="text-on-surface/60 hover:text-on-surface font-headline font-semibold tracking-tight transition-colors duration-150"
+                    href="#"
+                    >Docs</a
+                >
+                <a
+                    class="text-on-surface/60 hover:text-on-surface font-headline font-semibold tracking-tight transition-colors duration-150"
+                    href="#"
+                    >App</a
+                >
+            </div>
+            <button
+                class="bg-[#222F2B] text-[#4DFFB4] px-6 py-2.5 text-sm font-headline font-bold rounded-full border border-[#4DFFB4]/20 hover:shadow-lg hover:shadow-[#222F2B]/40 transition-all duration-150 active:scale-95"
+            >
+                Launch App
+            </button>
+        </nav>
+        <!-- Hero Section -->
+        <main
+            class="relative min-h-screen flex flex-col items-center justify-center pt-16 overflow-hidden"
+        >
+            <!-- Technical Grid Background -->
+            <div class="heartbeat-glow"></div>
+            <!-- Hero Content -->
+            <div class="relative z-10 text-center px-4">
+                <h1
+                    class="font-headline text-[5rem] md:text-[8rem] font-extrabold tracking-tighter text-primary leading-none mb-4 select-none"
+                >
+                    KRONIX
+                </h1>
+                <p
+                    class="font-headline text-xl md:text-2xl text-on-surface-variant font-semibold tracking-tight uppercase opacity-80"
+                >
+                    Perpetual. Precise. On-chain.
                 </p>
-<div class="mt-8 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-<span class="text-xs font-label uppercase tracking-widest text-primary-fixed">Technical Specs</span>
-<span class="material-symbols-outlined text-sm text-primary-fixed" data-icon="arrow_forward">arrow_forward</span>
-</div>
-</div>
-<!-- Feature 2: Settlement -->
-<div class="bg-[#0D0E14]/50 backdrop-blur-sm p-12 group transition-colors duration-300 hover:bg-[#222F2B]/40">
-<div class="mb-8">
-<span class="material-symbols-outlined text-primary-fixed text-3xl" data-icon="bolt">bolt</span>
-</div>
-<h3 class="font-headline text-headline-sm text-primary mb-4 font-bold">Crankless Settlement</h3>
-<p class="text-on-surface-variant leading-relaxed font-body">
-                    Engineered for autonomy. Positions settle atomically within the program logic, eliminating the latency and risk of external crank networks.
+                <p
+                    class="font-body text-sm md:text-base text-[#E8F4F0] font-medium tracking-[0.3em] uppercase mt-4 opacity-90 select-none transition-all duration-700"
+                >
+                    Coming Soon
                 </p>
-<div class="mt-8 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-<span class="text-xs font-label uppercase tracking-widest text-primary-fixed">Program Logic</span>
-<span class="material-symbols-outlined text-sm text-primary-fixed" data-icon="arrow_forward">arrow_forward</span>
-</div>
-</div>
-<!-- Feature 3: Solana -->
-<div class="bg-[#0D0E14]/50 backdrop-blur-sm p-12 group transition-colors duration-300 hover:bg-[#222F2B]/40">
-<div class="mb-8">
-<span class="material-symbols-outlined text-primary-fixed text-3xl" data-icon="database">database</span>
-</div>
-<h3 class="font-headline text-headline-sm text-primary mb-4 font-bold">Built on Solana</h3>
-<p class="text-on-surface-variant leading-relaxed font-body">
-                    Sub-second finality paired with institutional-grade throughput. Leveraging Solana's parallel runtime for high-frequency trading.
-                </p>
-<div class="mt-8 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-<span class="text-xs font-label uppercase tracking-widest text-primary-fixed">Network Status</span>
-<span class="material-symbols-outlined text-sm text-primary-fixed" data-icon="arrow_forward">arrow_forward</span>
-</div>
-</div>
-</div>
-</section>
-<!-- Data Transparency Block (Technical Depth) -->
-<section class="py-32 px-8 max-w-7xl mx-auto">
-<div class="bg-surface-container-low p-1 rounded-lg">
-<div class="p-12 flex flex-col md:flex-row justify-between items-end md:items-center gap-8 bg-[#222F2B]">
-<div>
-<div class="font-label text-primary-fixed text-[0.6875rem] uppercase tracking-[0.2em] mb-4">Infrastructure Status</div>
-<h2 class="font-headline text-4xl text-primary font-bold tracking-tight">Optimized for high-frequency execution.</h2>
-</div>
-<div class="grid grid-cols-2 gap-12 border-l border-outline-variant/30 pl-12">
-<div class="bg-[#0D0E14]/50 backdrop-blur-sm p-12 group transition-colors duration-300 hover:bg-[#222F2B]/40">
-<div class="text-3xl font-headline font-bold text-primary">400ms</div>
-<div class="font-label text-on-secondary-container text-[0.6875rem] uppercase tracking-widest mt-1">Avg Latency</div>
-</div>
-<div class="bg-[#0D0E14]/50 backdrop-blur-sm p-12 group transition-colors duration-300 hover:bg-[#222F2B]/40">
-<div class="text-3xl font-headline font-bold text-primary">0%</div>
-<div class="font-label text-on-secondary-container text-[0.6875rem] uppercase tracking-widest mt-1">Protocol Fee</div>
-</div>
-</div>
-</div>
-</div>
-</section>
-<!-- Footer -->
-<footer class="bg-[#0D0E14] w-full py-12 flex flex-col md:flex-row justify-between items-center px-12 border-t border-[#3B4A41]/15">
-<div class="text-[#4DFFB4] font-bold font-headline tracking-tighter mb-4 md:mb-0">KRONIX</div>
-<div class="font-['Inter'] text-[0.6875rem] uppercase tracking-widest text-[#BACBBE]/50 mb-4 md:mb-0">
-            © 2024 KRONIX INFRASTRUCTURE. ALL RIGHTS RESERVED.
-        </div>
-<div class="flex gap-8">
-<a class="font-['Inter'] text-[0.6875rem] uppercase tracking-widest text-[#BACBBE]/50 hover:text-[#4DFFB4] transition-opacity opacity-80 hover:opacity-100" href="#">Terms</a>
-<a class="font-['Inter'] text-[0.6875rem] uppercase tracking-widest text-[#BACBBE]/50 hover:text-[#4DFFB4] transition-opacity opacity-80 hover:opacity-100" href="#">Privacy</a>
-<a class="font-['Inter'] text-[0.6875rem] uppercase tracking-widest text-[#BACBBE]/50 hover:text-[#4DFFB4] transition-opacity opacity-80 hover:opacity-100" href="#">Status</a>
-</div>
-</footer>
-</body></html>
+            </div>
+        </main>
+        <!-- Feature Section: Pillars -->
+        <section
+            class="relative z-10 py-32 px-8 max-w-7xl mx-auto bg-transparent"
+        >
+            <div
+                class="grid grid-cols-1 md:grid-cols-3 gap-0.5 bg-[#3B4A41]/10"
+            >
+                <!-- Feature 1: CLOB -->
+                <div
+                    class="bg-[#0D0E14]/50 backdrop-blur-sm p-12 group transition-colors duration-300 hover:bg-[#222F2B]/40"
+                >
+                    <div class="mb-8">
+                        <span
+                            class="material-symbols-outlined text-primary-fixed text-3xl"
+                            data-icon="account_tree"
+                            >account_tree</span
+                        >
+                    </div>
+                    <h3
+                        class="font-headline text-headline-sm text-primary mb-4 font-bold"
+                    >
+                        On-Chain Matching
+                    </h3>
+                    <p
+                        class="text-on-surface-variant leading-relaxed font-body"
+                    >
+                        Fully on-chain central limit order book (CLOB).
+                        Deterministic execution with zero reliance on off-chain
+                        components or sequencers.
+                    </p>
+                    <div
+                        class="mt-8 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                        <span
+                            class="text-xs font-label uppercase tracking-widest text-primary-fixed"
+                            >Technical Specs</span
+                        >
+                        <span
+                            class="material-symbols-outlined text-sm text-primary-fixed"
+                            data-icon="arrow_forward"
+                            >arrow_forward</span
+                        >
+                    </div>
+                </div>
+                <!-- Feature 2: Settlement -->
+                <div
+                    class="bg-[#0D0E14]/50 backdrop-blur-sm p-12 group transition-colors duration-300 hover:bg-[#222F2B]/40"
+                >
+                    <div class="mb-8">
+                        <span
+                            class="material-symbols-outlined text-primary-fixed text-3xl"
+                            data-icon="bolt"
+                            >bolt</span
+                        >
+                    </div>
+                    <h3
+                        class="font-headline text-headline-sm text-primary mb-4 font-bold"
+                    >
+                        Crankless Settlement
+                    </h3>
+                    <p
+                        class="text-on-surface-variant leading-relaxed font-body"
+                    >
+                        Engineered for autonomy. Positions settle atomically
+                        within the program logic, eliminating the latency and
+                        risk of external crank networks.
+                    </p>
+                    <div
+                        class="mt-8 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                        <span
+                            class="text-xs font-label uppercase tracking-widest text-primary-fixed"
+                            >Program Logic</span
+                        >
+                        <span
+                            class="material-symbols-outlined text-sm text-primary-fixed"
+                            data-icon="arrow_forward"
+                            >arrow_forward</span
+                        >
+                    </div>
+                </div>
+                <!-- Feature 3: Solana -->
+                <div
+                    class="bg-[#0D0E14]/50 backdrop-blur-sm p-12 group transition-colors duration-300 hover:bg-[#222F2B]/40"
+                >
+                    <div class="mb-8">
+                        <span
+                            class="material-symbols-outlined text-primary-fixed text-3xl"
+                            data-icon="database"
+                            >database</span
+                        >
+                    </div>
+                    <h3
+                        class="font-headline text-headline-sm text-primary mb-4 font-bold"
+                    >
+                        Built on Solana
+                    </h3>
+                    <p
+                        class="text-on-surface-variant leading-relaxed font-body"
+                    >
+                        Sub-second finality paired with institutional-grade
+                        throughput. Leveraging Solana's parallel runtime for
+                        high-frequency trading.
+                    </p>
+                    <div
+                        class="mt-8 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                        <span
+                            class="text-xs font-label uppercase tracking-widest text-primary-fixed"
+                            >Network Status</span
+                        >
+                        <span
+                            class="material-symbols-outlined text-sm text-primary-fixed"
+                            data-icon="arrow_forward"
+                            >arrow_forward</span
+                        >
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- Data Transparency Block (Technical Depth) -->
+        <section class="py-32 px-8 max-w-7xl mx-auto">
+            <div class="bg-surface-container-low p-1 rounded-lg">
+                <div
+                    class="p-12 flex flex-col md:flex-row justify-between items-end md:items-center gap-8 bg-[#222F2B]"
+                >
+                    <div>
+                        <div
+                            class="font-label text-primary-fixed text-[0.6875rem] uppercase tracking-[0.2em] mb-4"
+                        >
+                            Infrastructure Status
+                        </div>
+                        <h2
+                            class="font-headline text-4xl text-primary font-bold tracking-tight"
+                        >
+                            Optimized for high-frequency execution.
+                        </h2>
+                    </div>
+                    <div
+                        class="grid grid-cols-2 gap-12 border-l border-outline-variant/30 pl-12"
+                    >
+                        <div
+                            class="bg-[#0D0E14]/50 backdrop-blur-sm p-12 group transition-colors duration-300 hover:bg-[#222F2B]/40"
+                        >
+                            <div
+                                class="text-3xl font-headline font-bold text-primary"
+                            >
+                                400ms
+                            </div>
+                            <div
+                                class="font-label text-on-secondary-container text-[0.6875rem] uppercase tracking-widest mt-1"
+                            >
+                                Avg Latency
+                            </div>
+                        </div>
+                        <div
+                            class="bg-[#0D0E14]/50 backdrop-blur-sm p-12 group transition-colors duration-300 hover:bg-[#222F2B]/40"
+                        >
+                            <div
+                                class="text-3xl font-headline font-bold text-primary"
+                            >
+                                0%
+                            </div>
+                            <div
+                                class="font-label text-on-secondary-container text-[0.6875rem] uppercase tracking-widest mt-1"
+                            >
+                                Protocol Fee
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- Footer -->
+        <footer
+            class="bg-[#0D0E14] w-full py-12 flex flex-col md:flex-row justify-between items-center px-12 border-t border-[#3B4A41]/15"
+        >
+            <div
+                class="text-[#4DFFB4] font-bold font-headline tracking-tighter mb-4 md:mb-0"
+            >
+                KRONIX
+            </div>
+            <div
+                class="font-['Inter'] text-[0.6875rem] uppercase tracking-widest text-[#BACBBE]/50 mb-4 md:mb-0"
+            >
+                © 2024 KRONIX INFRASTRUCTURE. ALL RIGHTS RESERVED.
+            </div>
+            <div class="flex gap-8">
+                <a
+                    class="font-['Inter'] text-[0.6875rem] uppercase tracking-widest text-[#BACBBE]/50 hover:text-[#4DFFB4] transition-opacity opacity-80 hover:opacity-100"
+                    href="#"
+                    >Terms</a
+                >
+                <a
+                    class="font-['Inter'] text-[0.6875rem] uppercase tracking-widest text-[#BACBBE]/50 hover:text-[#4DFFB4] transition-opacity opacity-80 hover:opacity-100"
+                    href="#"
+                    >Privacy</a
+                >
+                <a
+                    class="font-['Inter'] text-[0.6875rem] uppercase tracking-widest text-[#BACBBE]/50 hover:text-[#4DFFB4] transition-opacity opacity-80 hover:opacity-100"
+                    href="#"
+                    >Status</a
+                >
+            </div>
+        </footer>
+    </body>
+</html>

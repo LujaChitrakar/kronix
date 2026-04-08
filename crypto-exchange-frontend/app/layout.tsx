@@ -34,7 +34,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${manrope.variable} ${inter.variable} font-[Inter,sans-serif] selection:bg-[#4dffb4] selection:text-[#00734c]`}
+        className={`${manrope.variable} ${inter.variable} font-[Inter,sans-serif] selection:bg-[#1A2320] selection:text-[#00734c]`}
       >
         {children}
       </body>

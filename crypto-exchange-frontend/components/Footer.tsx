@@ -6,7 +6,7 @@ const footerLinks = [
 
 export default function Footer() {
   return (
-    <footer className="bg-[#0D0E14] w-full py-12 flex flex-col md:flex-row justify-between items-center px-12 border-t border-[#3B4A41]/15">
+    <footer className="bg-[rgb(17, 60, 30)] w-full py-12 flex flex-col md:flex-row justify-between items-center px-12 border-t border-[#3B4A41]/15">
       {/* Brand */}
       <div className="text-[#4DFFB4] font-bold font-headline tracking-tighter mb-4 md:mb-0">
         KRONIX

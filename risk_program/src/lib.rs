@@ -15,6 +15,6 @@ pub mod state;
 pub mod tests;
 
 pub const ORDERBOOK_PROGRAM_ID: [u8; 32] =
-    pinocchio_pubkey::from_str("2c88D4ELFGsJnxTvxWGY92GqcE7RNqXwXPMFjTXhnxLQ");
+    pinocchio_pubkey::from_str("j8VeDggFuwtiCjM8uo7am8i1bWWH2sj7mBRxqTaZniU");
 
 pinocchio_pubkey::declare_id!("C8kAYt7vpmFxhguEJxbg6hMZY3LLNYACrU8mKveZ8eMu");
