@@ -1,10 +1,11 @@
+use crate::states::heap::FillEvent;
 use pinocchio::cpi::invoke;
 use pinocchio::instruction::{InstructionAccount, InstructionView};
 use pinocchio::{AccountView, ProgramResult};
 use risk_program_cpi::{SettleFillParams, SETTLE_FILL_IX};
-use crate::states::heap::FillEvent;
 
 pub fn settle_fill_cpi(
+    orderbook_program: &AccountView,
     risk_program: &AccountView,
     user_account: &AccountView,
     position: &AccountView,
@@ -37,7 +38,7 @@ pub fn settle_fill_cpi(
     ix_data[1..].copy_from_slice(params_bytes);
 
     let account_metas = [
-        InstructionAccount::new(risk_program.address(), false, false),
+        InstructionAccount::new(orderbook_program.address(), false, false),
         InstructionAccount::new(user_account.address(), true, false),
         InstructionAccount::new(position.address(), true, false),
         InstructionAccount::new(market_config.address(), false, false),
@@ -46,7 +47,7 @@ pub fn settle_fill_cpi(
     ];
 
     let account_infos = [
-        risk_program,
+        orderbook_program,
         user_account,
         position,
         market_config,

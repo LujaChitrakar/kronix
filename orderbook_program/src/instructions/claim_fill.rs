@@ -2,7 +2,7 @@ use bytemuck::{Pod, Zeroable};
 use pinocchio::{
     error::ProgramError,
     sysvars::{clock::Clock, Sysvar},
-    AccountView, ProgramResult,
+    AccountView, Address, ProgramResult,
 };
 use shank::ShankType;
 
@@ -11,7 +11,8 @@ use crate::{
     cpi::settle_fill_cpi,
     errors::OrderBookError,
     helper::{
-        verify_account_owner, verify_initialized, verify_pda, verify_signer, verify_writtable,
+        verify_account_owner, verify_initialized, verify_pda, verify_program_id, verify_signer,
+        verify_writtable,
     },
     states::{FillEvent, MarketState, OpenOrder, OpenOrdersAccount},
 };
@@ -26,7 +27,7 @@ pub struct ClaimFillParams {
 }
 
 pub fn process_claim_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [signer, open_orders_account, market, risk_program, maker_user_account, maker_position, market_config, funding_state, system_program, _remaining @ ..] =
+    let [signer, open_orders_account, market, orderbook_program_self, risk_program, maker_user_account, maker_position, market_config, funding_state, system_program, _remaining @ ..] =
         accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
@@ -35,6 +36,7 @@ pub fn process_claim_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResul
     verify_signer(signer)?;
     verify_initialized(open_orders_account)?;
     verify_initialized(market)?;
+    verify_program_id(orderbook_program_self, &Address::from(crate::ID))?;
     unsafe {
         verify_account_owner(open_orders_account, &crate::ID)?;
         verify_account_owner(market, &crate::ID)?;
@@ -122,6 +124,7 @@ pub fn process_claim_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResul
     let maker_out = oo.has_pending_fill() && oo.filled_qty > 0;
 
     settle_fill_cpi(
+        orderbook_program_self,
         risk_program,
         maker_user_account,
         maker_position,

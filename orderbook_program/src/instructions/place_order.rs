@@ -2,7 +2,7 @@ use bytemuck::{Pod, Zeroable};
 use pinocchio::{
     error::ProgramError,
     sysvars::{clock::Clock, Sysvar},
-    AccountView, ProgramResult,
+    AccountView, Address, ProgramResult,
 };
 use shank::ShankType;
 
@@ -11,7 +11,8 @@ use crate::{
     cpi::settle_fill_cpi,
     errors::OrderBookError,
     helper::{
-        verify_account_owner, verify_initialized, verify_pda, verify_signer, verify_writtable,
+        verify_account_owner, verify_initialized, verify_pda, verify_program_id, verify_signer,
+        verify_writtable,
     },
     states::{
         BookSide, MarketState, OpenOrdersAccount, Order, OrderParams, Orderbook, PlaceOrderType,
@@ -36,7 +37,7 @@ pub struct PlaceOrderParams {
 }
 
 pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [signer, open_orders_account, market, bids, asks, risk_program, taker_user_account, taker_position, market_config, funding_state, system_program, _remaining @ ..] =
+    let [signer, open_orders_account, market, bids, asks, orderbook_program_self, risk_program, taker_user_account, taker_position, market_config, funding_state, system_program, _remaining @ ..] =
         accounts
     else {
         return Err(pinocchio::error::ProgramError::InvalidAccountData);
@@ -46,6 +47,7 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
     verify_initialized(market)?;
     verify_initialized(bids)?;
     verify_initialized(asks)?;
+    verify_program_id(orderbook_program_self, &Address::from(crate::ID))?;
 
     unsafe {
         verify_account_owner(market, &crate::ID)?;
@@ -208,6 +210,7 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
                 }
             }
             settle_fill_cpi(
+                orderbook_program_self,
                 risk_program,
                 taker_user_account,
                 taker_position,

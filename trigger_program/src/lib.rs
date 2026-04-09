@@ -1,14 +1,14 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+#![allow(unexpected_cfgs)]
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[cfg(not(feature = "no-entrypoint"))]
+mod entrypoint;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub mod constants;
+pub mod cpi;
+pub mod errors;
+pub mod helpers;
+pub mod instructions;
+pub mod oracle;
+pub mod states;
+
+pinocchio_pubkey::declare_id!("C8kAYt7vpmFxhguEJxbg6hMZY3LLNYACrU8mKveZ8eMu");
