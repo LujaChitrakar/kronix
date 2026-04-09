@@ -8,7 +8,7 @@
   pub(crate) mod r#add_margin;
   pub(crate) mod r#close_position;
   pub(crate) mod r#cover_bad_debt;
-  pub(crate) mod r#create_market;
+  pub(crate) mod r#create_risk_market;
   pub(crate) mod r#deposit;
   pub(crate) mod r#initialize_insurance_fund;
   pub(crate) mod r#initialize_vault;
@@ -23,7 +23,7 @@
   pub use self::r#add_margin::*;
   pub use self::r#close_position::*;
   pub use self::r#cover_bad_debt::*;
-  pub use self::r#create_market::*;
+  pub use self::r#create_risk_market::*;
   pub use self::r#deposit::*;
   pub use self::r#initialize_insurance_fund::*;
   pub use self::r#initialize_vault::*;

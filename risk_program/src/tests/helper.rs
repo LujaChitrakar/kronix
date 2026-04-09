@@ -16,7 +16,7 @@ use crate::{
         USER_ACCOUNT_SEED, VAULT_AUTHORITY_SEED, VAULT_SEED,
     },
     instructions::{
-        AddMarginParams, ClosePositionParams, CoverBadDebtParams, CreateMarketParams,
+        AddMarginParams, ClosePositionParams, CoverBadDebtParams, CreateRiskMarketParams,
         DepositParams, InitInsuranceFundParams, InitializeVaultParams, LiquidateParams,
         OpenPositionParams, RemoveMarginParams, SettleFillParams, UpdateFundingRateParams,
         WithdrawParams,
@@ -83,7 +83,7 @@ pub fn create_market(
     let (funding_pda, bump_funding) =
         Address::find_program_address(&[FUNDING_SEED, market_index_bytes.as_ref()], &PROGRAM_ID);
 
-    let params = CreateMarketParams {
+    let params = CreateRiskMarketParams {
         base_lot_size,
         quote_lot_size,
         market_index,

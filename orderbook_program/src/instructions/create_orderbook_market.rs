@@ -17,7 +17,7 @@ use crate::{
 
 #[derive(Pod, Zeroable, Clone, Copy, PartialEq, Eq, ShankType)]
 #[repr(C)]
-pub struct CreateMarketParams {
+pub struct CreateOrderbookMarketParams {
     pub base_lot_size: i64,
     pub quote_lot_size: i64,
     pub time_expiry: i64,
@@ -30,7 +30,7 @@ pub struct CreateMarketParams {
     pub admin: [u8; 32],
 }
 
-pub fn process_create_market(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+pub fn process_create_orderbook_market(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     let [payer, market, bids, asks, system_program, _remaining @ ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
@@ -44,7 +44,7 @@ pub fn process_create_market(accounts: &[AccountView], data: &[u8]) -> ProgramRe
     let clock = Clock::get()?;
     let rent = Rent::get()?;
 
-    let ix_args = bytemuck::try_pod_read_unaligned::<CreateMarketParams>(data)
+    let ix_args = bytemuck::try_pod_read_unaligned::<CreateOrderbookMarketParams>(data)
         .map_err(|_| ProgramError::InvalidAccountData)?;
 
     if ix_args.time_expiry != 0 && ix_args.time_expiry <= clock.unix_timestamp {

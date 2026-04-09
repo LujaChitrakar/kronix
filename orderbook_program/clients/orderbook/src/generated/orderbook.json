@@ -3,7 +3,7 @@
   "name": "orderbook",
   "instructions": [
     {
-      "name": "CreateMarket",
+      "name": "CreateOrderbookMarket",
       "accounts": [
         {
           "name": "payer",
@@ -48,9 +48,9 @@
       ],
       "args": [
         {
-          "name": "createMarketParams",
+          "name": "createOrderbookMarketParams",
           "type": {
-            "defined": "CreateMarketParams"
+            "defined": "CreateOrderbookMarketParams"
           }
         }
       ],
@@ -955,7 +955,37 @@
       }
     },
     {
-      "name": "CreateMarketParams",
+      "name": "CreateOpenOrdersAccountParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                7
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "CreateOrderbookMarketParams",
       "type": {
         "kind": "struct",
         "fields": [
@@ -1011,36 +1041,6 @@
               "array": [
                 "u8",
                 32
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "CreateOpenOrdersAccountParams",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "owner",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          },
-          {
-            "name": "padding",
-            "type": {
-              "array": [
-                "u8",
-                7
               ]
             }
           }

@@ -1,7 +1,7 @@
 pub mod add_margin;
 pub mod close_position;
 pub mod cover_bad_debt;
-pub mod create_market;
+pub mod create_risk_market;
 pub mod deposit;
 pub mod initialize_insurance_fund;
 pub mod initialize_vault;
@@ -16,7 +16,7 @@ pub mod withdraw;
 pub use add_margin::*;
 pub use close_position::*;
 pub use cover_bad_debt::*;
-pub use create_market::*;
+pub use create_risk_market::*;
 pub use deposit::*;
 pub use initialize_insurance_fund::*;
 pub use initialize_vault::*;
@@ -36,7 +36,7 @@ pub enum RiskInstruction {
     #[account(1, name = "market_config", desc = "MarketConfig PDA", writable)]
     #[account(2, name = "funding_state", desc = "FundingState PDA", writable)]
     #[account(3, name = "system_program", desc = "System program")]
-    CreateMarket(CreateMarketParams),
+    CreateRiskMarket(CreateRiskMarketParams),
 
     #[account(0, name = "payer", desc = "Fee payer", signer, writable)]
     #[account(1, name = "insurance_fund", desc = "InsuranceFund PDA", writable)]
@@ -148,7 +148,7 @@ pub enum RiskInstruction {
 
 #[repr(u8)]
 pub enum RiskProgramInstruction {
-    CreateMarket = 0,
+    CreateRiskMarket = 0,
     InitializeInsuranceFund = 1,
     InitializeVault = 2,
     Deposit = 3,
@@ -169,7 +169,7 @@ impl TryFrom<&u8> for RiskProgramInstruction {
 
     fn try_from(value: &u8) -> Result<Self, Self::Error> {
         match value {
-            0 => Ok(RiskProgramInstruction::CreateMarket),
+            0 => Ok(RiskProgramInstruction::CreateRiskMarket),
             1 => Ok(RiskProgramInstruction::InitializeInsuranceFund),
             2 => Ok(RiskProgramInstruction::InitializeVault),
             3 => Ok(RiskProgramInstruction::Deposit),

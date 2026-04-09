@@ -14,7 +14,7 @@ use crate::{
     },
     instructions::{
         CancelAllOrdersParams, CancelOrderByClientIdParams, CancelOrderParams, ClaimFillParams,
-        CreateMarketParams, CreateOpenOrdersAccountParams, EditOrderParams, PlaceOrderParams,
+        CreateOrderbookMarketParams, CreateOpenOrdersAccountParams, EditOrderParams, PlaceOrderParams,
         PlaceTakeOrderParams, PruneOrdersParams,
     },
     states::OpenOrdersAccount,
@@ -58,7 +58,7 @@ pub fn create_market(svm: &mut LiteSVM, admin: &Keypair) -> u16 {
     let (asks_pda, asks_bump) =
         Address::find_program_address(&[ASKS_SEED, &market_index_bytes], &PROGRAM_ID);
 
-    let params = CreateMarketParams {
+    let params = CreateOrderbookMarketParams {
         admin: payer.pubkey().to_bytes(),
         market_index,
         bump: market_bump,

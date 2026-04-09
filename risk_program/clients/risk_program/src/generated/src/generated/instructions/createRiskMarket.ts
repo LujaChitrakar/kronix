@@ -44,13 +44,13 @@ import {
 } from "@solana/program-client-core";
 import { RISK_PROGRAM_PROGRAM_ADDRESS } from "../programs";
 
-export const CREATE_MARKET_DISCRIMINATOR = 0;
+export const CREATE_RISK_MARKET_DISCRIMINATOR = 0;
 
-export function getCreateMarketDiscriminatorBytes() {
-  return getU8Encoder().encode(CREATE_MARKET_DISCRIMINATOR);
+export function getCreateRiskMarketDiscriminatorBytes() {
+  return getU8Encoder().encode(CREATE_RISK_MARKET_DISCRIMINATOR);
 }
 
-export type CreateMarketInstruction<
+export type CreateRiskMarketInstruction<
   TProgram extends string = typeof RISK_PROGRAM_PROGRAM_ADDRESS,
   TAccountPayer extends string | AccountMeta<string> = string,
   TAccountMarketConfig extends string | AccountMeta<string> = string,
@@ -79,7 +79,7 @@ export type CreateMarketInstruction<
     ]
   >;
 
-export type CreateMarketInstructionData = {
+export type CreateRiskMarketInstructionData = {
   discriminator: number;
   baseLotSize: bigint;
   quoteLotSize: bigint;
@@ -94,7 +94,7 @@ export type CreateMarketInstructionData = {
   oracle: ReadonlyUint8Array;
 };
 
-export type CreateMarketInstructionDataArgs = {
+export type CreateRiskMarketInstructionDataArgs = {
   baseLotSize: number | bigint;
   quoteLotSize: number | bigint;
   marketIndex: number;
@@ -108,7 +108,7 @@ export type CreateMarketInstructionDataArgs = {
   oracle: ReadonlyUint8Array;
 };
 
-export function getCreateMarketInstructionDataEncoder(): FixedSizeEncoder<CreateMarketInstructionDataArgs> {
+export function getCreateRiskMarketInstructionDataEncoder(): FixedSizeEncoder<CreateRiskMarketInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", getU8Encoder()],
@@ -124,11 +124,11 @@ export function getCreateMarketInstructionDataEncoder(): FixedSizeEncoder<Create
       ["padding", fixEncoderSize(getBytesEncoder(), 5)],
       ["oracle", fixEncoderSize(getBytesEncoder(), 32)],
     ]),
-    (value) => ({ ...value, discriminator: CREATE_MARKET_DISCRIMINATOR }),
+    (value) => ({ ...value, discriminator: CREATE_RISK_MARKET_DISCRIMINATOR }),
   );
 }
 
-export function getCreateMarketInstructionDataDecoder(): FixedSizeDecoder<CreateMarketInstructionData> {
+export function getCreateRiskMarketInstructionDataDecoder(): FixedSizeDecoder<CreateRiskMarketInstructionData> {
   return getStructDecoder([
     ["discriminator", getU8Decoder()],
     ["baseLotSize", getI64Decoder()],
@@ -145,17 +145,17 @@ export function getCreateMarketInstructionDataDecoder(): FixedSizeDecoder<Create
   ]);
 }
 
-export function getCreateMarketInstructionDataCodec(): FixedSizeCodec<
-  CreateMarketInstructionDataArgs,
-  CreateMarketInstructionData
+export function getCreateRiskMarketInstructionDataCodec(): FixedSizeCodec<
+  CreateRiskMarketInstructionDataArgs,
+  CreateRiskMarketInstructionData
 > {
   return combineCodec(
-    getCreateMarketInstructionDataEncoder(),
-    getCreateMarketInstructionDataDecoder(),
+    getCreateRiskMarketInstructionDataEncoder(),
+    getCreateRiskMarketInstructionDataDecoder(),
   );
 }
 
-export type CreateMarketInput<
+export type CreateRiskMarketInput<
   TAccountPayer extends string = string,
   TAccountMarketConfig extends string = string,
   TAccountFundingState extends string = string,
@@ -169,34 +169,34 @@ export type CreateMarketInput<
   fundingState: Address<TAccountFundingState>;
   /** System program */
   systemProgram?: Address<TAccountSystemProgram>;
-  baseLotSize: CreateMarketInstructionDataArgs["baseLotSize"];
-  quoteLotSize: CreateMarketInstructionDataArgs["quoteLotSize"];
-  marketIndex: CreateMarketInstructionDataArgs["marketIndex"];
-  initialMarginBps: CreateMarketInstructionDataArgs["initialMarginBps"];
-  maintenanceMarginBps: CreateMarketInstructionDataArgs["maintenanceMarginBps"];
-  liquidationFeeBps: CreateMarketInstructionDataArgs["liquidationFeeBps"];
-  bumpConfig: CreateMarketInstructionDataArgs["bumpConfig"];
-  bumpFunding: CreateMarketInstructionDataArgs["bumpFunding"];
-  maxLeverage: CreateMarketInstructionDataArgs["maxLeverage"];
-  padding: CreateMarketInstructionDataArgs["padding"];
-  oracle: CreateMarketInstructionDataArgs["oracle"];
+  baseLotSize: CreateRiskMarketInstructionDataArgs["baseLotSize"];
+  quoteLotSize: CreateRiskMarketInstructionDataArgs["quoteLotSize"];
+  marketIndex: CreateRiskMarketInstructionDataArgs["marketIndex"];
+  initialMarginBps: CreateRiskMarketInstructionDataArgs["initialMarginBps"];
+  maintenanceMarginBps: CreateRiskMarketInstructionDataArgs["maintenanceMarginBps"];
+  liquidationFeeBps: CreateRiskMarketInstructionDataArgs["liquidationFeeBps"];
+  bumpConfig: CreateRiskMarketInstructionDataArgs["bumpConfig"];
+  bumpFunding: CreateRiskMarketInstructionDataArgs["bumpFunding"];
+  maxLeverage: CreateRiskMarketInstructionDataArgs["maxLeverage"];
+  padding: CreateRiskMarketInstructionDataArgs["padding"];
+  oracle: CreateRiskMarketInstructionDataArgs["oracle"];
 };
 
-export function getCreateMarketInstruction<
+export function getCreateRiskMarketInstruction<
   TAccountPayer extends string,
   TAccountMarketConfig extends string,
   TAccountFundingState extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof RISK_PROGRAM_PROGRAM_ADDRESS,
 >(
-  input: CreateMarketInput<
+  input: CreateRiskMarketInput<
     TAccountPayer,
     TAccountMarketConfig,
     TAccountFundingState,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
-): CreateMarketInstruction<
+): CreateRiskMarketInstruction<
   TProgramAddress,
   TAccountPayer,
   TAccountMarketConfig,
@@ -235,11 +235,11 @@ export function getCreateMarketInstruction<
       getAccountMeta("fundingState", accounts.fundingState),
       getAccountMeta("systemProgram", accounts.systemProgram),
     ],
-    data: getCreateMarketInstructionDataEncoder().encode(
-      args as CreateMarketInstructionDataArgs,
+    data: getCreateRiskMarketInstructionDataEncoder().encode(
+      args as CreateRiskMarketInstructionDataArgs,
     ),
     programAddress,
-  } as CreateMarketInstruction<
+  } as CreateRiskMarketInstruction<
     TProgramAddress,
     TAccountPayer,
     TAccountMarketConfig,
@@ -248,7 +248,7 @@ export function getCreateMarketInstruction<
   >);
 }
 
-export type ParsedCreateMarketInstruction<
+export type ParsedCreateRiskMarketInstruction<
   TProgram extends string = typeof RISK_PROGRAM_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
@@ -263,17 +263,17 @@ export type ParsedCreateMarketInstruction<
     /** System program */
     systemProgram: TAccountMetas[3];
   };
-  data: CreateMarketInstructionData;
+  data: CreateRiskMarketInstructionData;
 };
 
-export function parseCreateMarketInstruction<
+export function parseCreateRiskMarketInstruction<
   TProgram extends string,
   TAccountMetas extends readonly AccountMeta[],
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
-): ParsedCreateMarketInstruction<TProgram, TAccountMetas> {
+): ParsedCreateRiskMarketInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 4) {
     throw new SolanaError(
       SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
@@ -297,6 +297,6 @@ export function parseCreateMarketInstruction<
       fundingState: getNextAccount(),
       systemProgram: getNextAccount(),
     },
-    data: getCreateMarketInstructionDataDecoder().decode(instruction.data),
+    data: getCreateRiskMarketInstructionDataDecoder().decode(instruction.data),
   };
 }

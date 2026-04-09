@@ -43,8 +43,8 @@ import {
   getCancelOrderByClientIdInstruction,
   getCancelOrderInstruction,
   getClaimFillInstruction,
-  getCreateMarketInstruction,
   getCreateOpenOrdersAccountInstruction,
+  getCreateOrderbookMarketInstruction,
   getEditOrderInstruction,
   getPlaceOrderInstruction,
   getPlaceTakeOrderInstruction,
@@ -53,8 +53,8 @@ import {
   parseCancelOrderByClientIdInstruction,
   parseCancelOrderInstruction,
   parseClaimFillInstruction,
-  parseCreateMarketInstruction,
   parseCreateOpenOrdersAccountInstruction,
+  parseCreateOrderbookMarketInstruction,
   parseEditOrderInstruction,
   parsePlaceOrderInstruction,
   parsePlaceTakeOrderInstruction,
@@ -63,15 +63,15 @@ import {
   type CancelOrderByClientIdInput,
   type CancelOrderInput,
   type ClaimFillInput,
-  type CreateMarketInput,
   type CreateOpenOrdersAccountInput,
+  type CreateOrderbookMarketInput,
   type EditOrderInput,
   type ParsedCancelAllOrdersInstruction,
   type ParsedCancelOrderByClientIdInstruction,
   type ParsedCancelOrderInstruction,
   type ParsedClaimFillInstruction,
-  type ParsedCreateMarketInstruction,
   type ParsedCreateOpenOrdersAccountInstruction,
+  type ParsedCreateOrderbookMarketInstruction,
   type ParsedEditOrderInstruction,
   type ParsedPlaceOrderInstruction,
   type ParsedPlaceTakeOrderInstruction,
@@ -90,7 +90,7 @@ export enum OrderbookAccount {
 }
 
 export enum OrderbookInstruction {
-  CreateMarket,
+  CreateOrderbookMarket,
   CreateOpenOrdersAccount,
   PlaceOrder,
   PlaceTakeOrder,
@@ -107,7 +107,7 @@ export function identifyOrderbookInstruction(
 ): OrderbookInstruction {
   const data = "data" in instruction ? instruction.data : instruction;
   if (containsBytes(data, getU8Encoder().encode(0), 0)) {
-    return OrderbookInstruction.CreateMarket;
+    return OrderbookInstruction.CreateOrderbookMarket;
   }
   if (containsBytes(data, getU8Encoder().encode(1), 0)) {
     return OrderbookInstruction.CreateOpenOrdersAccount;
@@ -146,8 +146,8 @@ export type ParsedOrderbookInstruction<
   TProgram extends string = "j8VeDggFuwtiCjM8uo7am8i1bWWH2sj7mBRxqTaZniU",
 > =
   | ({
-      instructionType: OrderbookInstruction.CreateMarket;
-    } & ParsedCreateMarketInstruction<TProgram>)
+      instructionType: OrderbookInstruction.CreateOrderbookMarket;
+    } & ParsedCreateOrderbookMarketInstruction<TProgram>)
   | ({
       instructionType: OrderbookInstruction.CreateOpenOrdersAccount;
     } & ParsedCreateOpenOrdersAccountInstruction<TProgram>)
@@ -181,11 +181,11 @@ export function parseOrderbookInstruction<TProgram extends string>(
 ): ParsedOrderbookInstruction<TProgram> {
   const instructionType = identifyOrderbookInstruction(instruction);
   switch (instructionType) {
-    case OrderbookInstruction.CreateMarket: {
+    case OrderbookInstruction.CreateOrderbookMarket: {
       assertIsInstructionWithAccounts(instruction);
       return {
-        instructionType: OrderbookInstruction.CreateMarket,
-        ...parseCreateMarketInstruction(instruction),
+        instructionType: OrderbookInstruction.CreateOrderbookMarket,
+        ...parseCreateOrderbookMarketInstruction(instruction),
       };
     }
     case OrderbookInstruction.CreateOpenOrdersAccount: {
@@ -275,9 +275,10 @@ export type OrderbookPluginAccounts = {
 };
 
 export type OrderbookPluginInstructions = {
-  createMarket: (
-    input: MakeOptional<CreateMarketInput, "payer">,
-  ) => ReturnType<typeof getCreateMarketInstruction> & SelfPlanAndSendFunctions;
+  createOrderbookMarket: (
+    input: MakeOptional<CreateOrderbookMarketInput, "payer">,
+  ) => ReturnType<typeof getCreateOrderbookMarketInstruction> &
+    SelfPlanAndSendFunctions;
   createOpenOrdersAccount: (
     input: MakeOptional<CreateOpenOrdersAccountInput, "payer">,
   ) => ReturnType<typeof getCreateOpenOrdersAccountInstruction> &
@@ -331,10 +332,10 @@ export function orderbookProgram() {
           ),
         },
         instructions: {
-          createMarket: (input) =>
+          createOrderbookMarket: (input) =>
             addSelfPlanAndSendFunctions(
               client,
-              getCreateMarketInstruction({
+              getCreateOrderbookMarketInstruction({
                 ...input,
                 payer: input.payer ?? client.payer,
               }),

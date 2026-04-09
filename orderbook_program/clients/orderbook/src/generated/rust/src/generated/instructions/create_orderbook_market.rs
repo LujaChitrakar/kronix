@@ -8,11 +8,11 @@
 use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
-pub const CREATE_MARKET_DISCRIMINATOR: u8 = 0;
+pub const CREATE_ORDERBOOK_MARKET_DISCRIMINATOR: u8 = 0;
 
 /// Accounts.
 #[derive(Debug)]
-pub struct CreateMarket {
+pub struct CreateOrderbookMarket {
             /// Fee payer
 
     
@@ -40,13 +40,13 @@ pub struct CreateMarket {
           pub system_program: solana_address::Address,
       }
 
-impl CreateMarket {
-  pub fn instruction(&self, args: CreateMarketInstructionArgs) -> solana_instruction::Instruction {
+impl CreateOrderbookMarket {
+  pub fn instruction(&self, args: CreateOrderbookMarketInstructionArgs) -> solana_instruction::Instruction {
     self.instruction_with_remaining_accounts(args, &[])
   }
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
-  pub fn instruction_with_remaining_accounts(&self, args: CreateMarketInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
+  pub fn instruction_with_remaining_accounts(&self, args: CreateOrderbookMarketInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
     let mut accounts = Vec::with_capacity(5+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             self.payer,
@@ -69,7 +69,7 @@ impl CreateMarket {
             false
           ));
                       accounts.extend_from_slice(remaining_accounts);
-    let mut data = CreateMarketInstructionData::new().try_to_vec().unwrap();
+    let mut data = CreateOrderbookMarketInstructionData::new().try_to_vec().unwrap();
           let mut args = args.try_to_vec().unwrap();
       data.append(&mut args);
     
@@ -82,11 +82,11 @@ impl CreateMarket {
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
- pub struct CreateMarketInstructionData {
+ pub struct CreateOrderbookMarketInstructionData {
             discriminator: u8,
                                                                   }
 
-impl CreateMarketInstructionData {
+impl CreateOrderbookMarketInstructionData {
   pub fn new() -> Self {
     Self {
                         discriminator: 0,
@@ -98,14 +98,14 @@ impl CreateMarketInstructionData {
   }
   }
 
-impl Default for CreateMarketInstructionData {
+impl Default for CreateOrderbookMarketInstructionData {
   fn default() -> Self {
     Self::new()
   }
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
- pub struct CreateMarketInstructionArgs {
+ pub struct CreateOrderbookMarketInstructionArgs {
                   pub base_lot_size: i64,
                 pub quote_lot_size: i64,
                 pub time_expiry: i64,
@@ -118,14 +118,14 @@ impl Default for CreateMarketInstructionData {
                 pub admin: [u8; 32],
       }
 
-impl CreateMarketInstructionArgs {
+impl CreateOrderbookMarketInstructionArgs {
   pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
     borsh::to_vec(self)
   }
 }
 
 
-/// Instruction builder for `CreateMarket`.
+/// Instruction builder for `CreateOrderbookMarket`.
 ///
 /// ### Accounts:
 ///
@@ -135,7 +135,7 @@ impl CreateMarketInstructionArgs {
                 ///   3. `[writable]` asks
                 ///   4. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
-pub struct CreateMarketBuilder {
+pub struct CreateOrderbookMarketBuilder {
             payer: Option<solana_address::Address>,
                 market: Option<solana_address::Address>,
                 bids: Option<solana_address::Address>,
@@ -154,7 +154,7 @@ pub struct CreateMarketBuilder {
         __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
-impl CreateMarketBuilder {
+impl CreateOrderbookMarketBuilder {
   pub fn new() -> Self {
     Self::default()
   }
@@ -253,14 +253,14 @@ impl CreateMarketBuilder {
   }
   #[allow(clippy::clone_on_copy)]
   pub fn instruction(&self) -> solana_instruction::Instruction {
-    let accounts = CreateMarket {
+    let accounts = CreateOrderbookMarket {
                               payer: self.payer.expect("payer is not set"),
                                         market: self.market.expect("market is not set"),
                                         bids: self.bids.expect("bids is not set"),
                                         asks: self.asks.expect("asks is not set"),
                                         system_program: self.system_program.unwrap_or(solana_address::address!("11111111111111111111111111111111")),
                       };
-          let args = CreateMarketInstructionArgs {
+          let args = CreateOrderbookMarketInstructionArgs {
                                                               base_lot_size: self.base_lot_size.clone().expect("base_lot_size is not set"),
                                                                   quote_lot_size: self.quote_lot_size.clone().expect("quote_lot_size is not set"),
                                                                   time_expiry: self.time_expiry.clone().expect("time_expiry is not set"),
@@ -277,8 +277,8 @@ impl CreateMarketBuilder {
   }
 }
 
-  /// `create_market` CPI accounts.
-  pub struct CreateMarketCpiAccounts<'a, 'b> {
+  /// `create_orderbook_market` CPI accounts.
+  pub struct CreateOrderbookMarketCpiAccounts<'a, 'b> {
                   /// Fee payer
 
       
@@ -306,8 +306,8 @@ impl CreateMarketBuilder {
               pub system_program: &'b solana_account_info::AccountInfo<'a>,
             }
 
-/// `create_market` CPI instruction.
-pub struct CreateMarketCpi<'a, 'b> {
+/// `create_orderbook_market` CPI instruction.
+pub struct CreateOrderbookMarketCpi<'a, 'b> {
   /// The program to invoke.
   pub __program: &'b solana_account_info::AccountInfo<'a>,
             /// Fee payer
@@ -336,14 +336,14 @@ pub struct CreateMarketCpi<'a, 'b> {
               
           pub system_program: &'b solana_account_info::AccountInfo<'a>,
             /// The arguments for the instruction.
-    pub __args: CreateMarketInstructionArgs,
+    pub __args: CreateOrderbookMarketInstructionArgs,
   }
 
-impl<'a, 'b> CreateMarketCpi<'a, 'b> {
+impl<'a, 'b> CreateOrderbookMarketCpi<'a, 'b> {
   pub fn new(
     program: &'b solana_account_info::AccountInfo<'a>,
-          accounts: CreateMarketCpiAccounts<'a, 'b>,
-              args: CreateMarketInstructionArgs,
+          accounts: CreateOrderbookMarketCpiAccounts<'a, 'b>,
+              args: CreateOrderbookMarketInstructionArgs,
       ) -> Self {
     Self {
       __program: program,
@@ -403,7 +403,7 @@ impl<'a, 'b> CreateMarketCpi<'a, 'b> {
           is_writable: remaining_account.2,
       })
     });
-    let mut data = CreateMarketInstructionData::new().try_to_vec().unwrap();
+    let mut data = CreateOrderbookMarketInstructionData::new().try_to_vec().unwrap();
           let mut args = self.__args.try_to_vec().unwrap();
       data.append(&mut args);
     
@@ -429,7 +429,7 @@ impl<'a, 'b> CreateMarketCpi<'a, 'b> {
   }
 }
 
-/// Instruction builder for `CreateMarket` via CPI.
+/// Instruction builder for `CreateOrderbookMarket` via CPI.
 ///
 /// ### Accounts:
 ///
@@ -439,13 +439,13 @@ impl<'a, 'b> CreateMarketCpi<'a, 'b> {
                 ///   3. `[writable]` asks
           ///   4. `[]` system_program
 #[derive(Clone, Debug)]
-pub struct CreateMarketCpiBuilder<'a, 'b> {
-  instruction: Box<CreateMarketCpiBuilderInstruction<'a, 'b>>,
+pub struct CreateOrderbookMarketCpiBuilder<'a, 'b> {
+  instruction: Box<CreateOrderbookMarketCpiBuilderInstruction<'a, 'b>>,
 }
 
-impl<'a, 'b> CreateMarketCpiBuilder<'a, 'b> {
+impl<'a, 'b> CreateOrderbookMarketCpiBuilder<'a, 'b> {
   pub fn new(program: &'b solana_account_info::AccountInfo<'a>) -> Self {
-    let instruction = Box::new(CreateMarketCpiBuilderInstruction {
+    let instruction = Box::new(CreateOrderbookMarketCpiBuilderInstruction {
       __program: program,
               payer: None,
               market: None,
@@ -568,7 +568,7 @@ impl<'a, 'b> CreateMarketCpiBuilder<'a, 'b> {
   #[allow(clippy::clone_on_copy)]
   #[allow(clippy::vec_init_then_push)]
   pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
-          let args = CreateMarketInstructionArgs {
+          let args = CreateOrderbookMarketInstructionArgs {
                                                               base_lot_size: self.instruction.base_lot_size.clone().expect("base_lot_size is not set"),
                                                                   quote_lot_size: self.instruction.quote_lot_size.clone().expect("quote_lot_size is not set"),
                                                                   time_expiry: self.instruction.time_expiry.clone().expect("time_expiry is not set"),
@@ -580,7 +580,7 @@ impl<'a, 'b> CreateMarketCpiBuilder<'a, 'b> {
                                                                   name: self.instruction.name.clone().expect("name is not set"),
                                                                   admin: self.instruction.admin.clone().expect("admin is not set"),
                                     };
-        let instruction = CreateMarketCpi {
+        let instruction = CreateOrderbookMarketCpi {
         __program: self.instruction.__program,
                   
           payer: self.instruction.payer.expect("payer is not set"),
@@ -599,7 +599,7 @@ impl<'a, 'b> CreateMarketCpiBuilder<'a, 'b> {
 }
 
 #[derive(Clone, Debug)]
-struct CreateMarketCpiBuilderInstruction<'a, 'b> {
+struct CreateOrderbookMarketCpiBuilderInstruction<'a, 'b> {
   __program: &'b solana_account_info::AccountInfo<'a>,
             payer: Option<&'b solana_account_info::AccountInfo<'a>>,
                 market: Option<&'b solana_account_info::AccountInfo<'a>>,

@@ -44,13 +44,13 @@ import {
 } from "@solana/program-client-core";
 import { ORDERBOOK_PROGRAM_ADDRESS } from "../programs";
 
-export const CREATE_MARKET_DISCRIMINATOR = 0;
+export const CREATE_ORDERBOOK_MARKET_DISCRIMINATOR = 0;
 
-export function getCreateMarketDiscriminatorBytes() {
-  return getU8Encoder().encode(CREATE_MARKET_DISCRIMINATOR);
+export function getCreateOrderbookMarketDiscriminatorBytes() {
+  return getU8Encoder().encode(CREATE_ORDERBOOK_MARKET_DISCRIMINATOR);
 }
 
-export type CreateMarketInstruction<
+export type CreateOrderbookMarketInstruction<
   TProgram extends string = typeof ORDERBOOK_PROGRAM_ADDRESS,
   TAccountPayer extends string | AccountMeta<string> = string,
   TAccountMarket extends string | AccountMeta<string> = string,
@@ -83,7 +83,7 @@ export type CreateMarketInstruction<
     ]
   >;
 
-export type CreateMarketInstructionData = {
+export type CreateOrderbookMarketInstructionData = {
   discriminator: number;
   baseLotSize: bigint;
   quoteLotSize: bigint;
@@ -97,7 +97,7 @@ export type CreateMarketInstructionData = {
   admin: ReadonlyUint8Array;
 };
 
-export type CreateMarketInstructionDataArgs = {
+export type CreateOrderbookMarketInstructionDataArgs = {
   baseLotSize: number | bigint;
   quoteLotSize: number | bigint;
   timeExpiry: number | bigint;
@@ -110,7 +110,7 @@ export type CreateMarketInstructionDataArgs = {
   admin: ReadonlyUint8Array;
 };
 
-export function getCreateMarketInstructionDataEncoder(): FixedSizeEncoder<CreateMarketInstructionDataArgs> {
+export function getCreateOrderbookMarketInstructionDataEncoder(): FixedSizeEncoder<CreateOrderbookMarketInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", getU8Encoder()],
@@ -125,11 +125,14 @@ export function getCreateMarketInstructionDataEncoder(): FixedSizeEncoder<Create
       ["name", fixEncoderSize(getBytesEncoder(), 16)],
       ["admin", fixEncoderSize(getBytesEncoder(), 32)],
     ]),
-    (value) => ({ ...value, discriminator: CREATE_MARKET_DISCRIMINATOR }),
+    (value) => ({
+      ...value,
+      discriminator: CREATE_ORDERBOOK_MARKET_DISCRIMINATOR,
+    }),
   );
 }
 
-export function getCreateMarketInstructionDataDecoder(): FixedSizeDecoder<CreateMarketInstructionData> {
+export function getCreateOrderbookMarketInstructionDataDecoder(): FixedSizeDecoder<CreateOrderbookMarketInstructionData> {
   return getStructDecoder([
     ["discriminator", getU8Decoder()],
     ["baseLotSize", getI64Decoder()],
@@ -145,17 +148,17 @@ export function getCreateMarketInstructionDataDecoder(): FixedSizeDecoder<Create
   ]);
 }
 
-export function getCreateMarketInstructionDataCodec(): FixedSizeCodec<
-  CreateMarketInstructionDataArgs,
-  CreateMarketInstructionData
+export function getCreateOrderbookMarketInstructionDataCodec(): FixedSizeCodec<
+  CreateOrderbookMarketInstructionDataArgs,
+  CreateOrderbookMarketInstructionData
 > {
   return combineCodec(
-    getCreateMarketInstructionDataEncoder(),
-    getCreateMarketInstructionDataDecoder(),
+    getCreateOrderbookMarketInstructionDataEncoder(),
+    getCreateOrderbookMarketInstructionDataDecoder(),
   );
 }
 
-export type CreateMarketInput<
+export type CreateOrderbookMarketInput<
   TAccountPayer extends string = string,
   TAccountMarket extends string = string,
   TAccountBids extends string = string,
@@ -172,19 +175,19 @@ export type CreateMarketInput<
   asks: Address<TAccountAsks>;
   /** System program */
   systemProgram?: Address<TAccountSystemProgram>;
-  baseLotSize: CreateMarketInstructionDataArgs["baseLotSize"];
-  quoteLotSize: CreateMarketInstructionDataArgs["quoteLotSize"];
-  timeExpiry: CreateMarketInstructionDataArgs["timeExpiry"];
-  marketIndex: CreateMarketInstructionDataArgs["marketIndex"];
-  bump: CreateMarketInstructionDataArgs["bump"];
-  bidsBump: CreateMarketInstructionDataArgs["bidsBump"];
-  asksBump: CreateMarketInstructionDataArgs["asksBump"];
-  padding: CreateMarketInstructionDataArgs["padding"];
-  name: CreateMarketInstructionDataArgs["name"];
-  admin: CreateMarketInstructionDataArgs["admin"];
+  baseLotSize: CreateOrderbookMarketInstructionDataArgs["baseLotSize"];
+  quoteLotSize: CreateOrderbookMarketInstructionDataArgs["quoteLotSize"];
+  timeExpiry: CreateOrderbookMarketInstructionDataArgs["timeExpiry"];
+  marketIndex: CreateOrderbookMarketInstructionDataArgs["marketIndex"];
+  bump: CreateOrderbookMarketInstructionDataArgs["bump"];
+  bidsBump: CreateOrderbookMarketInstructionDataArgs["bidsBump"];
+  asksBump: CreateOrderbookMarketInstructionDataArgs["asksBump"];
+  padding: CreateOrderbookMarketInstructionDataArgs["padding"];
+  name: CreateOrderbookMarketInstructionDataArgs["name"];
+  admin: CreateOrderbookMarketInstructionDataArgs["admin"];
 };
 
-export function getCreateMarketInstruction<
+export function getCreateOrderbookMarketInstruction<
   TAccountPayer extends string,
   TAccountMarket extends string,
   TAccountBids extends string,
@@ -192,7 +195,7 @@ export function getCreateMarketInstruction<
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof ORDERBOOK_PROGRAM_ADDRESS,
 >(
-  input: CreateMarketInput<
+  input: CreateOrderbookMarketInput<
     TAccountPayer,
     TAccountMarket,
     TAccountBids,
@@ -200,7 +203,7 @@ export function getCreateMarketInstruction<
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
-): CreateMarketInstruction<
+): CreateOrderbookMarketInstruction<
   TProgramAddress,
   TAccountPayer,
   TAccountMarket,
@@ -242,11 +245,11 @@ export function getCreateMarketInstruction<
       getAccountMeta("asks", accounts.asks),
       getAccountMeta("systemProgram", accounts.systemProgram),
     ],
-    data: getCreateMarketInstructionDataEncoder().encode(
-      args as CreateMarketInstructionDataArgs,
+    data: getCreateOrderbookMarketInstructionDataEncoder().encode(
+      args as CreateOrderbookMarketInstructionDataArgs,
     ),
     programAddress,
-  } as CreateMarketInstruction<
+  } as CreateOrderbookMarketInstruction<
     TProgramAddress,
     TAccountPayer,
     TAccountMarket,
@@ -256,7 +259,7 @@ export function getCreateMarketInstruction<
   >);
 }
 
-export type ParsedCreateMarketInstruction<
+export type ParsedCreateOrderbookMarketInstruction<
   TProgram extends string = typeof ORDERBOOK_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
@@ -273,17 +276,17 @@ export type ParsedCreateMarketInstruction<
     /** System program */
     systemProgram: TAccountMetas[4];
   };
-  data: CreateMarketInstructionData;
+  data: CreateOrderbookMarketInstructionData;
 };
 
-export function parseCreateMarketInstruction<
+export function parseCreateOrderbookMarketInstruction<
   TProgram extends string,
   TAccountMetas extends readonly AccountMeta[],
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
-): ParsedCreateMarketInstruction<TProgram, TAccountMetas> {
+): ParsedCreateOrderbookMarketInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 5) {
     throw new SolanaError(
       SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
@@ -308,6 +311,8 @@ export function parseCreateMarketInstruction<
       asks: getNextAccount(),
       systemProgram: getNextAccount(),
     },
-    data: getCreateMarketInstructionDataDecoder().decode(instruction.data),
+    data: getCreateOrderbookMarketInstructionDataDecoder().decode(
+      instruction.data,
+    ),
   };
 }

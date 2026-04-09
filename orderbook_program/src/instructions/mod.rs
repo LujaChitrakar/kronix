@@ -5,8 +5,8 @@ pub mod cancel_all_orders;
 pub mod cancel_order;
 pub mod cancel_order_by_client_id;
 pub mod claim_fill;
-pub mod create_market;
 pub mod create_open_orders_account;
+pub mod create_orderbook_market;
 pub mod edit_order;
 pub mod place_order;
 pub mod place_take_order;
@@ -16,8 +16,8 @@ pub use cancel_all_orders::*;
 pub use cancel_order::*;
 pub use cancel_order_by_client_id::*;
 pub use claim_fill::*;
-pub use create_market::*;
 pub use create_open_orders_account::*;
+pub use create_orderbook_market::*;
 pub use edit_order::*;
 pub use place_order::*;
 pub use place_take_order::*;
@@ -30,7 +30,7 @@ pub enum OrderbookInstruction {
     #[account(2, name = "bids", desc = "Bids BookSide PDA", writable)]
     #[account(3, name = "asks", desc = "Asks BookSide PDA", writable)]
     #[account(4, name = "system_program", desc = "System program")]
-    CreateMarket(CreateMarketParams),
+    CreateOrderbookMarket(CreateOrderbookMarketParams),
 
     #[account(0, name = "payer", desc = "Fee payer", signer, writable)]
     #[account(1, name = "open_orders_account", desc = "OO account PDA", writable)]
@@ -112,7 +112,7 @@ pub enum OrderbookInstruction {
 
 #[repr(u8)]
 pub enum OrderbookProgramInstruction {
-    CreateMarket = 0,
+    CreateOrderbookMarket = 0,
     CreateOpenOrdersAccount = 1,
     PlaceOrder = 2,
     PlaceTakeOrder = 3,
@@ -129,7 +129,7 @@ impl TryFrom<&u8> for OrderbookProgramInstruction {
 
     fn try_from(value: &u8) -> Result<Self, Self::Error> {
         match value {
-            0 => Ok(Self::CreateMarket),
+            0 => Ok(Self::CreateOrderbookMarket),
             1 => Ok(Self::CreateOpenOrdersAccount),
             2 => Ok(Self::PlaceOrder),
             3 => Ok(Self::PlaceTakeOrder),

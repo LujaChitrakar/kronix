@@ -51,7 +51,7 @@ import {
   getAddMarginInstruction,
   getClosePositionInstruction,
   getCoverBadDebtInstruction,
-  getCreateMarketInstruction,
+  getCreateRiskMarketInstruction,
   getDepositInstruction,
   getInitializeInsuranceFundInstruction,
   getInitializeVaultInstruction,
@@ -65,7 +65,7 @@ import {
   parseAddMarginInstruction,
   parseClosePositionInstruction,
   parseCoverBadDebtInstruction,
-  parseCreateMarketInstruction,
+  parseCreateRiskMarketInstruction,
   parseDepositInstruction,
   parseInitializeInsuranceFundInstruction,
   parseInitializeVaultInstruction,
@@ -79,7 +79,7 @@ import {
   type AddMarginInput,
   type ClosePositionInput,
   type CoverBadDebtInput,
-  type CreateMarketInput,
+  type CreateRiskMarketInput,
   type DepositInput,
   type InitializeInsuranceFundInput,
   type InitializeVaultInput,
@@ -88,7 +88,7 @@ import {
   type ParsedAddMarginInstruction,
   type ParsedClosePositionInstruction,
   type ParsedCoverBadDebtInstruction,
-  type ParsedCreateMarketInstruction,
+  type ParsedCreateRiskMarketInstruction,
   type ParsedDepositInstruction,
   type ParsedInitializeInsuranceFundInstruction,
   type ParsedInitializeVaultInstruction,
@@ -118,7 +118,7 @@ export enum RiskProgramAccount {
 }
 
 export enum RiskProgramInstruction {
-  CreateMarket,
+  CreateRiskMarket,
   InitializeInsuranceFund,
   InitializeVault,
   Deposit,
@@ -139,7 +139,7 @@ export function identifyRiskProgramInstruction(
 ): RiskProgramInstruction {
   const data = "data" in instruction ? instruction.data : instruction;
   if (containsBytes(data, getU8Encoder().encode(0), 0)) {
-    return RiskProgramInstruction.CreateMarket;
+    return RiskProgramInstruction.CreateRiskMarket;
   }
   if (containsBytes(data, getU8Encoder().encode(1), 0)) {
     return RiskProgramInstruction.InitializeInsuranceFund;
@@ -190,8 +190,8 @@ export type ParsedRiskProgramInstruction<
   TProgram extends string = "C8kAYt7vpmFxhguEJxbg6hMZY3LLNYACrU8mKveZ8eMu",
 > =
   | ({
-      instructionType: RiskProgramInstruction.CreateMarket;
-    } & ParsedCreateMarketInstruction<TProgram>)
+      instructionType: RiskProgramInstruction.CreateRiskMarket;
+    } & ParsedCreateRiskMarketInstruction<TProgram>)
   | ({
       instructionType: RiskProgramInstruction.InitializeInsuranceFund;
     } & ParsedInitializeInsuranceFundInstruction<TProgram>)
@@ -237,11 +237,11 @@ export function parseRiskProgramInstruction<TProgram extends string>(
 ): ParsedRiskProgramInstruction<TProgram> {
   const instructionType = identifyRiskProgramInstruction(instruction);
   switch (instructionType) {
-    case RiskProgramInstruction.CreateMarket: {
+    case RiskProgramInstruction.CreateRiskMarket: {
       assertIsInstructionWithAccounts(instruction);
       return {
-        instructionType: RiskProgramInstruction.CreateMarket,
-        ...parseCreateMarketInstruction(instruction),
+        instructionType: RiskProgramInstruction.CreateRiskMarket,
+        ...parseCreateRiskMarketInstruction(instruction),
       };
     }
     case RiskProgramInstruction.InitializeInsuranceFund: {
@@ -365,9 +365,10 @@ export type RiskProgramPluginAccounts = {
 };
 
 export type RiskProgramPluginInstructions = {
-  createMarket: (
-    input: MakeOptional<CreateMarketInput, "payer">,
-  ) => ReturnType<typeof getCreateMarketInstruction> & SelfPlanAndSendFunctions;
+  createRiskMarket: (
+    input: MakeOptional<CreateRiskMarketInput, "payer">,
+  ) => ReturnType<typeof getCreateRiskMarketInstruction> &
+    SelfPlanAndSendFunctions;
   initializeInsuranceFund: (
     input: MakeOptional<InitializeInsuranceFundInput, "payer">,
   ) => ReturnType<typeof getInitializeInsuranceFundInstruction> &
@@ -434,10 +435,10 @@ export function riskProgramProgram() {
           userAccount: addSelfFetchFunctions(client, getUserAccountCodec()),
         },
         instructions: {
-          createMarket: (input) =>
+          createRiskMarket: (input) =>
             addSelfPlanAndSendFunctions(
               client,
-              getCreateMarketInstruction({
+              getCreateRiskMarketInstruction({
                 ...input,
                 payer: input.payer ?? client.payer,
               }),

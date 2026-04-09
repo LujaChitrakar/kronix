@@ -128,7 +128,7 @@ export default function WaitlistForm() {
               <em>waitlist.</em>
             </h1>
             <p className="wl-sub">
-              Be the first to trade with Kronix
+              Be one of the first to trade with Kronix
             </p>
 
             <div className="wl-field">
@@ -184,8 +184,7 @@ export default function WaitlistForm() {
 
             <hr className="wl-divider" />
             <p className="wl-count">
-              <span className="wl-dot" />
-              240 people already on the list
+              KRONIX
             </p>
           </>
         )}

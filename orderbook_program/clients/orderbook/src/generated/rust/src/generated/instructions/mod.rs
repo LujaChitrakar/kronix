@@ -9,8 +9,8 @@
   pub(crate) mod r#cancel_order;
   pub(crate) mod r#cancel_order_by_client_id;
   pub(crate) mod r#claim_fill;
-  pub(crate) mod r#create_market;
   pub(crate) mod r#create_open_orders_account;
+  pub(crate) mod r#create_orderbook_market;
   pub(crate) mod r#edit_order;
   pub(crate) mod r#place_order;
   pub(crate) mod r#place_take_order;
@@ -20,8 +20,8 @@
   pub use self::r#cancel_order::*;
   pub use self::r#cancel_order_by_client_id::*;
   pub use self::r#claim_fill::*;
-  pub use self::r#create_market::*;
   pub use self::r#create_open_orders_account::*;
+  pub use self::r#create_orderbook_market::*;
   pub use self::r#edit_order::*;
   pub use self::r#place_order::*;
   pub use self::r#place_take_order::*;

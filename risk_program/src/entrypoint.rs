@@ -8,7 +8,7 @@ use pinocchio_log::log;
 
 use crate::instructions::{
     RiskProgramInstruction, process_add_margin, process_close_position, process_cover_bad_debt,
-    process_create_market, process_deposit, process_initialize_insurance_fund,
+    process_create_risk_market, process_deposit, process_initialize_insurance_fund,
     process_initialize_vault, process_liquidate, process_open_position, process_remove_margin,
     process_settle_fill, process_settle_funding, process_update_funding_rate, process_withdraw,
 };
@@ -29,7 +29,7 @@ pub fn process_instruction(
 
     log!("disc: {}", instruction_data.first().copied().unwrap_or(255));
     match RiskProgramInstruction::try_from(disc)? {
-        RiskProgramInstruction::CreateMarket => process_create_market(accounts, data)?,
+        RiskProgramInstruction::CreateRiskMarket => process_create_risk_market(accounts, data)?,
         RiskProgramInstruction::InitializeInsuranceFund => {
             process_initialize_insurance_fund(accounts, data)?
         }

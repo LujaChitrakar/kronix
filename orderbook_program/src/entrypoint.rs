@@ -2,7 +2,7 @@
 
 use crate::instructions::{
     process_cancel_all_orders, process_cancel_order, process_cancel_order_by_client_id,
-    process_claim_fill, process_create_market, process_create_open_orders_account,
+    process_claim_fill, process_create_orderbook_market, process_create_open_orders_account,
     process_edit_order, process_place_order, process_place_take_order, process_prune_orders,
     OrderbookProgramInstruction,
 };
@@ -31,7 +31,7 @@ fn process_instruction(
         .ok_or(ProgramError::InvalidInstructionData)?;
 
     match OrderbookProgramInstruction::try_from(disc)? {
-        OrderbookProgramInstruction::CreateMarket => process_create_market(accounts, data)?,
+        OrderbookProgramInstruction::CreateOrderbookMarket => process_create_orderbook_market(accounts, data)?,
         OrderbookProgramInstruction::CreateOpenOrdersAccount => {
             process_create_open_orders_account(accounts, data)?
         }
