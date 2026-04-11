@@ -5,7 +5,7 @@ use pinocchio::instruction::{InstructionAccount, InstructionView};
 use pinocchio::{AccountView, ProgramResult};
 
 pub fn place_take_order_cpi(
-    trigger_program_self: &AccountView,
+    trigger_order_owner: &AccountView,
     open_orders_account: &AccountView,
     market: &AccountView,
     bids: &AccountView,
@@ -47,14 +47,14 @@ pub fn place_take_order_cpi(
     ix_data[1..].copy_from_slice(params_bytes);
 
     let account_metas = [
-        InstructionAccount::new(trigger_program_self.address(), false, false),
+        InstructionAccount::new(trigger_order_owner.address(), true, true),
         InstructionAccount::new(open_orders_account.address(), true, false),
         InstructionAccount::new(market.address(), true, false),
         InstructionAccount::new(bids.address(), true, false),
         InstructionAccount::new(asks.address(), true, false),
         InstructionAccount::new(orderbook_program.address(), false, false),
         InstructionAccount::new(risk_program.address(), false, false),
-        InstructionAccount::new(taker_user_account.address(), false, false),
+        InstructionAccount::new(taker_user_account.address(), true, false),
         InstructionAccount::new(taker_position.address(), true, false),
         InstructionAccount::new(market_config.address(), false, false),
         InstructionAccount::new(funding_state.address(), true, false),
@@ -62,7 +62,7 @@ pub fn place_take_order_cpi(
     ];
 
     let account_infos = [
-        trigger_program_self,
+        trigger_order_owner,
         open_orders_account,
         market,
         bids,

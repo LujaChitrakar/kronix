@@ -10,11 +10,11 @@ export default function Hero() {
           KRONIX
         </h1>
         <p className="font-headline text-xl md:text-2xl text-[#bacbbe] font-semibold tracking-tight uppercase opacity-80">
-          Perpetual. Precise. On-chain.
+          Perpetual. Strategy. Onchain.
         </p>
-        <p className="font-body text-sm md:text-base text-[#E8F4F0] font-medium tracking-[0.3em] uppercase mt-4 opacity-90 select-none transition-all duration-700">
+        {/*<p className="font-body text-sm md:text-base text-[#E8F4F0] font-medium tracking-[0.3em] uppercase mt-4 opacity-90 select-none transition-all duration-700">
           Coming Soon
-        </p>
+        </p>*/}
       </div>
     </main>
   );

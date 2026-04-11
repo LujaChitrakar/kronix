@@ -7,8 +7,6 @@ use pinocchio::{
     AccountView, ProgramResult,
 };
 
-use orderbook_program_cpi::{PlaceTakeOrderParams, PLACE_TAKE_ORDER_IX};
-
 use crate::{
     cpi::place_take_order_cpi,
     errors::TriggerProgramError,
@@ -16,7 +14,7 @@ use crate::{
     oracle::validate_pyth_price,
     states::TriggerOrder,
 };
-
+// SHOULD BE SIGNED BY PDA
 #[derive(Pod, Zeroable, Clone, Copy)]
 #[repr(C)]
 pub struct ExecuteTriggerParams {
@@ -30,8 +28,7 @@ pub struct ExecuteTriggerParams {
 pub fn execute_trigger(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     let [
             keeper,              // permissionless — any signer
-            orderbook_program,   // CPI target
-            risk_program,
+            trigger_order_owner,
             trigger_order,
             market,              // orderbook market state
             open_orders_account, // trigger owner's OO account
@@ -42,6 +39,8 @@ pub fn execute_trigger(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
             position,
             user_account,
             oracle,              // Pyth — for price validation
+            orderbook_program,   // CPI target
+            risk_program,
             system_program,
             _remaining @ ..,
         ] = accounts else {
@@ -62,6 +61,9 @@ pub fn execute_trigger(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     let mut order_data = trigger_order.try_borrow_mut()?;
     let order = bytemuck::from_bytes_mut::<TriggerOrder>(&mut order_data[..TriggerOrder::LEN]);
 
+    if order.owner != *trigger_order_owner.address().as_array() {
+        return Err(TriggerProgramError::InvalidOwner.into());
+    }
     if !order.is_active() {
         return Err(TriggerProgramError::TriggerNotActive.into());
     }
@@ -76,21 +78,8 @@ pub fn execute_trigger(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
         return Err(TriggerProgramError::TriggerConditionNotMet.into());
     }
 
-    let order_params = PlaceTakeOrderParams {
-        max_base_lots: order.size_lots,
-        max_quote_lots: i64::MAX, // market order sweeps all
-        client_order_id: order.client_order_id,
-        price_lots: 0, // market order — price ignored
-        side: order.side,
-        order_type: 3u8, // Market order
-        limit: 8u8,
-        bump_position: params.bump_position,
-        bump_user: params.bump_user,
-        padding: [0; 3],
-    };
-
     place_take_order_cpi(
-        keeper,
+        trigger_order_owner,
         open_orders_account,
         market,
         bids,
