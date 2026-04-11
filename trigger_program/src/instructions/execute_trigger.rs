@@ -25,7 +25,7 @@ pub struct ExecuteTriggerParams {
     pub padding: [u8; 3],
 }
 
-pub fn execute_trigger(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     let [
             keeper,              // permissionless — any signer
             trigger_order_owner,

@@ -6,7 +6,7 @@ use crate::{
     states::TriggerOrder,
 };
 
-pub fn cancel_trigger_order(accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
+pub fn process_cancel_trigger_order(accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
     let [signer, trigger_order, _remaining @ ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };

@@ -28,7 +28,7 @@ pub struct PlaceTriggerOrderParams {
     pub padding: [u8; 3],
 }
 
-pub fn place_trigger_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+pub fn process_place_trigger_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     let [signer, trigger_order, system_program, _remaining @ ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };

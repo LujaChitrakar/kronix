@@ -6,7 +6,7 @@ use pinocchio::{
 
 use crate::{helpers::verify_signer, states::TriggerOrder};
 
-pub fn prune_expired_triggers(accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
+pub fn process_prune_expired_triggers(accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
     let [keeper, _remaining @ ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };

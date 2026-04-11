@@ -1,0 +1,34 @@
+use pinocchio::{
+    default_panic_handler, error::ProgramError, no_allocator, program_entrypoint, AccountView,
+    Address, ProgramResult,
+};
+
+use crate::instructions::{
+    process_cancel_trigger_order, process_execute_trigger, process_place_trigger_order,
+    process_prune_expired_triggers, TriggerProgramInstruction,
+};
+
+program_entrypoint!(process_instruction);
+no_allocator!();
+default_panic_handler!();
+
+pub fn process_instruction(
+    _program_id: &Address,
+    accounts: &[AccountView],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    let (disc, data) = instruction_data
+        .split_first()
+        .ok_or(ProgramError::InvalidInstructionData)?;
+    match TriggerProgramInstruction::try_from(disc)? {
+        TriggerProgramInstruction::PlaceTriggerOrder => {
+            process_place_trigger_order(accounts, data)?
+        }
+        TriggerProgramInstruction::CancelTriggerOrder => {
+            process_cancel_trigger_order(accounts, data)?
+        }
+        TriggerProgramInstruction::ExecuteTrigger => process_execute_trigger(accounts, data)?,
+        TriggerProgramInstruction::PruneTrigger => process_prune_expired_triggers(accounts, data)?,
+    }
+    Ok(())
+}
