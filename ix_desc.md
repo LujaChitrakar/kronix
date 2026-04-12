@@ -1,6 +1,6 @@
 THE FLOW OF ALL THE IX
 
-------- SETUP IX (RAN BY ADMIN ONCE) -------
+---- SETUP IX (RAN BY ADMIN ONCE) ----
 
 risk_program::initialize_insurance_fund
 
@@ -122,7 +122,7 @@ Note:
 
 ---
 
------- USER ONBOARDING ------
+--- USER ONBOARDING ---
 risk_program::deposit
 
 ```
@@ -186,7 +186,7 @@ PDA seeds:
 
 ---
 
------- CORE TRADING FLOW ------
+--- CORE TRADING FLOW ---
 
 orderbook_program::place_order
 
@@ -509,7 +509,7 @@ Accounts:
 
 ---
 
------- POSITION MANAGEMENT ------
+--- POSITION MANAGEMENT ---
 
 risk_program::open_position
 
@@ -642,7 +642,7 @@ Flow:
 
 ---
 
------- FUNDING SYSTEM ------
+--- FUNDING SYSTEM ---
 
 risk_program::update_funding_rate
 
@@ -707,7 +707,7 @@ Note:
 
 ---
 
------- LIQUIDATION SYSTEM ------
+--- LIQUIDATION SYSTEM ---
 
 risk_program::liquidate
 
@@ -794,7 +794,7 @@ Difference from liquidate:
 
 ---
 
------- ORDERBOOK MAINTAINANCE ------
+--- ORDERBOOK MAINTAINANCE ---
 
 orderbook_program::prune_orders
 
@@ -827,7 +827,7 @@ Accounts:
 
 ---
 
------- TRIGGER SYSTEM ------
+--- TRIGGER SYSTEM ---
 
 trigger_program::place_trigger_order
 
@@ -956,7 +956,7 @@ Flow:
 
 ---
 
------- STRATEGY SYSTEM ------
+--- STRATEGY SYSTEM ---
 strategy_program::create_strategy
 
 ```
@@ -1139,7 +1139,7 @@ Flow:
 
 ---
 
------- COMPLETE CALL GRAPH ------
+--- COMPLETE CALL GRAPH ---
 
 ```
 USER CALLS:
@@ -1188,7 +1188,7 @@ CPI ONLY (never called directly):
 
 ---
 
------- CALLER SUMMARY TABLE ------
+--- CALLER SUMMARY TABLE ---
 
 ```
 Instruction                    Caller       Program
