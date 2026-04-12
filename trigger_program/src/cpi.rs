@@ -1,11 +1,13 @@
 use orderbook_program_cpi::PlaceTakeOrderParams;
 use orderbook_program_cpi::{self, PLACE_TAKE_ORDER_IX};
-use pinocchio::cpi::invoke;
+use pinocchio::cpi::{invoke_signed, Seed, Signer};
 use pinocchio::instruction::{InstructionAccount, InstructionView};
 use pinocchio::{AccountView, ProgramResult};
 
+use crate::constants::TRIGGER_AUTHORITY_SEED;
+
 pub fn place_take_order_cpi(
-    trigger_order_owner: &AccountView,
+    trigger_authority: &AccountView,
     open_orders_account: &AccountView,
     market: &AccountView,
     bids: &AccountView,
@@ -26,6 +28,7 @@ pub fn place_take_order_cpi(
     limit: u8,
     bump_position: u8,
     bump_user: u8,
+    bump_authority: u8,
 ) -> ProgramResult {
     let params = PlaceTakeOrderParams {
         max_base_lots,
@@ -47,7 +50,7 @@ pub fn place_take_order_cpi(
     ix_data[1..].copy_from_slice(params_bytes);
 
     let account_metas = [
-        InstructionAccount::new(trigger_order_owner.address(), true, true),
+        InstructionAccount::new(trigger_authority.address(), true, true),
         InstructionAccount::new(open_orders_account.address(), true, false),
         InstructionAccount::new(market.address(), true, false),
         InstructionAccount::new(bids.address(), true, false),
@@ -62,7 +65,7 @@ pub fn place_take_order_cpi(
     ];
 
     let account_infos = [
-        trigger_order_owner,
+        trigger_authority,
         open_orders_account,
         market,
         bids,
@@ -82,7 +85,13 @@ pub fn place_take_order_cpi(
         data: &ix_data,
     };
 
-    invoke::<12>(&ix, &account_infos)?;
+    let bump_bytes = [bump_authority];
+    let seeds = [
+        Seed::from(TRIGGER_AUTHORITY_SEED),
+        Seed::from(bump_bytes.as_ref()),
+    ];
+
+    invoke_signed::<12>(&ix, &account_infos, &[Signer::from(&seeds)])?;
 
     Ok(())
 }

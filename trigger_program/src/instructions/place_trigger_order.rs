@@ -29,7 +29,8 @@ pub struct PlaceTriggerOrderParams {
 }
 
 pub fn process_place_trigger_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [signer, trigger_order, system_program, _remaining @ ..] = accounts else {
+    let [signer, trigger_order, open_orders_account, system_program, _remaining @ ..] = accounts
+    else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 
@@ -99,6 +100,7 @@ pub fn process_place_trigger_order(accounts: &[AccountView], data: &[u8]) -> Pro
             bump: params.bump,
             padding: [0; 2],
             owner: *signer_key,
+            open_orders_account: *open_orders_account.address().as_array(),
             reserved: [0; 32],
         };
     }

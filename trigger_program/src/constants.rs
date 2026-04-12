@@ -1,4 +1,5 @@
 pub const TRIGGER_ORDER_SEED: &[u8] = b"trigger_order";
+pub const TRIGGER_AUTHORITY_SEED: &[u8] = b"trigger_authority";
 
 pub const MAX_PRICE_AGE_SLOTS: u64 = 25;
 pub const MAX_CONF_RATIO_BPS: u64 = 100;

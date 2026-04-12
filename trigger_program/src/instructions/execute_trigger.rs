@@ -8,20 +8,22 @@ use pinocchio::{
 };
 
 use crate::{
+    constants::TRIGGER_AUTHORITY_SEED,
     cpi::place_take_order_cpi,
     errors::TriggerProgramError,
-    helpers::{verify_account_owner, verify_program_id, verify_signer, verify_writtable},
+    helpers::{
+        verify_account_owner, verify_pda, verify_program_id, verify_signer, verify_writtable,
+    },
     oracle::validate_pyth_price,
     states::TriggerOrder,
 };
-// SHOULD BE SIGNED BY PDA
 #[derive(Pod, Zeroable, Clone, Copy)]
 #[repr(C)]
 pub struct ExecuteTriggerParams {
     pub market_index: u16,
-    pub bump_oo_account: u8,
     pub bump_position: u8, // for risk_program via orderbook CPI
     pub bump_user: u8,
+    pub bump_authority: u8,
     pub padding: [u8; 3],
 }
 
@@ -30,6 +32,7 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
             keeper,              // permissionless — any signer
             trigger_order_owner,
             trigger_order,
+            trigger_authority,
             market,              // orderbook market state
             open_orders_account, // trigger owner's OO account
             bids,
@@ -58,6 +61,13 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
         .map_err(|_| ProgramError::InvalidInstructionData)?;
     let clock = Clock::get()?;
 
+    let bump_bytes = [params.bump_authority];
+    verify_pda(
+        trigger_authority,
+        &[TRIGGER_AUTHORITY_SEED, &bump_bytes],
+        &crate::ID,
+    )?;
+
     let mut order_data = trigger_order.try_borrow_mut()?;
     let order = bytemuck::from_bytes_mut::<TriggerOrder>(&mut order_data[..TriggerOrder::LEN]);
 
@@ -71,6 +81,9 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
         order.status = 2; // mark cancelled
         return Err(TriggerProgramError::TriggerExpired.into());
     }
+    if open_orders_account.address().as_array() != &order.open_orders_account {
+        return Err(TriggerProgramError::InvalidOOAccount.into());
+    }
 
     let mark_price = validate_pyth_price(oracle, clock.unix_timestamp)?;
 
@@ -79,7 +92,7 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
     }
 
     place_take_order_cpi(
-        trigger_order_owner,
+        trigger_authority,
         open_orders_account,
         market,
         bids,
@@ -100,6 +113,7 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
         8u8,
         params.bump_position,
         params.bump_user,
+        params.bump_authority,
     )?;
 
     order.status = 1;

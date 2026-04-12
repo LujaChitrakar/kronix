@@ -15,11 +15,12 @@ pub struct TriggerOrder {
     pub bump: u8,
     pub padding: [u8; 2],
     pub owner: [u8; 32], // user who placed trigger
+    pub open_orders_account: [u8; 32],
     pub reserved: [u8; 32],
 }
 
 const _: () =
-    assert!(size_of::<TriggerOrder>() == 8 + 8 + 8 + 8 + 8 + 2 + 1 + 1 + 1 + 1 + 2 + 32 + 32);
+    assert!(size_of::<TriggerOrder>() == 8 + 8 + 8 + 8 + 8 + 2 + 1 + 1 + 1 + 1 + 2 + 32 + 32 + 32);
 const _: () = assert!(size_of::<TriggerOrder>() % 8 == 0);
 
 impl TriggerOrder {

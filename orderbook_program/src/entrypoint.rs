@@ -2,9 +2,9 @@
 
 use crate::instructions::{
     process_cancel_all_orders, process_cancel_order, process_cancel_order_by_client_id,
-    process_claim_fill, process_create_orderbook_market, process_create_open_orders_account,
+    process_claim_fill, process_create_open_orders_account, process_create_orderbook_market,
     process_edit_order, process_place_order, process_place_take_order, process_prune_orders,
-    OrderbookProgramInstruction,
+    process_set_delegate, OrderbookProgramInstruction,
 };
 use pinocchio::{
     default_panic_handler, error::ProgramError, no_allocator, program_entrypoint, AccountView,
@@ -31,7 +31,9 @@ fn process_instruction(
         .ok_or(ProgramError::InvalidInstructionData)?;
 
     match OrderbookProgramInstruction::try_from(disc)? {
-        OrderbookProgramInstruction::CreateOrderbookMarket => process_create_orderbook_market(accounts, data)?,
+        OrderbookProgramInstruction::CreateOrderbookMarket => {
+            process_create_orderbook_market(accounts, data)?
+        }
         OrderbookProgramInstruction::CreateOpenOrdersAccount => {
             process_create_open_orders_account(accounts, data)?
         }
@@ -45,6 +47,7 @@ fn process_instruction(
         OrderbookProgramInstruction::EditOrder => process_edit_order(accounts, data)?,
         OrderbookProgramInstruction::ClaimFill => process_claim_fill(accounts, data)?,
         OrderbookProgramInstruction::PruneOrders => process_prune_orders(accounts, data)?,
+        OrderbookProgramInstruction::SetDelegate => process_set_delegate(accounts, data)?,
     }
     Ok(())
 }

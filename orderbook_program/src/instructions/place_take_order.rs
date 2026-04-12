@@ -111,8 +111,13 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
         let open_orders_account_bump = [oo_account_state.bump];
         let open_orders_account_owner = oo_account_state.owner;
 
-        if signer.address().as_array() != &open_orders_account_owner {
-            return Err(ProgramError::InvalidAccountOwner);
+        let signer_key = signer.address().as_array();
+        let is_owner = signer_key == &oo_account_state.owner;
+        let is_delegate =
+            oo_account_state.delegate != [0u8; 32] && signer_key == &oo_account_state.delegate;
+
+        if !is_owner && !is_delegate {
+            return Err(OrderBookError::InvalidOwner.into());
         }
         if market.address().as_array() != &oo_account_state.market {
             return Err(ProgramError::InvalidAccountOwner);

@@ -8,9 +8,10 @@ use pinocchio::{
 };
 
 use crate::{
+    constants::STRATEGY_AUTHORITY_SEED,
     cpi::{place_order_cpi, place_trigger_order_cpi},
     errors::StrategyProgramError,
-    helpers::{verify_account_owner, verify_signer, verify_writtable},
+    helpers::{verify_account_owner, verify_pda, verify_signer, verify_writtable},
     states::StrategyAccount,
 };
 
@@ -24,13 +25,15 @@ pub struct ExecuteStrategyParams {
     pub bump_user: u8,
     pub bump_trigger_tp: u8, // for take profit trigger PDA
     pub bump_trigger_sl: u8, // for stop loss trigger PDA
-    pub padding: [u8; 2],
+    pub bump_authority: u8,
+    pub padding: [u8; 1],
 }
 
 pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     let [
         keeper, // permissionless
         strategy_owner,
+        strategy_authority,
         strategy_account,
         // orderbook CPI accounts
         orderbook_program,
@@ -68,6 +71,13 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
     let clock = Clock::get()?;
     let now_ts = clock.unix_timestamp;
 
+    let bump_bytes = [params.bump_authority];
+    verify_pda(
+        strategy_authority,
+        &[STRATEGY_AUTHORITY_SEED, &bump_bytes],
+        &crate::ID,
+    )?;
+
     let mut strat_data = strategy_account.try_borrow_mut()?;
     let strategy =
         bytemuck::from_bytes_mut::<StrategyAccount>(&mut strat_data[..StrategyAccount::LEN]);
@@ -103,7 +113,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
     }
 
     place_order_cpi(
-        strategy_owner,
+        strategy_authority,
         open_orders_account,
         market,
         bids,
@@ -129,6 +139,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
         8u8,
         params.bump_position,
         params.bump_user,
+        params.bump_authority,
     )?;
 
     if strategy.take_profit_price > 0 {
@@ -136,7 +147,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
         let tp_trigger_type = 1u8; // TakeProfit
 
         place_trigger_order_cpi(
-            strategy_owner,
+            strategy_authority,
             trigger_program,
             trigger_order,
             system_program,
@@ -148,6 +159,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
             tp_trigger_type,
             tp_side,
             params.bump_trigger_tp,
+            params.bump_authority,
         )?;
     }
 
@@ -156,7 +168,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
         let sl_trigger_type = 0u8; // StopLoss
 
         place_trigger_order_cpi(
-            strategy_owner,
+            strategy_authority,
             trigger_program,
             trigger_order,
             system_program,
@@ -168,6 +180,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
             sl_trigger_type,
             sl_side,
             params.bump_trigger_sl,
+            params.bump_authority,
         )?;
     }
 
