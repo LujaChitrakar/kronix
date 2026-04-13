@@ -26,8 +26,8 @@ const features = [
 
 export default function Features() {
   return (
-    <section className="relative z-10 py-32 px-8 max-w-7xl mx-auto bg-transparent">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-0.5 bg-[#3B4A41]/10">
+    <section className="relative z-10 py-16 sm:py-32 px-4 sm:px-8 max-w-7xl mx-auto bg-transparent">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-[#3B4A41]/10">
         {features.map((feature) => (
           <FeatureCard key={feature.title} {...feature} />
         ))}
