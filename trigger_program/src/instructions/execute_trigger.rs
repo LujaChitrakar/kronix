@@ -1,11 +1,10 @@
-use std::i64;
-
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{
     error::ProgramError,
     sysvars::{clock::Clock, Sysvar},
     AccountView, ProgramResult,
 };
+use std::i64;
 
 use crate::{
     constants::TRIGGER_AUTHORITY_SEED,
@@ -17,11 +16,12 @@ use crate::{
     oracle::validate_pyth_price,
     states::TriggerOrder,
 };
+
 #[derive(Pod, Zeroable, Clone, Copy)]
 #[repr(C)]
 pub struct ExecuteTriggerParams {
     pub market_index: u16,
-    pub bump_position: u8, // for risk_program via orderbook CPI
+    pub bump_position: u8,
     pub bump_user: u8,
     pub bump_authority: u8,
     pub padding: [u8; 3],
@@ -30,7 +30,6 @@ pub struct ExecuteTriggerParams {
 pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     let [
             keeper,              // permissionless — any signer
-            trigger_order_owner,
             trigger_order,
             trigger_authority,
             market,              // orderbook market state
@@ -39,8 +38,8 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
             asks,
             market_config,
             funding_state,
-            position,
             user_account,
+            position,
             oracle,              // Pyth — for price validation
             orderbook_program,   // CPI target
             risk_program,
@@ -71,9 +70,6 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
     let mut order_data = trigger_order.try_borrow_mut()?;
     let order = bytemuck::from_bytes_mut::<TriggerOrder>(&mut order_data[..TriggerOrder::LEN]);
 
-    if order.owner != *trigger_order_owner.address().as_array() {
-        return Err(TriggerProgramError::InvalidOwner.into());
-    }
     if !order.is_active() {
         return Err(TriggerProgramError::TriggerNotActive.into());
     }
@@ -92,18 +88,18 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
     }
 
     place_take_order_cpi(
+        orderbook_program,
+        risk_program,
+        system_program,
         trigger_authority,
         open_orders_account,
         market,
         bids,
         asks,
-        orderbook_program,
-        risk_program,
         user_account,
         position,
         market_config,
         funding_state,
-        system_program,
         order.size_lots,
         i64::MAX,
         order.client_order_id,

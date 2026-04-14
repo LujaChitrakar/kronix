@@ -30,7 +30,6 @@ pub fn process_set_delegate(accounts: &[AccountView], data: &[u8]) -> ProgramRes
     let mut oo_data = open_orders_account.try_borrow_mut()?;
     let oo = bytemuck::from_bytes_mut::<OpenOrdersAccount>(&mut oo_data[..OpenOrdersAccount::LEN]);
 
-    // Only owner can set delegate
     if oo.owner != *signer.address().as_array() {
         return Err(OrderBookError::InvalidOwner.into());
     }

@@ -6,7 +6,7 @@ use crate::{
     state::{FundingState, MarketConfig, Position, UserAccount},
 };
 
-// Called lazily before positoin change, called internally
+// Called lazily before position change, called internally
 pub fn settle_funding_internal(
     user_account: &mut UserAccount,
     position: &mut Position,

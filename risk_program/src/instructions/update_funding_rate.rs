@@ -1,5 +1,3 @@
-// CALLED BY OFFCHAIN CRANKERS
-
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{
     error::ProgramError,

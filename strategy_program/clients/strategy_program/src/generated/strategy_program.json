@@ -1,0 +1,398 @@
+{
+  "version": "0.1.0",
+  "name": "strategy_program",
+  "instructions": [
+    {
+      "name": "CreateStrategy",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Fee payer"
+          ]
+        },
+        {
+          "name": "strategyAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Strategy account PDA"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "System program"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "createStrategyParams",
+          "type": {
+            "defined": "CreateStrategyParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 0
+      }
+    },
+    {
+      "name": "EditStrategy",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Fee payer"
+          ]
+        },
+        {
+          "name": "strategyAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Strategy account PDA"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "editStrategyParams",
+          "type": {
+            "defined": "EditStrategyParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 1
+      }
+    },
+    {
+      "name": "ExecuteStrategy",
+      "accounts": [
+        {
+          "name": "keeper",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Fee payer"
+          ]
+        },
+        {
+          "name": "strategyAuthority",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Strategy authority PDA"
+          ]
+        },
+        {
+          "name": "strategyAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Strategy account PDA"
+          ]
+        },
+        {
+          "name": "openOrdersAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Open orders account PDA"
+          ]
+        },
+        {
+          "name": "market",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Market PDA"
+          ]
+        },
+        {
+          "name": "bids",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Bids PDA"
+          ]
+        },
+        {
+          "name": "asks",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Asks PDA"
+          ]
+        },
+        {
+          "name": "marketConfig",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Market Config PDA"
+          ]
+        },
+        {
+          "name": "fundingState",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Funding State PDA"
+          ]
+        },
+        {
+          "name": "userAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "User Account PDA"
+          ]
+        },
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Position PDA"
+          ]
+        },
+        {
+          "name": "riskProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Risk Program"
+          ]
+        },
+        {
+          "name": "orderbookProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Orderbook Program"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "System program"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "executeStrategyParams",
+          "type": {
+            "defined": "ExecuteStrategyParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 2
+      }
+    },
+    {
+      "name": "PauseStrategy",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Fee payer"
+          ]
+        },
+        {
+          "name": "strategyAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Strategy account PDA"
+          ]
+        }
+      ],
+      "args": [],
+      "discriminant": {
+        "type": "u8",
+        "value": 3
+      }
+    },
+    {
+      "name": "ResumeStrategy",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Fee payer"
+          ]
+        },
+        {
+          "name": "strategyAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Strategy account PDA"
+          ]
+        }
+      ],
+      "args": [],
+      "discriminant": {
+        "type": "u8",
+        "value": 4
+      }
+    },
+    {
+      "name": "CloseStrategy",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Fee payer"
+          ]
+        },
+        {
+          "name": "strategyAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Strategy account PDA"
+          ]
+        }
+      ],
+      "args": [],
+      "discriminant": {
+        "type": "u8",
+        "value": 5
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "StrategyAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "clientOrderId",
+            "type": "u64"
+          },
+          {
+            "name": "takeProfitPrice",
+            "type": "i64"
+          },
+          {
+            "name": "stopLossPrice",
+            "type": "i64"
+          },
+          {
+            "name": "sizeLots",
+            "type": "i64"
+          },
+          {
+            "name": "limitPriceLots",
+            "type": "i64"
+          },
+          {
+            "name": "createdAt",
+            "type": "i64"
+          },
+          {
+            "name": "dayStartTs",
+            "type": "i64"
+          },
+          {
+            "name": "lastExecutedTs",
+            "type": "i64"
+          },
+          {
+            "name": "cooldownSecs",
+            "type": "u64"
+          },
+          {
+            "name": "strategyType",
+            "type": "u8"
+          },
+          {
+            "name": "status",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "side",
+            "type": "u8"
+          },
+          {
+            "name": "maxExecutionsPerDay",
+            "type": "u32"
+          },
+          {
+            "name": "executionsToday",
+            "type": "u32"
+          },
+          {
+            "name": "marketIndex",
+            "type": "u16"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                2
+              ]
+            }
+          },
+          {
+            "name": "params",
+            "type": {
+              "defined": "StrategyParams"
+            }
+          },
+          {
+            "name": "owner",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "origin": "shank",
+    "address": "5uPoD26g3gKYFhYR4poXe4oxHATBnWb3CUoGue9vaCpa"
+  }
+}

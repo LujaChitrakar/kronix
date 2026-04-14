@@ -15,6 +15,7 @@
   pub(crate) mod r#place_order;
   pub(crate) mod r#place_take_order;
   pub(crate) mod r#prune_orders;
+  pub(crate) mod r#set_delegate;
 
   pub use self::r#cancel_all_orders::*;
   pub use self::r#cancel_order::*;
@@ -26,4 +27,5 @@
   pub use self::r#place_order::*;
   pub use self::r#place_take_order::*;
   pub use self::r#prune_orders::*;
+  pub use self::r#set_delegate::*;
 

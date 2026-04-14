@@ -3,7 +3,7 @@
   "name": "risk_program",
   "instructions": [
     {
-      "name": "CreateMarket",
+      "name": "CreateRiskMarket",
       "accounts": [
         {
           "name": "payer",
@@ -40,9 +40,9 @@
       ],
       "args": [
         {
-          "name": "createMarketParams",
+          "name": "createRiskMarketParams",
           "type": {
-            "defined": "CreateMarketParams"
+            "defined": "CreateRiskMarketParams"
           }
         }
       ],
@@ -1218,7 +1218,7 @@
       }
     },
     {
-      "name": "CreateMarketParams",
+      "name": "CreateRiskMarketParams",
       "type": {
         "kind": "struct",
         "fields": [

@@ -1,6 +1,7 @@
 use bytemuck::{Pod, Zeroable};
+use shank::ShankType;
 
-#[derive(Pod, Zeroable, Copy, Clone)]
+#[derive(Pod, Zeroable, Copy, Clone, ShankType)]
 #[repr(C)]
 pub struct TriggerOrder {
     pub client_order_id: u64,

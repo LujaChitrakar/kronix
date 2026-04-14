@@ -37,7 +37,20 @@ pub struct PlaceOrderParams {
 }
 
 pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [signer, open_orders_account, market, bids, asks, orderbook_program_self, risk_program, taker_user_account, taker_position, market_config, funding_state, system_program, _remaining @ ..] =
+    let [
+        signer, 
+        open_orders_account, 
+        market, 
+        bids, 
+        asks, 
+        taker_user_account, 
+        taker_position, 
+        market_config, 
+        funding_state, 
+        orderbook_program_self, 
+        risk_program, 
+        system_program, 
+        _remaining @ ..] =
         accounts
     else {
         return Err(pinocchio::error::ProgramError::InvalidAccountData);

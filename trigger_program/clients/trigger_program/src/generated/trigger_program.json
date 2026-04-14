@@ -1,0 +1,359 @@
+{
+  "version": "0.1.0",
+  "name": "trigger_program",
+  "instructions": [
+    {
+      "name": "PlaceTriggerOrder",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Fee payer"
+          ]
+        },
+        {
+          "name": "triggerOrder",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Trigger order PDA"
+          ]
+        },
+        {
+          "name": "openOrdersAccount",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Open orders account PDA"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "System program"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "placeTriggerOrderParams",
+          "type": {
+            "defined": "PlaceTriggerOrderParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 0
+      }
+    },
+    {
+      "name": "EditTrigger",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Fee payer"
+          ]
+        },
+        {
+          "name": "triggerOrder",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Trigger order PDA"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "editTriggerParams",
+          "type": {
+            "defined": "EditTriggerParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 1
+      }
+    },
+    {
+      "name": "ExecuteTrigger",
+      "accounts": [
+        {
+          "name": "keeper",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Fee payer"
+          ]
+        },
+        {
+          "name": "triggerOrder",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Trigger order PDA"
+          ]
+        },
+        {
+          "name": "triggerAuthority",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Trigger order authority PDA"
+          ]
+        },
+        {
+          "name": "market",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Market PDA"
+          ]
+        },
+        {
+          "name": "openOrdersAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Open orders account PDA"
+          ]
+        },
+        {
+          "name": "bids",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Bids PDA"
+          ]
+        },
+        {
+          "name": "asks",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Asks PDA"
+          ]
+        },
+        {
+          "name": "marketConfig",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Market Config PDA"
+          ]
+        },
+        {
+          "name": "fundingState",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Funding State PDA"
+          ]
+        },
+        {
+          "name": "userAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "User Account PDA"
+          ]
+        },
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Position PDA"
+          ]
+        },
+        {
+          "name": "oracle",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Oracle PDA"
+          ]
+        },
+        {
+          "name": "orderbookProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Orderbook Program"
+          ]
+        },
+        {
+          "name": "riskProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Risk Program"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "System program"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "executeTriggerParams",
+          "type": {
+            "defined": "ExecuteTriggerParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 2
+      }
+    },
+    {
+      "name": "CancelTriggerOrder",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Fee payer"
+          ]
+        },
+        {
+          "name": "triggerOrder",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Trigger order PDA"
+          ]
+        }
+      ],
+      "args": [],
+      "discriminant": {
+        "type": "u8",
+        "value": 3
+      }
+    },
+    {
+      "name": "PruneTrigger",
+      "accounts": [
+        {
+          "name": "keeper",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Fee payer"
+          ]
+        }
+      ],
+      "args": [],
+      "discriminant": {
+        "type": "u8",
+        "value": 4
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "TriggerOrder",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "clientOrderId",
+            "type": "u64"
+          },
+          {
+            "name": "triggerPrice",
+            "type": "i64"
+          },
+          {
+            "name": "sizeLots",
+            "type": "i64"
+          },
+          {
+            "name": "createdAt",
+            "type": "i64"
+          },
+          {
+            "name": "expiry",
+            "type": "i64"
+          },
+          {
+            "name": "marketIndex",
+            "type": "u16"
+          },
+          {
+            "name": "triggerType",
+            "type": "u8"
+          },
+          {
+            "name": "side",
+            "type": "u8"
+          },
+          {
+            "name": "status",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                2
+              ]
+            }
+          },
+          {
+            "name": "owner",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "openOrdersAccount",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "origin": "shank",
+    "address": "H4CnxfeSWvWqhBz2apY8JBdJxkn6qJf7crLiYqBz74fD"
+  }
+}

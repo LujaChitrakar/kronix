@@ -683,6 +683,47 @@
         "type": "u8",
         "value": 9
       }
+    },
+    {
+      "name": "SetDelegate",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "signer"
+          ]
+        },
+        {
+          "name": "openOrdersAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "OO account"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "System program"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "setDelegateParams",
+          "type": {
+            "defined": "SetDelegateParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 10
+      }
     }
   ],
   "accounts": [
@@ -1242,6 +1283,23 @@
               "array": [
                 "u8",
                 6
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "SetDelegateParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "delegate",
+            "type": {
+              "array": [
+                "u8",
+                32
               ]
             }
           }

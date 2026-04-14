@@ -15,6 +15,9 @@ pub enum StrategyProgramError {
     CooldownNotElapsed = 9,
     DailyCapReached = 10,
     InvalidSignal = 11,
+    InvalidPrice = 12,
+    InvalidSlTpConfig = 13,
+    InvalidStatus = 14,
 }
 
 impl From<StrategyProgramError> for ProgramError {

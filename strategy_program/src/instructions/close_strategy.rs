@@ -2,7 +2,7 @@ use pinocchio::{AccountView, ProgramResult, error::ProgramError};
 
 use crate::{errors::StrategyProgramError, states::StrategyAccount};
 
-pub fn close_strategy(accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
+pub fn process_close_strategy(accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
     let [signer, strategy_account, _remaining @ ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
@@ -15,8 +15,6 @@ pub fn close_strategy(accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
         return Err(StrategyProgramError::InvalidOwner.into());
     }
     drop(data);
-    // Transfer lamports back to signer — close the account
-    // Standard account closing pattern in Pinocchio
     let dest_lamports = signer.lamports();
     let src_lamports = strategy_account.lamports();
     signer.set_lamports(dest_lamports + src_lamports);

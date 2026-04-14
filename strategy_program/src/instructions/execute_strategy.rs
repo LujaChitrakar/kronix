@@ -1,11 +1,10 @@
-use std::i64;
-
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{
     AccountView, ProgramResult,
     error::ProgramError,
     sysvars::{Sysvar, clock::Clock},
 };
+use std::i64;
 
 use crate::{
     constants::STRATEGY_AUTHORITY_SEED,
@@ -32,27 +31,25 @@ pub struct ExecuteStrategyParams {
 pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     let [
         keeper, // permissionless
-        strategy_owner,
         strategy_authority,
         strategy_account,
         // orderbook CPI accounts
-        orderbook_program,
         open_orders_account,
         market,
         bids,
         asks,
-        risk_program,
-        user_account,
-        position,
         market_config,
         funding_state,
+        user_account,
+        position,
+        risk_program,
+        orderbook_program,
         system_program,
         // trigger program CPI accounts (optional — only if SL/TP set)
-        trigger_program,
-        trigger_order,
-        // these are signers
-        trigger_tp_account, // for take profit
-        trigger_sl_account, // for stop loss
+        // trigger_program,
+        // // these are signers
+        // trigger_tp_account, // for take profit
+        // trigger_sl_account, // for stop loss
         _remaining @ ..,
     ] = accounts
     else {
@@ -90,7 +87,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
         let elapsed = now_ts
             .checked_sub(strategy.last_executed_ts)
             .ok_or(ProgramError::ArithmeticOverflow)?;
-        if elapsed < strategy.cooldown_secs as i64 {
+        if (elapsed as u64) < strategy.cooldown_secs {
             return Err(StrategyProgramError::CooldownNotElapsed.into());
         }
     }
@@ -111,31 +108,32 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
     if params.signal > 1 {
         return Err(StrategyProgramError::InvalidSignal.into());
     }
+    let order_type: u8 = if strategy.limit_price_lots > 0 {
+        0u8
+    } else {
+        3u8
+    };
 
     place_order_cpi(
+        orderbook_program,
+        risk_program,
+        system_program,
         strategy_authority,
         open_orders_account,
         market,
         bids,
         asks,
-        orderbook_program,
-        risk_program,
         user_account,
         position,
         market_config,
         funding_state,
-        system_program,
-        strategy.stop_loss_price,
+        strategy.size_lots,
         i64::MAX,
         strategy.client_order_id,
         0,
         strategy.limit_price_lots,
         params.signal,
-        if strategy.limit_price_lots > 0 {
-            0u8
-        } else {
-            3u8
-        },
+        order_type,
         8u8,
         params.bump_position,
         params.bump_user,
@@ -143,14 +141,18 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
     )?;
 
     if strategy.take_profit_price > 0 {
+        let [trigger_program, trigger_tp_account, ..] = _remaining else {
+            return Err(ProgramError::NotEnoughAccountKeys);
+        };
         let tp_side = 1 - params.signal; // opposite side to close position
         let tp_trigger_type = 1u8; // TakeProfit
 
         place_trigger_order_cpi(
             strategy_authority,
             trigger_program,
-            trigger_order,
             system_program,
+            trigger_tp_account,
+            open_orders_account,
             strategy.client_order_id,
             strategy.take_profit_price,
             strategy.size_lots,
@@ -164,15 +166,20 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
     }
 
     if strategy.stop_loss_price > 0 {
+        let offset = if strategy.take_profit_price > 0 { 2 } else { 0 };
+        let [trigger_program, trigger_sl_account, ..] = &_remaining[offset..] else {
+            return Err(ProgramError::NotEnoughAccountKeys);
+        };
         let sl_side = 1 - params.signal; // opposite side to close position
         let sl_trigger_type = 0u8; // StopLoss
 
         place_trigger_order_cpi(
             strategy_authority,
             trigger_program,
-            trigger_order,
             system_program,
-            strategy.client_order_id,
+            trigger_sl_account,
+            open_orders_account,
+            strategy.client_order_id + 1,
             strategy.stop_loss_price,
             strategy.size_lots,
             0,
@@ -186,6 +193,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
 
     strategy.last_executed_ts = now_ts;
     strategy.executions_today = strategy.executions_today.saturating_add(1);
+    strategy.client_order_id = strategy.client_order_id.wrapping_add(1);
 
     Ok(())
 }

@@ -27,7 +27,18 @@ pub struct ClaimFillParams {
 }
 
 pub fn process_claim_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [signer, open_orders_account, market, orderbook_program_self, risk_program, maker_user_account, maker_position, market_config, funding_state, system_program, _remaining @ ..] =
+    let [
+        signer, 
+        open_orders_account, 
+        market, 
+        maker_user_account, 
+        maker_position, 
+        market_config, 
+        funding_state, 
+        orderbook_program_self, 
+        risk_program, 
+        system_program, 
+        _remaining @ ..] =
         accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
@@ -142,7 +153,6 @@ pub fn process_claim_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResul
         let oo_mut = oo_account_state.open_order_mut_by_raw_index(slot);
 
         if maker_out {
-            // order fully consumed
             *oo_mut = OpenOrder::default();
         } else {
             // order partially filled

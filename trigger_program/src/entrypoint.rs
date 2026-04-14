@@ -4,8 +4,8 @@ use pinocchio::{
 };
 
 use crate::instructions::{
-    process_cancel_trigger_order, process_execute_trigger, process_place_trigger_order,
-    process_prune_expired_triggers, TriggerProgramInstruction,
+    process_cancel_trigger_order, process_edit_trigger, process_execute_trigger,
+    process_place_trigger_order, process_prune_expired_triggers, TriggerProgramInstruction,
 };
 
 program_entrypoint!(process_instruction);
@@ -24,6 +24,7 @@ pub fn process_instruction(
         TriggerProgramInstruction::PlaceTriggerOrder => {
             process_place_trigger_order(accounts, data)?
         }
+        TriggerProgramInstruction::EditTrigger => process_edit_trigger(accounts, data)?,
         TriggerProgramInstruction::CancelTriggerOrder => {
             process_cancel_trigger_order(accounts, data)?
         }

@@ -1,5 +1,4 @@
-use orderbook_program_cpi::PlaceTakeOrderParams;
-use orderbook_program_cpi::{self, PLACE_TAKE_ORDER_IX};
+use orderbook_program_cpi::{self, PlaceTakeOrderParams, PLACE_TAKE_ORDER_IX};
 use pinocchio::cpi::{invoke_signed, Seed, Signer};
 use pinocchio::instruction::{InstructionAccount, InstructionView};
 use pinocchio::{AccountView, ProgramResult};
@@ -7,18 +6,18 @@ use pinocchio::{AccountView, ProgramResult};
 use crate::constants::TRIGGER_AUTHORITY_SEED;
 
 pub fn place_take_order_cpi(
+    orderbook_program: &AccountView,
+    risk_program: &AccountView,
+    system_program: &AccountView,
     trigger_authority: &AccountView,
     open_orders_account: &AccountView,
     market: &AccountView,
     bids: &AccountView,
     asks: &AccountView,
-    orderbook_program: &AccountView,
-    risk_program: &AccountView,
     taker_user_account: &AccountView,
     taker_position: &AccountView,
     market_config: &AccountView,
     funding_state: &AccountView,
-    system_program: &AccountView,
     max_base_lots: i64,
     max_quote_lots: i64,
     client_order_id: u64,
@@ -55,12 +54,12 @@ pub fn place_take_order_cpi(
         InstructionAccount::new(market.address(), true, false),
         InstructionAccount::new(bids.address(), true, false),
         InstructionAccount::new(asks.address(), true, false),
-        InstructionAccount::new(orderbook_program.address(), false, false),
-        InstructionAccount::new(risk_program.address(), false, false),
         InstructionAccount::new(taker_user_account.address(), true, false),
         InstructionAccount::new(taker_position.address(), true, false),
         InstructionAccount::new(market_config.address(), false, false),
         InstructionAccount::new(funding_state.address(), true, false),
+        InstructionAccount::new(orderbook_program.address(), false, false),
+        InstructionAccount::new(risk_program.address(), false, false),
         InstructionAccount::new(system_program.address(), false, false),
     ];
 
@@ -70,12 +69,12 @@ pub fn place_take_order_cpi(
         market,
         bids,
         asks,
-        orderbook_program,
-        risk_program,
         taker_user_account,
         taker_position,
         market_config,
         funding_state,
+        orderbook_program,
+        risk_program,
         system_program,
     ];
 

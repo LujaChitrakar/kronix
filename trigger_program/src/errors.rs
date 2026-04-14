@@ -11,6 +11,8 @@ pub enum TriggerProgramError {
     TriggerExpired = 5,
     TriggerConditionNotMet = 6,
     InvalidOOAccount = 7,
+    EditTriggerFailed = 8,
+    InvalidExpiry = 9,
 }
 
 impl From<TriggerProgramError> for ProgramError {

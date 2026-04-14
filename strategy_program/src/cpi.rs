@@ -1,6 +1,6 @@
-use orderbook_program_cpi::{self, PLACE_ORDER_IX, PLACE_TAKE_ORDER_IX};
-use orderbook_program_cpi::{PlaceOrderParams, PlaceTakeOrderParams};
-use pinocchio::cpi::{Seed, Signer, invoke, invoke_signed};
+use orderbook_program_cpi::PlaceOrderParams;
+use orderbook_program_cpi::{self, PLACE_ORDER_IX};
+use pinocchio::cpi::{Seed, Signer, invoke_signed};
 use pinocchio::instruction::{InstructionAccount, InstructionView};
 use pinocchio::{AccountView, ProgramResult};
 use trigger_program_cpi::{PLACE_TRIGGER_IX, PlaceTriggerOrderParams};
@@ -8,18 +8,18 @@ use trigger_program_cpi::{PLACE_TRIGGER_IX, PlaceTriggerOrderParams};
 use crate::constants::STRATEGY_AUTHORITY_SEED;
 
 pub fn place_order_cpi(
+    orderbook_program: &AccountView,
+    risk_program: &AccountView,
+    system_program: &AccountView,
     strategy_authority: &AccountView,
     open_orders_account: &AccountView,
     market: &AccountView,
     bids: &AccountView,
     asks: &AccountView,
-    orderbook_program: &AccountView,
-    risk_program: &AccountView,
     taker_user_account: &AccountView,
     taker_position: &AccountView,
     market_config: &AccountView,
     funding_state: &AccountView,
-    system_program: &AccountView,
     max_base_lots: i64,
     max_quote_lots: i64,
     client_order_id: u64,
@@ -48,7 +48,7 @@ pub fn place_order_cpi(
 
     let params_bytes = bytemuck::bytes_of(&params);
 
-    let mut ix_data = [0u8; 1 + core::mem::size_of::<PlaceTakeOrderParams>()];
+    let mut ix_data = [0u8; 1 + core::mem::size_of::<PlaceOrderParams>()];
     ix_data[0] = PLACE_ORDER_IX;
     ix_data[1..].copy_from_slice(params_bytes);
 
@@ -58,12 +58,12 @@ pub fn place_order_cpi(
         InstructionAccount::new(market.address(), true, false),
         InstructionAccount::new(bids.address(), true, false),
         InstructionAccount::new(asks.address(), true, false),
-        InstructionAccount::new(orderbook_program.address(), false, false),
-        InstructionAccount::new(risk_program.address(), false, false),
         InstructionAccount::new(taker_user_account.address(), true, false),
         InstructionAccount::new(taker_position.address(), true, false),
         InstructionAccount::new(market_config.address(), false, false),
         InstructionAccount::new(funding_state.address(), true, false),
+        InstructionAccount::new(orderbook_program.address(), false, false),
+        InstructionAccount::new(risk_program.address(), false, false),
         InstructionAccount::new(system_program.address(), false, false),
     ];
 
@@ -73,12 +73,12 @@ pub fn place_order_cpi(
         market,
         bids,
         asks,
-        orderbook_program,
-        risk_program,
         taker_user_account,
         taker_position,
         market_config,
         funding_state,
+        orderbook_program,
+        risk_program,
         system_program,
     ];
 
@@ -101,8 +101,9 @@ pub fn place_order_cpi(
 pub fn place_trigger_order_cpi(
     strategy_authority: &AccountView,
     trigger_program: &AccountView,
-    trigger_order: &AccountView,
     system_program: &AccountView,
+    trigger_order: &AccountView,
+    open_orders_account: &AccountView,
     client_order_id: u64,
     trigger_price: i64,
     size_lots: i64,
@@ -127,17 +128,23 @@ pub fn place_trigger_order_cpi(
 
     let params_bytes = bytemuck::bytes_of(&params);
 
-    let mut ix_data = [0u8; 1 + core::mem::size_of::<PlaceTakeOrderParams>()];
+    let mut ix_data = [0u8; 1 + core::mem::size_of::<PlaceTriggerOrderParams>()];
     ix_data[0] = PLACE_TRIGGER_IX;
     ix_data[1..].copy_from_slice(params_bytes);
 
     let account_metas = [
         InstructionAccount::new(strategy_authority.address(), true, true),
         InstructionAccount::new(trigger_order.address(), true, false),
+        InstructionAccount::new(open_orders_account.address(), true, false),
         InstructionAccount::new(system_program.address(), false, false),
     ];
 
-    let account_infos = [strategy_authority, trigger_order, system_program];
+    let account_infos = [
+        strategy_authority,
+        trigger_order,
+        open_orders_account,
+        system_program,
+    ];
 
     let ix = InstructionView {
         program_id: trigger_program.address(),
@@ -151,7 +158,7 @@ pub fn place_trigger_order_cpi(
         Seed::from(bump_bytes.as_ref()),
     ];
 
-    invoke_signed::<3>(&ix, &account_infos, &[Signer::from(&seeds)])?;
+    invoke_signed::<4>(&ix, &account_infos, &[Signer::from(&seeds)])?;
 
     Ok(())
 }
