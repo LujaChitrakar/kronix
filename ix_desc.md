@@ -21,7 +21,6 @@ Flow:
 
 Accounts:
   payer (admin, signer, writable)
-  admin (signer)
   insurance_fund PDA (writable)
   system_program
 ```
@@ -131,7 +130,7 @@ CPI:         token_program::transfer
 
 What it does:
   Transfers USDC from user's ATA to program vault
-  Creates UserAccount PDA on first deposit (lazy init)
+  Creates UserAccount PDA on first deposit
   Increases UserAccount.collateral by deposit amount
   Collateral is cross-margin — covers all positions
 
@@ -241,11 +240,12 @@ Accounts:
   market_state PDA (writable)  ← seq_num incremented
   bids PDA (writable)
   asks PDA (writable)
-  risk_program
   taker_user_account PDA (writable)
   taker_position PDA (writable)
   market_config PDA
   funding_state PDA (writable)
+  orderbook_program_self
+  risk_program
   system_program
   remaining[i*2]   = maker_open_orders_account (writable)
   remaining[i*2+1] = maker_position (writable)
@@ -297,11 +297,11 @@ Flow (taker path, called from place_order):
           open new side at fill price
 
 Accounts:
-  orderbook_program (signer — CPI caller)
   user_account PDA (writable)
   position PDA (writable)
   market_config PDA
   funding_state PDA (writable)
+  orderbook_program (signer — CPI caller)
   system_program
 ```
 
@@ -334,11 +334,12 @@ Accounts:
   signer (maker, signer)
   open_orders_account PDA (writable)
   market_state PDA
-  risk_program
   maker_user_account PDA (writable)
   maker_position PDA (writable)
   market_config PDA
   funding_state PDA (writable)
+  orderbook_program_self
+  risk_program
   system_program
 ```
 
@@ -368,7 +369,7 @@ Flow:
       → assert result.order_id is None (never posted)
 
 Accounts:
-  same as place_order minus posting logic
+  same as place_order
   no prune/evict/insert steps
 ```
 
@@ -498,11 +499,12 @@ Accounts:
   market_state PDA (writable)
   bids PDA (writable)
   asks PDA (writable)
-  risk_program
   taker_user_account PDA (writable)
   taker_position PDA (writable)
   market_config PDA
   funding_state PDA (writable)
+  orderbook_program_self
+  risk_program
   system_program
   remaining[]: maker OO accounts per fill
 ```
@@ -537,6 +539,15 @@ Flow:
       → ua.margin_used += required_margin
       → ua.position_count += 1
 
+Accounts:
+signer,
+user_account,
+position,
+market_config,
+funding_state,
+oracle,
+system_program
+
 Note:
   Most positions opened via place_order → settle_fill (CPI path)
   open_position is for direct OTC-style opens or testing
@@ -570,6 +581,14 @@ Flow:
       → ua.margin_used -= margin_to_release
       → if full close: pos.size=0, ua.position_count -= 1
       → if partial: pos.size -= close_size, pos.initial_margin -= released
+
+Accounts:
+signer,
+user_account,
+position,
+market_config,
+funding_state,
+oracle
 ```
 
 ---
@@ -592,6 +611,13 @@ Flow:
       → verify ua.free_collateral >= amount
       → ua.margin_used += amount
       → pos.initial_margin += amount
+
+Accounts:
+signer,
+user_account,
+position,
+market_config
+
 ```
 
 ---
@@ -615,6 +641,13 @@ Flow:
       → verify new_margin = pos.initial_margin - amount >= maintenance_margin
       → ua.margin_used -= amount
       → pos.initial_margin -= amount
+
+Accounts:
+signer,
+user_account,
+position,
+market_config,
+oracle
 ```
 
 ---
@@ -638,6 +671,14 @@ Flow:
       → ua.collateral -= amount
       → token_program::transfer (vault → user ATA)
           signed by vault_authority PDA
+
+Accounts:
+signer,
+user_account,
+user_token_account,
+vault,
+vault_authority,
+token_program
 ```
 
 ---
@@ -700,6 +741,13 @@ Flow:
           ua.collateral -= funding_owed
           pos.entry_funding_index = funding.cumulative_index
 
+Accounts:
+signer,
+user_account,
+position,
+market_config,
+funding_state,
+
 Note:
   Called automatically before every position change:
     open_position, close_position, settle_fill, liquidate, cover_bad_debt
@@ -712,7 +760,7 @@ Note:
 risk_program::liquidate
 
 ```
-Called by:   Liquidation bot keeper (permissionless)
+Called by:   Liquidation bot keeper/Liquidator (permissionless)
 CPI:         Token Transfer from vault to liquidator
 
 What it does:
@@ -754,7 +802,11 @@ Accounts:
   market_config PDA
   funding_state PDA (writable)
   insurance_fund PDA (writable)
-  oracle (Pyth)
+  vault,
+  vault_authority,
+  liquidator_token_account,
+  oracle,
+  token_program,
 ```
 
 ---
@@ -786,6 +838,15 @@ Flow:
       → ua.margin_used -= initial_margin
       → ua.position_count -= 1
       → if uncovered > 0: Err(InsuranceFundDepleted) ← ADL signal
+
+Accounts:
+caller,       // liquidator bot or anyone — permissionless
+user_account, // underwater account
+position,     // underwater position
+market_config,
+funding_state,
+insurance_fund,
+oracle,
 
 Difference from liquidate:
   liquidate:       equity < maintenance_margin (approaching danger)
@@ -858,6 +919,7 @@ Flow:
 Accounts:
   signer (user, signer, writable)
   trigger_order PDA (writable)
+  open_orders_account
   system_program
 
 PDA seeds:
@@ -895,17 +957,18 @@ Flow:
 Accounts:
   keeper (signer)
   trigger_order PDA (writable)
-  oracle (Pyth)
-  orderbook_program
-  open_orders_account PDA (writable)
+  trigger_authority
   market_state PDA (writable)
+  open_orders_account PDA (writable)
   bids PDA (writable)
   asks PDA (writable)
-  risk_program
-  user_account PDA (writable)
-  position PDA (writable)
   market_config PDA
   funding_state PDA (writable)
+  user_account PDA (writable)
+  position PDA (writable)
+  oracle (Pyth)
+  orderbook_program
+  risk_program
   system_program
 
 CPI depth: trigger(1) → orderbook(2) → risk_program(3) → system(4) ← at limit
@@ -930,6 +993,11 @@ Flow:
       → verify owner
       → verify status == Active ← can't cancel already executed
       → trigger.status = Cancelled
+
+Accounts:
+signer,
+trigger_order
+
 ```
 
 ---
@@ -952,6 +1020,10 @@ Flow:
           verify owned by trigger_program
           load TriggerOrder
           if Active and expired: status = Cancelled
+
+Accounts:
+keeper
+
 ```
 
 ---
@@ -982,6 +1054,11 @@ Flow:
 PDA seeds:
   ["strategy", owner, market_index, strategy_type, bump]
   — allows one strategy per type per market per user
+
+Accounts:
+signer,
+strategy_account,
+system_program
 ```
 
 ---
@@ -1028,21 +1105,25 @@ Flow:
 
 Accounts:
   keeper (signer)
+  strategy_authority
   strategy_account PDA (writable)
   orderbook_program
   open_orders_account PDA (writable)
   market_state PDA (writable)
   bids PDA (writable)
   asks PDA (writable)
-  risk_program
-  user_account PDA (writable)
-  position PDA (writable)
   market_config PDA
   funding_state PDA (writable)
+  user_account PDA (writable)
+  position PDA (writable)
+  risk_program
+  orderbook_program
   system_program
-  trigger_program
-  trigger_tp_account PDA (writable)
-  trigger_sl_account PDA (writable)
+  _remaining (
+  trigger_program,
+  trigger_tp_account, // for take profit
+  trigger_sl_account, // for stop loss
+  )
 
 CPI depth:
   strategy(1) → orderbook(2) → risk_program(3) → system(4) ← at limit
@@ -1068,6 +1149,10 @@ Flow:
     → strategy_program::pause_strategy
       → verify owner
       → strategy.status = 1 (Paused)
+  
+Accounts:
+signer,
+strategy_account
 ```
 
 ---
@@ -1088,6 +1173,10 @@ Flow:
     → strategy_program::resume_strategy
       → verify owner
       → strategy.status = 0 (Active)
+      
+Accounts:
+signer,
+strategy_account
 ```
 
 ---
@@ -1111,6 +1200,10 @@ Flow:
       → verify strategy.status == Paused ← must pause first
       → validate new params
       → update fields in StrategyAccount
+      
+Accounts:
+signer,
+strategy_account
 ```
 
 ---
@@ -1135,6 +1228,10 @@ Flow:
       → transfer lamports back to signer
       → zero account data
       → account closed on-chain
+      
+Accounts:
+signer,
+strategy_account
 ```
 
 ---
