@@ -17,6 +17,17 @@ pub fn verify_signer(account: &AccountView) -> ProgramResult {
     Ok(())
 }
 
+pub fn verify_owner_or_delegate(
+    signer: &AccountView,
+    oo: &crate::states::OpenOrdersAccount,
+) -> ProgramResult {
+    let signer_key = signer.address().as_array();
+    if signer_key != &oo.owner && signer_key != &oo.delegate {
+        return Err(pinocchio::error::ProgramError::InvalidAccountOwner);
+    }
+    Ok(())
+}
+
 pub fn verify_writtable(account: &AccountView) -> ProgramResult {
     if !account.is_writable() {
         return Err(pinocchio::error::ProgramError::InvalidAccountData);

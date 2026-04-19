@@ -11,8 +11,8 @@ use crate::{
     cpi::settle_fill_cpi,
     errors::OrderBookError,
     helper::{
-        verify_account_owner, verify_initialized, verify_pda, verify_program_id, verify_signer,
-        verify_writtable,
+        verify_account_owner, verify_initialized, verify_owner_or_delegate, verify_pda,
+        verify_program_id, verify_signer, verify_writtable,
     },
     states::{
         BookSide, MarketState, OpenOrdersAccount, Order, OrderParams, Orderbook, PlaceOrderType,
@@ -38,20 +38,7 @@ pub struct EditOrderParams {
 }
 
 pub fn process_edit_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [
-        signer, 
-        open_orders_account, 
-        market, 
-        bids, 
-        asks, 
-        taker_user_account, 
-        taker_position, 
-        market_config, 
-        funding_state, 
-        orderbook_program_self, 
-        risk_program, 
-        system_program, 
-        _remaining @ ..] =
+    let [signer, open_orders_account, market, bids, asks, taker_user_account, taker_position, market_config, funding_state, orderbook_program_self, risk_program, system_program, _remaining @ ..] =
         accounts
     else {
         return Err(ProgramError::InvalidAccountData);
@@ -110,9 +97,7 @@ pub fn process_edit_order(accounts: &[AccountView], data: &[u8]) -> ProgramResul
         let open_orders_account_bump = [oo_account_state.bump];
         let open_orders_account_owner = oo_account_state.owner;
 
-        if signer.address().as_array() != &open_orders_account_owner {
-            return Err(ProgramError::InvalidAccountOwner);
-        }
+        verify_owner_or_delegate(signer, oo_account_state)?;
         if market.address().as_array() != &oo_account_state.market {
             return Err(ProgramError::InvalidAccountOwner);
         }
@@ -200,7 +185,12 @@ pub fn process_edit_order(accounts: &[AccountView], data: &[u8]) -> ProgramResul
         Ok(_) => {}
         Err(e) => {
             // if order not found still place  new one
-            let is_not_found = matches!(e, ProgramError::Custom(_));
+            let is_not_found = matches!(
+                e,
+                ProgramError::Custom(code)
+                if code == OrderBookError::OpenOrderNotFound as u32
+                    || code == OrderBookError::OrderIdNotFound as u32
+            );
             if !is_not_found {
                 return Err(e);
             }

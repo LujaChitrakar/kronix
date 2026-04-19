@@ -10,12 +10,13 @@ use crate::{
     constants::{MARKET_SEED, OPEN_ORDERS_SEED},
     errors::OrderBookError,
     helper::{
-        verify_account_owner, verify_initialized, verify_pda, verify_signer, verify_writtable,
+        verify_account_owner, verify_initialized, verify_owner_or_delegate, verify_pda,
+        verify_signer, verify_writtable,
     },
     states::{BookSide, MarketState, OpenOrdersAccount, Orderbook, Side},
 };
 
-#[derive(Pod, Zeroable, Clone, Copy,ShankType)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct CancelOrderParams {
     pub order_id: [u8; 16],
@@ -71,9 +72,7 @@ pub fn process_cancel_order(accounts: &[AccountView], data: &[u8]) -> ProgramRes
         let open_orders_account_bump = [oo_account_state.bump];
         let open_orders_account_owner = oo_account_state.owner;
 
-        if signer.address().as_array() != &open_orders_account_owner {
-            return Err(ProgramError::InvalidAccountOwner);
-        }
+        verify_owner_or_delegate(signer, oo_account_state)?;
         if market.address().as_array() != &oo_account_state.market {
             return Err(ProgramError::InvalidAccountOwner);
         }

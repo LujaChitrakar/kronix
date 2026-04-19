@@ -11,7 +11,9 @@ use shank::ShankType;
 use crate::{
     constants::{POSITION_SEED, USER_ACCOUNT_SEED},
     errors::RiskProgramError,
-    helper::{verify_account_owner, verify_pda, verify_program_id, verify_signer},
+    helper::{
+        verify_account_owner, verify_initialized, verify_pda, verify_program_id, verify_signer,
+    },
     instructions::settle_funding_internal,
     state::{FundingState, MarketConfig, Position, UserAccount},
 };
@@ -51,10 +53,14 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
         &Address::from(crate::ORDERBOOK_PROGRAM_ID),
     )?;
     verify_program_id(system_program, &pinocchio_system::ID)?;
+    verify_initialized(user_account)?;
+    verify_initialized(position)?;
 
     unsafe {
         verify_account_owner(market_config, &crate::ID)?;
         verify_account_owner(funding_state, &crate::ID)?;
+        verify_account_owner(user_account, &crate::ID)?;
+        verify_account_owner(position, &crate::ID)?;
     }
 
     let params = bytemuck::try_pod_read_unaligned::<SettleFillParams>(data)
@@ -93,36 +99,6 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
         &[USER_ACCOUNT_SEED, trader_pubkey.as_ref(), &bump_user_bytes],
         &crate::ID,
     )?;
-
-    if user_account.is_data_empty() {
-        let user_seeds = [
-            Seed::from(USER_ACCOUNT_SEED),
-            Seed::from(trader_pubkey.as_ref()),
-            Seed::from(bump_user_bytes.as_ref()),
-        ];
-        CreateAccount {
-            from: orderbook_program,
-            to: user_account,
-            lamports: Rent::get()?.try_minimum_balance(UserAccount::LEN)?,
-            space: UserAccount::LEN as u64,
-            owner: &Address::from(crate::ID),
-        }
-        .invoke_signed(&[Signer::from(&user_seeds)])?;
-
-        let mut user_account_data = user_account.try_borrow_mut()?;
-        let user_account_state =
-            bytemuck::from_bytes_mut::<UserAccount>(&mut user_account_data[..UserAccount::LEN]);
-        *user_account_state = UserAccount {
-            collateral: 0,
-            margin_used: 0,
-            bump: params.bump_user,
-            position_count: 0,
-            padding: [0; 6],
-            owner: *trader_pubkey,
-            reserved: [0; 32],
-        };
-    }
-
     verify_pda(
         position,
         &[
@@ -138,27 +114,11 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
     let user_account_state =
         bytemuck::from_bytes_mut::<UserAccount>(&mut user_account_data[..UserAccount::LEN]);
 
-    if position.is_data_empty() || {
+    if {
         let existing_data = position.try_borrow()?;
         let existing_position = bytemuck::from_bytes::<Position>(&existing_data[..Position::LEN]);
         existing_position.size == 0
     } {
-        if position.is_data_empty() {
-            let position_seeds = [
-                Seed::from(POSITION_SEED),
-                Seed::from(trader_pubkey.as_ref()),
-                Seed::from(market_index_bytes.as_ref()),
-                Seed::from(bump_pos_bytes.as_ref()),
-            ];
-            CreateAccount {
-                from: orderbook_program,
-                to: position,
-                lamports: Rent::get()?.try_minimum_balance(Position::LEN)?,
-                space: Position::LEN as u64,
-                owner: &Address::from(crate::ID),
-            }
-            .invoke_signed(&[Signer::from(&position_seeds)])?;
-        }
         let required_margin =
             market_config_state.required_initial_margin(params.base_lots, params.price_lots);
 

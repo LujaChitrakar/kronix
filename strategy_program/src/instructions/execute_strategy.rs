@@ -1,8 +1,8 @@
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{
-    AccountView, ProgramResult,
     error::ProgramError,
-    sysvars::{Sysvar, clock::Clock},
+    sysvars::{clock::Clock, Sysvar},
+    AccountView, ProgramResult,
 };
 use std::i64;
 
@@ -114,6 +114,8 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
         3u8
     };
 
+    let owner_key = strategy.owner;
+
     place_order_cpi(
         orderbook_program,
         risk_program,
@@ -138,6 +140,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
         params.bump_position,
         params.bump_user,
         params.bump_authority,
+        owner_key,
     )?;
 
     if strategy.take_profit_price > 0 {
@@ -162,6 +165,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
             tp_side,
             params.bump_trigger_tp,
             params.bump_authority,
+            owner_key,
         )?;
     }
 
@@ -188,6 +192,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
             sl_side,
             params.bump_trigger_sl,
             params.bump_authority,
+            owner_key,
         )?;
     }
 

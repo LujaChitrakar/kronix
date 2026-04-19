@@ -38,20 +38,20 @@ pub fn settle_fill_cpi(
     ix_data[1..].copy_from_slice(params_bytes);
 
     let account_metas = [
-        InstructionAccount::new(orderbook_program.address(), false, false),
         InstructionAccount::new(user_account.address(), true, false),
         InstructionAccount::new(position.address(), true, false),
         InstructionAccount::new(market_config.address(), false, false),
         InstructionAccount::new(funding_state.address(), true, false),
+        InstructionAccount::new(orderbook_program.address(), false, false),
         InstructionAccount::new(system_program.address(), false, false),
     ];
 
     let account_infos = [
-        orderbook_program,
         user_account,
         position,
         market_config,
         funding_state,
+        orderbook_program,
         system_program,
     ];
 

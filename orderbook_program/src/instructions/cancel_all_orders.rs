@@ -9,7 +9,9 @@ use shank::ShankType;
 use crate::{
     constants::{MARKET_SEED, MAX_OPEN_ORDERS, OPEN_ORDERS_SEED},
     errors::OrderBookError,
-    helper::{verify_account_owner, verify_pda, verify_signer, verify_writtable},
+    helper::{
+        verify_account_owner, verify_owner_or_delegate, verify_pda, verify_signer, verify_writtable,
+    },
     states::{BookSide, MarketState, OpenOrdersAccount, Orderbook, Side},
 };
 #[derive(Pod, Zeroable, Clone, Copy, ShankType)]
@@ -62,9 +64,7 @@ pub fn process_cancel_all_orders(accounts: &[AccountView], data: &[u8]) -> Progr
         let open_orders_account_bump = [oo_account_state.bump];
         let open_orders_account_owner = oo_account_state.owner;
 
-        if signer.address().as_array() != &open_orders_account_owner {
-            return Err(ProgramError::InvalidAccountOwner);
-        }
+        verify_owner_or_delegate(signer, oo_account_state)?;
         if market.address().as_array() != &oo_account_state.market {
             return Err(ProgramError::InvalidAccountOwner);
         }

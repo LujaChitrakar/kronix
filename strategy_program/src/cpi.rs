@@ -1,9 +1,9 @@
 use orderbook_program_cpi::PlaceOrderParams;
 use orderbook_program_cpi::{self, PLACE_ORDER_IX};
-use pinocchio::cpi::{Seed, Signer, invoke_signed};
+use pinocchio::cpi::{invoke_signed, Seed, Signer};
 use pinocchio::instruction::{InstructionAccount, InstructionView};
 use pinocchio::{AccountView, ProgramResult};
-use trigger_program_cpi::{PLACE_TRIGGER_IX, PlaceTriggerOrderParams};
+use trigger_program_cpi::{PlaceTriggerOrderParams, PLACE_TRIGGER_IX};
 
 use crate::constants::STRATEGY_AUTHORITY_SEED;
 
@@ -31,6 +31,7 @@ pub fn place_order_cpi(
     bump_position: u8,
     bump_user: u8,
     bump_authority: u8,
+    owner_pubkey: [u8; 32],
 ) -> ProgramResult {
     let params = PlaceOrderParams {
         max_base_lots,
@@ -90,6 +91,7 @@ pub fn place_order_cpi(
     let bump_bytes = [bump_authority];
     let seeds = [
         Seed::from(STRATEGY_AUTHORITY_SEED),
+        Seed::from(owner_pubkey.as_ref()),
         Seed::from(bump_bytes.as_ref()),
     ];
 
@@ -113,6 +115,7 @@ pub fn place_trigger_order_cpi(
     side: u8,         // 0=Buy, 1=Sell
     trigger_bump: u8,
     bump_authority: u8,
+    owner_pubkey: [u8; 32],
 ) -> ProgramResult {
     let params = PlaceTriggerOrderParams {
         client_order_id,
@@ -155,6 +158,7 @@ pub fn place_trigger_order_cpi(
     let bump_bytes = [bump_authority];
     let seeds = [
         Seed::from(STRATEGY_AUTHORITY_SEED),
+        Seed::from(owner_pubkey.as_ref()),
         Seed::from(bump_bytes.as_ref()),
     ];
 

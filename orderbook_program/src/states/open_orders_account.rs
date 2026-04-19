@@ -92,7 +92,8 @@ impl OpenOrdersAccount {
         oo.filled_qty = 0;
         oo.fill_price = 0;
         oo.is_filled = 0;
-        oo.padding = [0; 5];
+        oo.maker_out = 0;
+        oo.padding = [0; 4];
     }
 
     pub fn remove_order(&mut self, slot: usize) {
@@ -105,13 +106,24 @@ impl OpenOrdersAccount {
     /// Called by matching engine — records fill for maker to claim later
     pub fn record_fill(&mut self, slot: usize, filled_qty: i64, fill_price: i64, maker_out: bool) {
         let oo = &mut self.open_orders[slot];
-        oo.filled_qty = filled_qty;
-        oo.fill_price = fill_price;
-        oo.is_filled = 1;
-        if maker_out {
-            // fully consumed — slot freed after claim_fill
-            oo.is_free = 0; // still occupied until maker claims
+        
+        if oo.filled_qty == 0 {
+            // first fill — just set directly
+            oo.filled_qty = filled_qty;
+            oo.fill_price = fill_price;
+        } else {
+            // subsequent fill — accumulate qty, VWAP price
+            let total_qty = oo.filled_qty + filled_qty;
+            let vwap = (oo.filled_qty as i128 * oo.fill_price as i128
+                + filled_qty as i128 * fill_price as i128)
+                / total_qty as i128;
+
+            oo.filled_qty = total_qty;
+            oo.fill_price = vwap as i64;
         }
+
+        oo.is_filled = 1;
+        oo.maker_out = maker_out as u8;
     }
 
     pub fn cleanup_stale_orders(&mut self, bookside_bids: &BookSide, bookside_asks: &BookSide) {
@@ -146,10 +158,11 @@ pub struct OpenOrder {
     pub is_free: u8,     // 1 = free slot
     pub side: u8,        // Side as u8
     pub is_filled: u8,
-    pub padding: [u8; 5],
+    pub maker_out: u8,
+    pub padding: [u8; 4],
 }
 
-const _: () = assert!(size_of::<OpenOrder>() == 16 + 8 + 8 + 8 + 8 + 1 + 1 + 1 + 5);
+const _: () = assert!(size_of::<OpenOrder>() == 16 + 8 + 8 + 8 + 8 + 1 + 1 + 1 + 1 + 4);
 const _: () = assert!(size_of::<OpenOrder>() % 8 == 0);
 
 impl Default for OpenOrder {
@@ -163,7 +176,8 @@ impl Default for OpenOrder {
             filled_qty: 0,
             fill_price: 0,
             is_filled: 0,
-            padding: [0; 5],
+            maker_out: 0,
+            padding: [0; 4],
         }
     }
 }

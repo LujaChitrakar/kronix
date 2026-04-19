@@ -28,6 +28,7 @@ pub fn place_take_order_cpi(
     bump_position: u8,
     bump_user: u8,
     bump_authority: u8,
+    owner_pubkey: [u8; 32],
 ) -> ProgramResult {
     let params = PlaceTakeOrderParams {
         max_base_lots,
@@ -87,6 +88,7 @@ pub fn place_take_order_cpi(
     let bump_bytes = [bump_authority];
     let seeds = [
         Seed::from(TRIGGER_AUTHORITY_SEED),
+        Seed::from(owner_pubkey.as_ref()),
         Seed::from(bump_bytes.as_ref()),
     ];
 

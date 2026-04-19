@@ -121,6 +121,8 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
         return Err(RiskProgramError::NotLiquidatable.into());
     }
 
+    user_account_state.collateral = equity;
+
     let total_fee = market_config_state.liquidation_fee(position_state.size, mark_price);
 
     // Split fee
@@ -129,7 +131,7 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
     // 5%  → protocol
     let liquidator_reward = (total_fee as i128 * 75 / 100) as u64;
     let insurance_fee = total_fee as i128 * 25 / 100;
-
+    let protocol_fee = (total_fee as i128 * 5 / 100) as u64;
     let collateral = user_account_state.collateral;
     let is_solvent = collateral >= total_fee;
 
@@ -142,6 +144,7 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
         Seed::from(VAULT_AUTHORITY_SEED),
         Seed::from(vault_authority_bump.as_ref()),
     ];
+
     if is_solvent {
         // deduct full fee from user_collateral
         user_account_state.collateral = user_account_state
@@ -164,7 +167,7 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
         .invoke_signed(&[Signer::from(&vault_authority_seed)])?;
     } else {
         // bad debt
-        let shortfall = (total_fee - collateral).max(0) as u64;
+        let shortfall = user_account_state.collateral.min(0).unsigned_abs() as u64;
 
         let uncovered = insurance_state.cover_bad_debt(shortfall);
         user_account_state.collateral = 0;

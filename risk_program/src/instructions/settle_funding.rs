@@ -1,4 +1,4 @@
-use pinocchio::{AccountView, ProgramResult, error::ProgramError};
+use pinocchio::{error::ProgramError, AccountView, ProgramResult};
 
 use crate::{
     errors::RiskProgramError,
@@ -26,14 +26,7 @@ pub fn settle_funding_internal(
 }
 
 pub fn process_settle_funding(accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
-    let [
-        signer,
-        user_account,
-        position,
-        market_config,
-        funding_state,
-        _remaining @ ..,
-    ] = accounts
+    let [signer, user_account, position, market_config, funding_state, _remaining @ ..] = accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };

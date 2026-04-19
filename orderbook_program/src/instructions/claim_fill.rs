@@ -27,18 +27,7 @@ pub struct ClaimFillParams {
 }
 
 pub fn process_claim_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [
-        signer, 
-        open_orders_account, 
-        market, 
-        maker_user_account, 
-        maker_position, 
-        market_config, 
-        funding_state, 
-        orderbook_program_self, 
-        risk_program, 
-        system_program, 
-        _remaining @ ..] =
+    let [signer, open_orders_account, market, maker_user_account, maker_position, market_config, funding_state, orderbook_program_self, risk_program, system_program, _remaining @ ..] =
         accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
@@ -114,10 +103,12 @@ pub fn process_claim_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResul
         return Err(OrderBookError::InvalidOrderSlot.into());
     }
 
+    let maker_out = oo.maker_out == 1;
+
     let fill = FillEvent {
         event_type: 0,
         taker_side: oo.side().invert_side() as u8,
-        maker_out: if oo.filled_qty == 0 { 1 } else { 0 },
+        maker_out: oo.maker_out,
         maker_slot: slot as u8,
         _padding: [0; 4],
         timestamp: 0,

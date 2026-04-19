@@ -32,7 +32,8 @@ impl FundingState {
         // longs pay positive funding, shorts receive it
         (position_size as i128)
             .saturating_mul(index_diff as i128)
-            .saturating_mul(quote_lot_size as i128) as i64
+            .saturating_mul(quote_lot_size as i128)
+            .saturating_div(10_000) as i64
     }
 
     /// Update cumulative index with new funding rate

@@ -61,11 +61,6 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
     let clock = Clock::get()?;
 
     let bump_bytes = [params.bump_authority];
-    verify_pda(
-        trigger_authority,
-        &[TRIGGER_AUTHORITY_SEED, &bump_bytes],
-        &crate::ID,
-    )?;
 
     let mut order_data = trigger_order.try_borrow_mut()?;
     let order = bytemuck::from_bytes_mut::<TriggerOrder>(&mut order_data[..TriggerOrder::LEN]);
@@ -80,6 +75,13 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
     if open_orders_account.address().as_array() != &order.open_orders_account {
         return Err(TriggerProgramError::InvalidOOAccount.into());
     }
+
+    let owner_key = order.owner;
+    verify_pda(
+        trigger_authority,
+        &[TRIGGER_AUTHORITY_SEED, &owner_key, &bump_bytes],
+        &crate::ID,
+    )?;
 
     let mark_price = validate_pyth_price(oracle, clock.unix_timestamp)?;
 
@@ -110,6 +112,7 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
         params.bump_position,
         params.bump_user,
         params.bump_authority,
+        owner_key,
     )?;
 
     order.status = 1;

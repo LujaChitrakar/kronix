@@ -97,11 +97,11 @@ pub enum RiskInstruction {
     #[account(4, name = "oracle", desc = "Pyth oracle")]
     RemoveMargin(RemoveMarginParams),
 
-    #[account(0, name = "orderbook_program", desc = "Orderbook program", signer)]
-    #[account(1, name = "user_account", desc = "UserAccount PDA", writable)]
-    #[account(2, name = "position", desc = "Position PDA", writable)]
-    #[account(3, name = "market_config", desc = "MarketConfig")]
-    #[account(4, name = "funding_state", desc = "FundingState", writable)]
+    #[account(0, name = "user_account", desc = "UserAccount PDA", writable)]
+    #[account(1, name = "position", desc = "Position PDA", writable)]
+    #[account(2, name = "market_config", desc = "MarketConfig")]
+    #[account(3, name = "funding_state", desc = "FundingState", writable)]
+    #[account(4, name = "orderbook_program", desc = "Orderbook program", signer)]
     #[account(5, name = "system_program", desc = "System program")]
     SettleFill(SettleFillParams),
 

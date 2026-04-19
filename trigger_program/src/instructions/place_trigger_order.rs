@@ -10,7 +10,9 @@ use pinocchio_system::instructions::CreateAccount;
 use crate::{
     constants::TRIGGER_ORDER_SEED,
     errors::TriggerProgramError,
-    helpers::{verify_pda, verify_program_id, verify_signer, verify_uninitialized},
+    helpers::{
+        verify_initialized, verify_pda, verify_program_id, verify_signer, verify_uninitialized,
+    },
     states::TriggerOrder,
 };
 
@@ -37,6 +39,7 @@ pub fn process_place_trigger_order(accounts: &[AccountView], data: &[u8]) -> Pro
     verify_signer(signer)?;
     verify_uninitialized(trigger_order)?;
     verify_program_id(system_program, &pinocchio_system::ID)?;
+    verify_initialized(open_orders_account)?;
 
     let params = bytemuck::try_from_bytes::<PlaceTriggerOrderParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
