@@ -97,7 +97,7 @@ trigger_program/src/constants.rs → TRIGGER_AUTHORITY_SEED = b"trigger_authorit
 a trigger order act on their OO. Same problem applies to strategy_authority. Design should use per-user authority PDA ([b"trigger_authority", owner]) so delegation is scoped.
 
 14. cancel_trigger_order / edit_trigger don't refund rent
-
+(DONE)
 cancel_trigger_order.rs, also execute_trigger.rs (expired path): status flipped to 2 but account not closed → user's trigger rent locked forever. Close and return lamports to owner.
 
 15. Position.unrealised_pnl unchecked arithmetic
@@ -108,17 +108,17 @@ flows into equity check → false liquidation or bad-debt. Use i128 intermediate
 MEDIUM
 
 16. VAULT_SEED missing mint
-
+(NO NEED)
 risk_program/src/constants.rs:6: VAULT_SEED = b"vault" — CLAUDE.md states [b"vault", mint, bump]. Only one vault per program; mint not enforced. If you ever add non-USDC collateral,
 collision.
 
 17. strategy_program::execute_strategy client_order_id collision
-
+[LEFT]
 execute_strategy.rs:182: SL trigger uses strategy.client_order_id + 1 — but client_order_id.wrapping_add(1) is the NEXT strategy execution's main OID. Two consecutive executions: first SL =
 N+1, next main = N+1 → duplicate client_order_id across trigger PDAs (same seed → collision) and duplicate order IDs in orderbook.
 
 18. execute_strategy \_remaining[offset..] slicing wrong when only SL set
-
+[DONE]
 strategy_program/src/instructions/execute_strategy.rs:169:
 let offset = if strategy.take_profit_price > 0 { 2 } else { 0 };
 let [trigger_program, trigger_sl_account, ..] = &\_remaining[offset..]
@@ -126,12 +126,12 @@ When only SL is set (no TP), offset=0. But then \_remaining[0] is trigger_progra
 fragile — refactor to pull accounts explicitly.
 
 19. update_funding_rate uses off-chain mark_price but no floor/cap on interval math
-
+[DONE]
 risk_program/src/instructions/update_funding_rate.rs:96-99: scaled_rate = rate_bps \* elapsed / 28800. If cranker sleeps for e.g. 10 hours, elapsed=36000 → scaled_rate > rate_bps; if rate
 capped at 500bps then scaled_rate = 625. Over many hours one crank can accumulate large jumps. Consider clamping elapsed_time to a max window or rejecting updates too far past interval.
 
 20. match_quote_lots doesn't include quote_lot_size
-
+[DONE]
 orderbook_program/src/states/orderbook/book.rs:143: match_base_lots \* best_opposing_price. Whether this is correct depends on what max_quote_lots unit represents. Code treats it as base_lots
 × price_lots (not including quote_lot_size). Consumer (place_take_order.max_quote_lots) must match this convention. Document — not a bug but easy to get wrong.
 

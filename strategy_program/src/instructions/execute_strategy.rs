@@ -32,6 +32,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
     let [
         keeper, // permissionless
         strategy_authority,
+        strategy_owner,
         strategy_account,
         // orderbook CPI accounts
         open_orders_account,
@@ -45,11 +46,6 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
         risk_program,
         orderbook_program,
         system_program,
-        // trigger program CPI accounts (optional — only if SL/TP set)
-        // trigger_program,
-        // // these are signers
-        // trigger_tp_account, // for take profit
-        // trigger_sl_account, // for stop loss
         _remaining @ ..,
     ] = accounts
     else {
@@ -79,6 +75,9 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
     let strategy =
         bytemuck::from_bytes_mut::<StrategyAccount>(&mut strat_data[..StrategyAccount::LEN]);
 
+    if strategy.owner != *strategy_owner.address().as_array() {
+        return Err(ProgramError::IllegalOwner);
+    }
     if strategy.status != 0 {
         return Err(StrategyProgramError::StrategyNotActive.into());
     }
@@ -143,10 +142,41 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
         owner_key,
     )?;
 
-    if strategy.take_profit_price > 0 {
-        let [trigger_program, trigger_tp_account, ..] = _remaining else {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        };
+    let has_tp = strategy.take_profit_price > 0;
+    let has_sl = strategy.stop_loss_price > 0;
+
+    let (trigger_program, tp_account, sl_account): (
+        Option<&AccountView>,
+        Option<&AccountView>,
+        Option<&AccountView>,
+    ) = match (has_tp, has_sl) {
+        (false, false) => (None, None, None),
+
+        (true, false) => {
+            let [trigger_program, tp_account, ..] = _remaining else {
+                return Err(ProgramError::NotEnoughAccountKeys);
+            };
+            (Some(trigger_program), Some(tp_account), None)
+        }
+
+        (false, true) => {
+            let [trigger_program, sl_account, ..] = _remaining else {
+                return Err(ProgramError::NotEnoughAccountKeys);
+            };
+            (Some(trigger_program), None, Some(sl_account))
+        }
+
+        (true, true) => {
+            let [trigger_program, tp_account, sl_account, ..] = _remaining else {
+                return Err(ProgramError::NotEnoughAccountKeys);
+            };
+            (Some(trigger_program), Some(tp_account), Some(sl_account))
+        }
+    };
+
+    if has_tp {
+        let trigger_program = trigger_program.unwrap();
+        let trigger_tp_account = tp_account.unwrap();
         let tp_side = 1 - params.signal; // opposite side to close position
         let tp_trigger_type = 1u8; // TakeProfit
 
@@ -169,11 +199,9 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
         )?;
     }
 
-    if strategy.stop_loss_price > 0 {
-        let offset = if strategy.take_profit_price > 0 { 2 } else { 0 };
-        let [trigger_program, trigger_sl_account, ..] = &_remaining[offset..] else {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        };
+    if has_sl {
+        let trigger_program = trigger_program.unwrap();
+        let trigger_sl_account = sl_account.unwrap();
         let sl_side = 1 - params.signal; // opposite side to close position
         let sl_trigger_type = 0u8; // StopLoss
 
@@ -198,7 +226,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
 
     strategy.last_executed_ts = now_ts;
     strategy.executions_today = strategy.executions_today.saturating_add(1);
-    strategy.client_order_id = strategy.client_order_id.wrapping_add(1);
+    strategy.client_order_id = strategy.client_order_id.wrapping_add(3);
 
     Ok(())
 }

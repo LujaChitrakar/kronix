@@ -26,14 +26,20 @@ impl FundingState {
         entry_funding_index: i64,
         quote_lot_size: i64,
     ) -> i64 {
-        let index_diff = self.cumulative_index.saturating_sub(entry_funding_index);
+        let index_diff = self
+            .cumulative_index
+            .checked_sub(entry_funding_index)
+            .unwrap();
 
         // funding = size * index_diff * quote_lot_size
         // longs pay positive funding, shorts receive it
         (position_size as i128)
-            .saturating_mul(index_diff as i128)
-            .saturating_mul(quote_lot_size as i128)
-            .saturating_div(10_000) as i64
+            .checked_mul(index_diff as i128)
+            .unwrap_or(0)
+            .checked_mul(quote_lot_size as i128)
+            .unwrap_or(0)
+            .checked_div(10_000)
+            .unwrap_or(0) as i64
     }
 
     /// Update cumulative index with new funding rate

@@ -103,8 +103,9 @@ pub fn process_cover_bad_debt(accounts: &[AccountView], data: &[u8]) -> ProgramR
 
     log!("settle funding ok");
     // verify account is actually in bad debt
-    let unrealised_pnl =
-        position_state.unrealised_pnl(mark_price, market_config_state.quote_lot_size);
+    let unrealised_pnl = position_state
+        .unrealised_pnl(mark_price, market_config_state.quote_lot_size)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
 
     log!("pnl: {}", unrealised_pnl);
     let equity = user_account_state

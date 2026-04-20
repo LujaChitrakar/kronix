@@ -109,8 +109,9 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
     let maintenance_margin =
         market_config_state.required_maintenance_margin(position_state.size, mark_price);
 
-    let unrealised_pnl =
-        position_state.unrealised_pnl(mark_price, market_config_state.quote_lot_size);
+    let unrealised_pnl = position_state
+        .unrealised_pnl(mark_price, market_config_state.quote_lot_size)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
 
     let equity = user_account_state
         .collateral
@@ -130,8 +131,7 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
     // 20% → insurance fund
     // 5%  → protocol
     let liquidator_reward = (total_fee as i128 * 75 / 100) as u64;
-    let insurance_fee = total_fee as i128 * 25 / 100;
-    let protocol_fee = (total_fee as i128 * 5 / 100) as u64;
+    let insurance_fee = (total_fee as i128 * 25 / 100) as u64;
     let collateral = user_account_state.collateral;
     let is_solvent = collateral >= total_fee;
 
@@ -153,7 +153,7 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
             .ok_or(ProgramError::ArithmeticOverflow)?;
 
         // insurance fund collect its share
-        insurance_state.collect(insurance_fee as u64);
+        insurance_state.collect(insurance_fee);
 
         log!("insurance collected: {}", insurance_fee);
         log!("insurance balance after: {}", insurance_state.balance);

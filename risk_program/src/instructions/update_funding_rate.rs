@@ -7,7 +7,7 @@ use pinocchio::{
 use shank::ShankType;
 
 use crate::{
-    constants::FUNDING_INTERVAL_SECS,
+    constants::{FUNDING_INTERVAL_SECS, FUNDING_PERIOD_SECS, MAX_FUNDING_RATE_BPS},
     errors::RiskProgramError,
     helper::{verify_account_owner, verify_signer, verify_writtable},
     math::funding_rate_bps,
@@ -70,6 +70,8 @@ pub fn process_update_funding_rate(accounts: &[AccountView], data: &[u8]) -> Pro
         return Err(RiskProgramError::FundingNotDue.into());
     }
 
+    let clamped_elapsed = elapsed_time.min(FUNDING_INTERVAL_SECS);
+
     // uncomment after oracle integration
     let index_price = validate_pyth_price(oracle, clock.unix_timestamp)?;
     // let index_price = validated.price;
@@ -89,12 +91,17 @@ pub fn process_update_funding_rate(accounts: &[AccountView], data: &[u8]) -> Pro
     // calculate funding rate
     let rate_bps = funding_rate_bps(params.mark_price, index_price);
 
+    let clamped_rate = rate_bps.clamp(-MAX_FUNDING_RATE_BPS, MAX_FUNDING_RATE_BPS);
+
     // ── Scale rate by elapsed time ────────────────────────────────
     // Funding accumulates proportionally to elapsed time
     // Base rate is per 8 hours (28800 seconds)
     // Scaled rate = rate_bps * elapsed / 28800
-    let scaled_rate = (rate_bps as i128 * elapsed_time as i128
-        / crate::constants::FUNDING_PERIOD_SECS as i128) as i64;
+    let scaled_rate = clamped_rate
+        .checked_mul(clamped_elapsed)
+        .ok_or(ProgramError::ArithmeticOverflow)?
+        .checked_div(FUNDING_PERIOD_SECS)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
 
     funding.apply_funding_rate(scaled_rate, now_ts);
     Ok(())

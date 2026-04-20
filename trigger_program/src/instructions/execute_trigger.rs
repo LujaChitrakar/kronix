@@ -11,7 +11,8 @@ use crate::{
     cpi::place_take_order_cpi,
     errors::TriggerProgramError,
     helpers::{
-        verify_account_owner, verify_pda, verify_program_id, verify_signer, verify_writtable,
+        close_account, verify_account_owner, verify_pda, verify_program_id, verify_signer,
+        verify_writtable,
     },
     oracle::validate_pyth_price,
     states::TriggerOrder,
@@ -31,6 +32,7 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
     let [
             keeper,              // permissionless — any signer
             trigger_order,
+            trigger_order_owner,
             trigger_authority,
             market,              // orderbook market state
             open_orders_account, // trigger owner's OO account
@@ -64,12 +66,16 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
 
     let mut order_data = trigger_order.try_borrow_mut()?;
     let order = bytemuck::from_bytes_mut::<TriggerOrder>(&mut order_data[..TriggerOrder::LEN]);
-
+    if order.owner != *trigger_order_owner.address().as_array() {
+        return Err(TriggerProgramError::InvalidOwner.into());
+    }
     if !order.is_active() {
         return Err(TriggerProgramError::TriggerNotActive.into());
     }
     if order.is_expired(clock.unix_timestamp) {
         order.status = 2; // mark cancelled
+        drop(order_data);
+        close_account(trigger_order, trigger_order_owner)?;
         return Err(TriggerProgramError::TriggerExpired.into());
     }
     if open_orders_account.address().as_array() != &order.open_orders_account {
@@ -116,5 +122,7 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
     )?;
 
     order.status = 1;
+    drop(order_data);
+    close_account(trigger_order, trigger_order_owner)?;
     Ok(())
 }

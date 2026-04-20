@@ -32,37 +32,53 @@ impl Position {
         self.side == 1
     }
 
-    pub fn unrealised_pnl(&self, mark_price: i64, quote_lot_size: i64) -> i64 {
-        let price_diff = mark_price - self.entry_price;
-        let pnl_lots = if self.is_long() {
-            self.size * price_diff
+    pub fn unrealised_pnl(&self, mark_price: i64, quote_lot_size: i64) -> Option<i64> {
+        let size = self.size as i128;
+        let price_diff = (mark_price as i128).checked_sub(self.entry_price as i128)?;
+        let quote_lot = quote_lot_size as i128;
+
+        let pnl = if self.is_long() {
+            size.checked_mul(price_diff)?.checked_mul(quote_lot)?
         } else {
-            self.size * (-price_diff)
+            size.checked_mul(price_diff.checked_neg()?)?
+                .checked_mul(quote_lot)?
         };
-        pnl_lots.checked_mul(quote_lot_size).unwrap_or(i64::MIN)
+
+        if pnl > i64::MAX as i128 {
+            Some(i64::MAX)
+        } else if pnl < i64::MIN as i128 {
+            Some(i64::MIN)
+        } else {
+            Some(pnl as i64)
+        }
     }
 
-    pub fn liquidation_price(
-        &self,
-        collateral: i64,
-        mainteinance_margin_bps: u16,
-        // quote_lot_size: i64,
-        // base_lot_size: i64,
-    ) -> i64 {
+    pub fn liquidation_price(&self, collateral: i64, maintenance_margin_bps: u16) -> Option<i64> {
         if self.size == 0 {
-            return 0;
+            return Some(0);
         }
 
-        let maintenance_margin =
-            self.initial_margin as i128 * mainteinance_margin_bps as i128 / 10_000;
-        let buffer = collateral as i128 - maintenance_margin;
+        let initial_margin = self.initial_margin as i128;
+        let maintenance_margin = initial_margin
+            .checked_mul(maintenance_margin_bps as i128)?
+            .checked_div(10_000)?;
 
-        let price_move = buffer.checked_div(self.size.abs() as i128).unwrap_or(0);
+        let buffer = (collateral as i128).checked_sub(maintenance_margin)?;
+        let size_abs = self.size.unsigned_abs() as i128;
+        let price_move = buffer.checked_div(size_abs)?;
 
-        if self.is_long() {
-            (self.entry_price as i128 - price_move) as i64
+        let liq_price = if self.is_long() {
+            (self.entry_price as i128).checked_sub(price_move)?
         } else {
-            (self.entry_price as i128 + price_move) as i64
+            (self.entry_price as i128).checked_add(price_move)?
+        };
+
+        if liq_price > i64::MAX as i128 {
+            Some(i64::MAX)
+        } else if liq_price < 0 {
+            Some(0) // can't be negative
+        } else {
+            Some(liq_price as i64)
         }
     }
 }

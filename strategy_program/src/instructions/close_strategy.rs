@@ -1,6 +1,6 @@
-use pinocchio::{AccountView, ProgramResult, error::ProgramError};
+use pinocchio::{error::ProgramError, AccountView, ProgramResult};
 
-use crate::{errors::StrategyProgramError, states::StrategyAccount};
+use crate::{errors::StrategyProgramError, helpers::close_account, states::StrategyAccount};
 
 pub fn process_close_strategy(accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
     let [signer, strategy_account, _remaining @ ..] = accounts else {
@@ -15,11 +15,7 @@ pub fn process_close_strategy(accounts: &[AccountView], _data: &[u8]) -> Program
         return Err(StrategyProgramError::InvalidOwner.into());
     }
     drop(data);
-    let dest_lamports = signer.lamports();
-    let src_lamports = strategy_account.lamports();
-    signer.set_lamports(dest_lamports + src_lamports);
-    strategy_account.set_lamports(0);
+    close_account(strategy_account, signer)?;
 
-    strategy_account.try_borrow_mut()?.fill(0);
     Ok(())
 }

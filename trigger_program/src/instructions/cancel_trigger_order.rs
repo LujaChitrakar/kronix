@@ -2,7 +2,7 @@ use pinocchio::{error::ProgramError, AccountView, ProgramResult};
 
 use crate::{
     errors::TriggerProgramError,
-    helpers::{verify_account_owner, verify_signer, verify_writtable},
+    helpers::{close_account, verify_account_owner, verify_signer, verify_writtable},
     states::TriggerOrder,
 };
 
@@ -26,6 +26,10 @@ pub fn process_cancel_trigger_order(accounts: &[AccountView], _data: &[u8]) -> P
         return Err(TriggerProgramError::TriggerNotActive.into());
     }
     order.status = 2; // Cancelled
+
+    drop(data);
+
+    close_account(trigger_order, signer)?;
 
     Ok(())
 }
