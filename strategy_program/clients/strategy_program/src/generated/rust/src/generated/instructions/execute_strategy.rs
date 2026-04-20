@@ -24,6 +24,11 @@ pub struct ExecuteStrategy {
     
               
           pub strategy_authority: solana_address::Address,
+                /// Strategy owner
+
+    
+              
+          pub strategy_owner: solana_address::Address,
                 /// Strategy account PDA
 
     
@@ -93,7 +98,7 @@ impl ExecuteStrategy {
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
   pub fn instruction_with_remaining_accounts(&self, args: ExecuteStrategyInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
-    let mut accounts = Vec::with_capacity(14+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(15+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             self.keeper,
             true
@@ -101,6 +106,10 @@ impl ExecuteStrategy {
                                           accounts.push(solana_instruction::AccountMeta::new(
             self.strategy_authority,
             false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new(
+            self.strategy_owner,
+            true
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
             self.strategy_account,
@@ -204,22 +213,24 @@ impl ExecuteStrategyInstructionArgs {
 ///
                       ///   0. `[writable, signer]` keeper
                 ///   1. `[writable]` strategy_authority
-                ///   2. `[writable]` strategy_account
-                ///   3. `[writable]` open_orders_account
-                ///   4. `[writable]` market
-                ///   5. `[writable]` bids
-                ///   6. `[writable]` asks
-                ///   7. `[writable]` market_config
-                ///   8. `[writable]` funding_state
-                ///   9. `[writable]` user_account
-                ///   10. `[writable]` position
-          ///   11. `[]` risk_program
-          ///   12. `[]` orderbook_program
-                ///   13. `[optional]` system_program (default to `11111111111111111111111111111111`)
+                      ///   2. `[writable, signer]` strategy_owner
+                ///   3. `[writable]` strategy_account
+                ///   4. `[writable]` open_orders_account
+                ///   5. `[writable]` market
+                ///   6. `[writable]` bids
+                ///   7. `[writable]` asks
+                ///   8. `[writable]` market_config
+                ///   9. `[writable]` funding_state
+                ///   10. `[writable]` user_account
+                ///   11. `[writable]` position
+          ///   12. `[]` risk_program
+          ///   13. `[]` orderbook_program
+                ///   14. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct ExecuteStrategyBuilder {
             keeper: Option<solana_address::Address>,
                 strategy_authority: Option<solana_address::Address>,
+                strategy_owner: Option<solana_address::Address>,
                 strategy_account: Option<solana_address::Address>,
                 open_orders_account: Option<solana_address::Address>,
                 market: Option<solana_address::Address>,
@@ -250,6 +261,12 @@ impl ExecuteStrategyBuilder {
 #[inline(always)]
     pub fn strategy_authority(&mut self, strategy_authority: solana_address::Address) -> &mut Self {
                         self.strategy_authority = Some(strategy_authority);
+                    self
+    }
+            /// Strategy owner
+#[inline(always)]
+    pub fn strategy_owner(&mut self, strategy_owner: solana_address::Address) -> &mut Self {
+                        self.strategy_owner = Some(strategy_owner);
                     self
     }
             /// Strategy account PDA
@@ -347,6 +364,7 @@ impl ExecuteStrategyBuilder {
     let accounts = ExecuteStrategy {
                               keeper: self.keeper.expect("keeper is not set"),
                                         strategy_authority: self.strategy_authority.expect("strategy_authority is not set"),
+                                        strategy_owner: self.strategy_owner.expect("strategy_owner is not set"),
                                         strategy_account: self.strategy_account.expect("strategy_account is not set"),
                                         open_orders_account: self.open_orders_account.expect("open_orders_account is not set"),
                                         market: self.market.expect("market is not set"),
@@ -380,6 +398,11 @@ impl ExecuteStrategyBuilder {
       
                     
               pub strategy_authority: &'b solana_account_info::AccountInfo<'a>,
+                        /// Strategy owner
+
+      
+                    
+              pub strategy_owner: &'b solana_account_info::AccountInfo<'a>,
                         /// Strategy account PDA
 
       
@@ -456,6 +479,11 @@ pub struct ExecuteStrategyCpi<'a, 'b> {
     
               
           pub strategy_authority: &'b solana_account_info::AccountInfo<'a>,
+                /// Strategy owner
+
+    
+              
+          pub strategy_owner: &'b solana_account_info::AccountInfo<'a>,
                 /// Strategy account PDA
 
     
@@ -530,6 +558,7 @@ impl<'a, 'b> ExecuteStrategyCpi<'a, 'b> {
       __program: program,
               keeper: accounts.keeper,
               strategy_authority: accounts.strategy_authority,
+              strategy_owner: accounts.strategy_owner,
               strategy_account: accounts.strategy_account,
               open_orders_account: accounts.open_orders_account,
               market: accounts.market,
@@ -565,7 +594,7 @@ impl<'a, 'b> ExecuteStrategyCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program_error::ProgramResult {
-    let mut accounts = Vec::with_capacity(14+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(15+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             *self.keeper.key,
             true
@@ -573,6 +602,10 @@ impl<'a, 'b> ExecuteStrategyCpi<'a, 'b> {
                                           accounts.push(solana_instruction::AccountMeta::new(
             *self.strategy_authority.key,
             false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new(
+            *self.strategy_owner.key,
+            true
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
             *self.strategy_account.key,
@@ -638,10 +671,11 @@ impl<'a, 'b> ExecuteStrategyCpi<'a, 'b> {
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(15 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(16 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
                   account_infos.push(self.keeper.clone());
                         account_infos.push(self.strategy_authority.clone());
+                        account_infos.push(self.strategy_owner.clone());
                         account_infos.push(self.strategy_account.clone());
                         account_infos.push(self.open_orders_account.clone());
                         account_infos.push(self.market.clone());
@@ -670,18 +704,19 @@ impl<'a, 'b> ExecuteStrategyCpi<'a, 'b> {
 ///
                       ///   0. `[writable, signer]` keeper
                 ///   1. `[writable]` strategy_authority
-                ///   2. `[writable]` strategy_account
-                ///   3. `[writable]` open_orders_account
-                ///   4. `[writable]` market
-                ///   5. `[writable]` bids
-                ///   6. `[writable]` asks
-                ///   7. `[writable]` market_config
-                ///   8. `[writable]` funding_state
-                ///   9. `[writable]` user_account
-                ///   10. `[writable]` position
-          ///   11. `[]` risk_program
-          ///   12. `[]` orderbook_program
-          ///   13. `[]` system_program
+                      ///   2. `[writable, signer]` strategy_owner
+                ///   3. `[writable]` strategy_account
+                ///   4. `[writable]` open_orders_account
+                ///   5. `[writable]` market
+                ///   6. `[writable]` bids
+                ///   7. `[writable]` asks
+                ///   8. `[writable]` market_config
+                ///   9. `[writable]` funding_state
+                ///   10. `[writable]` user_account
+                ///   11. `[writable]` position
+          ///   12. `[]` risk_program
+          ///   13. `[]` orderbook_program
+          ///   14. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct ExecuteStrategyCpiBuilder<'a, 'b> {
   instruction: Box<ExecuteStrategyCpiBuilderInstruction<'a, 'b>>,
@@ -693,6 +728,7 @@ impl<'a, 'b> ExecuteStrategyCpiBuilder<'a, 'b> {
       __program: program,
               keeper: None,
               strategy_authority: None,
+              strategy_owner: None,
               strategy_account: None,
               open_orders_account: None,
               market: None,
@@ -720,6 +756,12 @@ impl<'a, 'b> ExecuteStrategyCpiBuilder<'a, 'b> {
 #[inline(always)]
     pub fn strategy_authority(&mut self, strategy_authority: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
                         self.instruction.strategy_authority = Some(strategy_authority);
+                    self
+    }
+      /// Strategy owner
+#[inline(always)]
+    pub fn strategy_owner(&mut self, strategy_owner: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.strategy_owner = Some(strategy_owner);
                     self
     }
       /// Strategy account PDA
@@ -831,6 +873,8 @@ impl<'a, 'b> ExecuteStrategyCpiBuilder<'a, 'b> {
                   
           strategy_authority: self.instruction.strategy_authority.expect("strategy_authority is not set"),
                   
+          strategy_owner: self.instruction.strategy_owner.expect("strategy_owner is not set"),
+                  
           strategy_account: self.instruction.strategy_account.expect("strategy_account is not set"),
                   
           open_orders_account: self.instruction.open_orders_account.expect("open_orders_account is not set"),
@@ -865,6 +909,7 @@ struct ExecuteStrategyCpiBuilderInstruction<'a, 'b> {
   __program: &'b solana_account_info::AccountInfo<'a>,
             keeper: Option<&'b solana_account_info::AccountInfo<'a>>,
                 strategy_authority: Option<&'b solana_account_info::AccountInfo<'a>>,
+                strategy_owner: Option<&'b solana_account_info::AccountInfo<'a>>,
                 strategy_account: Option<&'b solana_account_info::AccountInfo<'a>>,
                 open_orders_account: Option<&'b solana_account_info::AccountInfo<'a>>,
                 market: Option<&'b solana_account_info::AccountInfo<'a>>,

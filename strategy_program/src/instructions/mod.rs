@@ -32,23 +32,24 @@ pub enum StrategyInstruction {
         desc = "Strategy authority PDA",
         writable
     )]
-    #[account(2, name = "strategy_account", desc = "Strategy account PDA", writable)]
+    #[account(2, name = "strategy_owner", desc = "Strategy owner", signer, writable)]
+    #[account(3, name = "strategy_account", desc = "Strategy account PDA", writable)]
     #[account(
-        3,
+        4,
         name = "open_orders_account",
         desc = "Open orders account PDA",
         writable
     )]
-    #[account(4, name = "market", desc = "Market PDA", writable)]
-    #[account(5, name = "bids", desc = "Bids PDA", writable)]
-    #[account(6, name = "asks", desc = "Asks PDA", writable)]
-    #[account(7, name = "market_config", desc = "Market Config PDA", writable)]
-    #[account(8, name = "funding_state", desc = "Funding State PDA", writable)]
-    #[account(9, name = "user_account", desc = "User Account PDA", writable)]
-    #[account(10, name = "position", desc = "Position PDA", writable)]
-    #[account(11, name = "risk_program", desc = "Risk Program")]
-    #[account(12, name = "orderbook_program", desc = "Orderbook Program")]
-    #[account(13, name = "system_program", desc = "System program")]
+    #[account(5, name = "market", desc = "Market PDA", writable)]
+    #[account(6, name = "bids", desc = "Bids PDA", writable)]
+    #[account(7, name = "asks", desc = "Asks PDA", writable)]
+    #[account(8, name = "market_config", desc = "Market Config PDA", writable)]
+    #[account(9, name = "funding_state", desc = "Funding State PDA", writable)]
+    #[account(10, name = "user_account", desc = "User Account PDA", writable)]
+    #[account(11, name = "position", desc = "Position PDA", writable)]
+    #[account(12, name = "risk_program", desc = "Risk Program")]
+    #[account(13, name = "orderbook_program", desc = "Orderbook Program")]
+    #[account(14, name = "system_program", desc = "System program")]
     ExecuteStrategy(ExecuteStrategyParams),
 
     #[account(0, name = "signer", desc = "Fee payer", signer, writable)]

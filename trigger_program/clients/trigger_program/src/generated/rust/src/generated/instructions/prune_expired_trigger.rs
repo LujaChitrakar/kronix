@@ -8,11 +8,11 @@
 use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
-pub const PRUNE_TRIGGER_DISCRIMINATOR: u8 = 4;
+pub const PRUNE_EXPIRED_TRIGGER_DISCRIMINATOR: u8 = 4;
 
 /// Accounts.
 #[derive(Debug)]
-pub struct PruneTrigger {
+pub struct PruneExpiredTrigger {
             /// Fee payer
 
     
@@ -20,7 +20,7 @@ pub struct PruneTrigger {
           pub keeper: solana_address::Address,
       }
 
-impl PruneTrigger {
+impl PruneExpiredTrigger {
   pub fn instruction(&self) -> solana_instruction::Instruction {
     self.instruction_with_remaining_accounts(&[])
   }
@@ -33,7 +33,7 @@ impl PruneTrigger {
             true
           ));
                       accounts.extend_from_slice(remaining_accounts);
-    let data = PruneTriggerInstructionData::new().try_to_vec().unwrap();
+    let data = PruneExpiredTriggerInstructionData::new().try_to_vec().unwrap();
     
     solana_instruction::Instruction {
       program_id: crate::TRIGGER_PROGRAM_ID,
@@ -44,11 +44,11 @@ impl PruneTrigger {
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
- pub struct PruneTriggerInstructionData {
+ pub struct PruneExpiredTriggerInstructionData {
             discriminator: u8,
       }
 
-impl PruneTriggerInstructionData {
+impl PruneExpiredTriggerInstructionData {
   pub fn new() -> Self {
     Self {
                         discriminator: 4,
@@ -60,7 +60,7 @@ impl PruneTriggerInstructionData {
   }
   }
 
-impl Default for PruneTriggerInstructionData {
+impl Default for PruneExpiredTriggerInstructionData {
   fn default() -> Self {
     Self::new()
   }
@@ -68,18 +68,18 @@ impl Default for PruneTriggerInstructionData {
 
 
 
-/// Instruction builder for `PruneTrigger`.
+/// Instruction builder for `PruneExpiredTrigger`.
 ///
 /// ### Accounts:
 ///
                       ///   0. `[writable, signer]` keeper
 #[derive(Clone, Debug, Default)]
-pub struct PruneTriggerBuilder {
+pub struct PruneExpiredTriggerBuilder {
             keeper: Option<solana_address::Address>,
                 __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
-impl PruneTriggerBuilder {
+impl PruneExpiredTriggerBuilder {
   pub fn new() -> Self {
     Self::default()
   }
@@ -103,7 +103,7 @@ impl PruneTriggerBuilder {
   }
   #[allow(clippy::clone_on_copy)]
   pub fn instruction(&self) -> solana_instruction::Instruction {
-    let accounts = PruneTrigger {
+    let accounts = PruneExpiredTrigger {
                               keeper: self.keeper.expect("keeper is not set"),
                       };
     
@@ -111,8 +111,8 @@ impl PruneTriggerBuilder {
   }
 }
 
-  /// `prune_trigger` CPI accounts.
-  pub struct PruneTriggerCpiAccounts<'a, 'b> {
+  /// `prune_expired_trigger` CPI accounts.
+  pub struct PruneExpiredTriggerCpiAccounts<'a, 'b> {
                   /// Fee payer
 
       
@@ -120,8 +120,8 @@ impl PruneTriggerBuilder {
               pub keeper: &'b solana_account_info::AccountInfo<'a>,
             }
 
-/// `prune_trigger` CPI instruction.
-pub struct PruneTriggerCpi<'a, 'b> {
+/// `prune_expired_trigger` CPI instruction.
+pub struct PruneExpiredTriggerCpi<'a, 'b> {
   /// The program to invoke.
   pub __program: &'b solana_account_info::AccountInfo<'a>,
             /// Fee payer
@@ -131,10 +131,10 @@ pub struct PruneTriggerCpi<'a, 'b> {
           pub keeper: &'b solana_account_info::AccountInfo<'a>,
         }
 
-impl<'a, 'b> PruneTriggerCpi<'a, 'b> {
+impl<'a, 'b> PruneExpiredTriggerCpi<'a, 'b> {
   pub fn new(
     program: &'b solana_account_info::AccountInfo<'a>,
-          accounts: PruneTriggerCpiAccounts<'a, 'b>,
+          accounts: PruneExpiredTriggerCpiAccounts<'a, 'b>,
           ) -> Self {
     Self {
       __program: program,
@@ -173,7 +173,7 @@ impl<'a, 'b> PruneTriggerCpi<'a, 'b> {
           is_writable: remaining_account.2,
       })
     });
-    let data = PruneTriggerInstructionData::new().try_to_vec().unwrap();
+    let data = PruneExpiredTriggerInstructionData::new().try_to_vec().unwrap();
     
     let instruction = solana_instruction::Instruction {
       program_id: crate::TRIGGER_PROGRAM_ID,
@@ -193,19 +193,19 @@ impl<'a, 'b> PruneTriggerCpi<'a, 'b> {
   }
 }
 
-/// Instruction builder for `PruneTrigger` via CPI.
+/// Instruction builder for `PruneExpiredTrigger` via CPI.
 ///
 /// ### Accounts:
 ///
                       ///   0. `[writable, signer]` keeper
 #[derive(Clone, Debug)]
-pub struct PruneTriggerCpiBuilder<'a, 'b> {
-  instruction: Box<PruneTriggerCpiBuilderInstruction<'a, 'b>>,
+pub struct PruneExpiredTriggerCpiBuilder<'a, 'b> {
+  instruction: Box<PruneExpiredTriggerCpiBuilderInstruction<'a, 'b>>,
 }
 
-impl<'a, 'b> PruneTriggerCpiBuilder<'a, 'b> {
+impl<'a, 'b> PruneExpiredTriggerCpiBuilder<'a, 'b> {
   pub fn new(program: &'b solana_account_info::AccountInfo<'a>) -> Self {
-    let instruction = Box::new(PruneTriggerCpiBuilderInstruction {
+    let instruction = Box::new(PruneExpiredTriggerCpiBuilderInstruction {
       __program: program,
               keeper: None,
                                 __remaining_accounts: Vec::new(),
@@ -240,7 +240,7 @@ impl<'a, 'b> PruneTriggerCpiBuilder<'a, 'b> {
   #[allow(clippy::clone_on_copy)]
   #[allow(clippy::vec_init_then_push)]
   pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
-        let instruction = PruneTriggerCpi {
+        let instruction = PruneExpiredTriggerCpi {
         __program: self.instruction.__program,
                   
           keeper: self.instruction.keeper.expect("keeper is not set"),
@@ -250,7 +250,7 @@ impl<'a, 'b> PruneTriggerCpiBuilder<'a, 'b> {
 }
 
 #[derive(Clone, Debug)]
-struct PruneTriggerCpiBuilderInstruction<'a, 'b> {
+struct PruneExpiredTriggerCpiBuilderInstruction<'a, 'b> {
   __program: &'b solana_account_info::AccountInfo<'a>,
             keeper: Option<&'b solana_account_info::AccountInfo<'a>>,
                 /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.

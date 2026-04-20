@@ -51,8 +51,9 @@ export function getExecuteTriggerDiscriminatorBytes() {
 export type ExecuteTriggerInstruction<
   TProgram extends string = typeof TRIGGER_PROGRAM_PROGRAM_ADDRESS,
   TAccountKeeper extends string | AccountMeta<string> = string,
-  TAccountTriggerOrder extends string | AccountMeta<string> = string,
   TAccountTriggerAuthority extends string | AccountMeta<string> = string,
+  TAccountTriggerOrderOwner extends string | AccountMeta<string> = string,
+  TAccountTriggerOrder extends string | AccountMeta<string> = string,
   TAccountMarket extends string | AccountMeta<string> = string,
   TAccountOpenOrdersAccount extends string | AccountMeta<string> = string,
   TAccountBids extends string | AccountMeta<string> = string,
@@ -75,12 +76,15 @@ export type ExecuteTriggerInstruction<
         ? WritableSignerAccount<TAccountKeeper> &
             AccountSignerMeta<TAccountKeeper>
         : TAccountKeeper,
-      TAccountTriggerOrder extends string
-        ? WritableAccount<TAccountTriggerOrder>
-        : TAccountTriggerOrder,
       TAccountTriggerAuthority extends string
         ? WritableAccount<TAccountTriggerAuthority>
         : TAccountTriggerAuthority,
+      TAccountTriggerOrderOwner extends string
+        ? ReadonlyAccount<TAccountTriggerOrderOwner>
+        : TAccountTriggerOrderOwner,
+      TAccountTriggerOrder extends string
+        ? WritableAccount<TAccountTriggerOrder>
+        : TAccountTriggerOrder,
       TAccountMarket extends string
         ? WritableAccount<TAccountMarket>
         : TAccountMarket,
@@ -159,8 +163,9 @@ export function getExecuteTriggerInstructionDataCodec(): Codec<
 
 export type ExecuteTriggerInput<
   TAccountKeeper extends string = string,
-  TAccountTriggerOrder extends string = string,
   TAccountTriggerAuthority extends string = string,
+  TAccountTriggerOrderOwner extends string = string,
+  TAccountTriggerOrder extends string = string,
   TAccountMarket extends string = string,
   TAccountOpenOrdersAccount extends string = string,
   TAccountBids extends string = string,
@@ -176,10 +181,12 @@ export type ExecuteTriggerInput<
 > = {
   /** Fee payer */
   keeper: TransactionSigner<TAccountKeeper>;
-  /** Trigger order PDA */
-  triggerOrder: Address<TAccountTriggerOrder>;
   /** Trigger order authority PDA */
   triggerAuthority: Address<TAccountTriggerAuthority>;
+  /** Trigger order owner PDA */
+  triggerOrderOwner: Address<TAccountTriggerOrderOwner>;
+  /** Trigger order PDA */
+  triggerOrder: Address<TAccountTriggerOrder>;
   /** Market PDA */
   market: Address<TAccountMarket>;
   /** Open orders account PDA */
@@ -209,8 +216,9 @@ export type ExecuteTriggerInput<
 
 export function getExecuteTriggerInstruction<
   TAccountKeeper extends string,
-  TAccountTriggerOrder extends string,
   TAccountTriggerAuthority extends string,
+  TAccountTriggerOrderOwner extends string,
+  TAccountTriggerOrder extends string,
   TAccountMarket extends string,
   TAccountOpenOrdersAccount extends string,
   TAccountBids extends string,
@@ -227,8 +235,9 @@ export function getExecuteTriggerInstruction<
 >(
   input: ExecuteTriggerInput<
     TAccountKeeper,
-    TAccountTriggerOrder,
     TAccountTriggerAuthority,
+    TAccountTriggerOrderOwner,
+    TAccountTriggerOrder,
     TAccountMarket,
     TAccountOpenOrdersAccount,
     TAccountBids,
@@ -246,8 +255,9 @@ export function getExecuteTriggerInstruction<
 ): ExecuteTriggerInstruction<
   TProgramAddress,
   TAccountKeeper,
-  TAccountTriggerOrder,
   TAccountTriggerAuthority,
+  TAccountTriggerOrderOwner,
+  TAccountTriggerOrder,
   TAccountMarket,
   TAccountOpenOrdersAccount,
   TAccountBids,
@@ -268,11 +278,15 @@ export function getExecuteTriggerInstruction<
   // Original accounts.
   const originalAccounts = {
     keeper: { value: input.keeper ?? null, isWritable: true },
-    triggerOrder: { value: input.triggerOrder ?? null, isWritable: true },
     triggerAuthority: {
       value: input.triggerAuthority ?? null,
       isWritable: true,
     },
+    triggerOrderOwner: {
+      value: input.triggerOrderOwner ?? null,
+      isWritable: false,
+    },
+    triggerOrder: { value: input.triggerOrder ?? null, isWritable: true },
     market: { value: input.market ?? null, isWritable: true },
     openOrdersAccount: {
       value: input.openOrdersAccount ?? null,
@@ -310,8 +324,9 @@ export function getExecuteTriggerInstruction<
   return Object.freeze({
     accounts: [
       getAccountMeta("keeper", accounts.keeper),
-      getAccountMeta("triggerOrder", accounts.triggerOrder),
       getAccountMeta("triggerAuthority", accounts.triggerAuthority),
+      getAccountMeta("triggerOrderOwner", accounts.triggerOrderOwner),
+      getAccountMeta("triggerOrder", accounts.triggerOrder),
       getAccountMeta("market", accounts.market),
       getAccountMeta("openOrdersAccount", accounts.openOrdersAccount),
       getAccountMeta("bids", accounts.bids),
@@ -332,8 +347,9 @@ export function getExecuteTriggerInstruction<
   } as ExecuteTriggerInstruction<
     TProgramAddress,
     TAccountKeeper,
-    TAccountTriggerOrder,
     TAccountTriggerAuthority,
+    TAccountTriggerOrderOwner,
+    TAccountTriggerOrder,
     TAccountMarket,
     TAccountOpenOrdersAccount,
     TAccountBids,
@@ -357,34 +373,36 @@ export type ParsedExecuteTriggerInstruction<
   accounts: {
     /** Fee payer */
     keeper: TAccountMetas[0];
-    /** Trigger order PDA */
-    triggerOrder: TAccountMetas[1];
     /** Trigger order authority PDA */
-    triggerAuthority: TAccountMetas[2];
+    triggerAuthority: TAccountMetas[1];
+    /** Trigger order owner PDA */
+    triggerOrderOwner: TAccountMetas[2];
+    /** Trigger order PDA */
+    triggerOrder: TAccountMetas[3];
     /** Market PDA */
-    market: TAccountMetas[3];
+    market: TAccountMetas[4];
     /** Open orders account PDA */
-    openOrdersAccount: TAccountMetas[4];
+    openOrdersAccount: TAccountMetas[5];
     /** Bids PDA */
-    bids: TAccountMetas[5];
+    bids: TAccountMetas[6];
     /** Asks PDA */
-    asks: TAccountMetas[6];
+    asks: TAccountMetas[7];
     /** Market Config PDA */
-    marketConfig: TAccountMetas[7];
+    marketConfig: TAccountMetas[8];
     /** Funding State PDA */
-    fundingState: TAccountMetas[8];
+    fundingState: TAccountMetas[9];
     /** User Account PDA */
-    userAccount: TAccountMetas[9];
+    userAccount: TAccountMetas[10];
     /** Position PDA */
-    position: TAccountMetas[10];
+    position: TAccountMetas[11];
     /** Oracle PDA */
-    oracle: TAccountMetas[11];
+    oracle: TAccountMetas[12];
     /** Orderbook Program */
-    orderbookProgram: TAccountMetas[12];
+    orderbookProgram: TAccountMetas[13];
     /** Risk Program */
-    riskProgram: TAccountMetas[13];
+    riskProgram: TAccountMetas[14];
     /** System program */
-    systemProgram: TAccountMetas[14];
+    systemProgram: TAccountMetas[15];
   };
   data: ExecuteTriggerInstructionData;
 };
@@ -397,12 +415,12 @@ export function parseExecuteTriggerInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedExecuteTriggerInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 15) {
+  if (instruction.accounts.length < 16) {
     throw new SolanaError(
       SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
       {
         actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 15,
+        expectedAccountMetas: 16,
       },
     );
   }
@@ -416,8 +434,9 @@ export function parseExecuteTriggerInstruction<
     programAddress: instruction.programAddress,
     accounts: {
       keeper: getNextAccount(),
-      triggerOrder: getNextAccount(),
       triggerAuthority: getNextAccount(),
+      triggerOrderOwner: getNextAccount(),
+      triggerOrder: getNextAccount(),
       market: getNextAccount(),
       openOrdersAccount: getNextAccount(),
       bids: getNextAccount(),

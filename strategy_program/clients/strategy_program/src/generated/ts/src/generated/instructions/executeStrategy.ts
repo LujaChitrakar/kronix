@@ -52,6 +52,7 @@ export type ExecuteStrategyInstruction<
   TProgram extends string = typeof STRATEGY_PROGRAM_PROGRAM_ADDRESS,
   TAccountKeeper extends string | AccountMeta<string> = string,
   TAccountStrategyAuthority extends string | AccountMeta<string> = string,
+  TAccountStrategyOwner extends string | AccountMeta<string> = string,
   TAccountStrategyAccount extends string | AccountMeta<string> = string,
   TAccountOpenOrdersAccount extends string | AccountMeta<string> = string,
   TAccountMarket extends string | AccountMeta<string> = string,
@@ -77,6 +78,10 @@ export type ExecuteStrategyInstruction<
       TAccountStrategyAuthority extends string
         ? WritableAccount<TAccountStrategyAuthority>
         : TAccountStrategyAuthority,
+      TAccountStrategyOwner extends string
+        ? WritableSignerAccount<TAccountStrategyOwner> &
+            AccountSignerMeta<TAccountStrategyOwner>
+        : TAccountStrategyOwner,
       TAccountStrategyAccount extends string
         ? WritableAccount<TAccountStrategyAccount>
         : TAccountStrategyAccount,
@@ -156,6 +161,7 @@ export function getExecuteStrategyInstructionDataCodec(): Codec<
 export type ExecuteStrategyInput<
   TAccountKeeper extends string = string,
   TAccountStrategyAuthority extends string = string,
+  TAccountStrategyOwner extends string = string,
   TAccountStrategyAccount extends string = string,
   TAccountOpenOrdersAccount extends string = string,
   TAccountMarket extends string = string,
@@ -173,6 +179,8 @@ export type ExecuteStrategyInput<
   keeper: TransactionSigner<TAccountKeeper>;
   /** Strategy authority PDA */
   strategyAuthority: Address<TAccountStrategyAuthority>;
+  /** Strategy owner */
+  strategyOwner: TransactionSigner<TAccountStrategyOwner>;
   /** Strategy account PDA */
   strategyAccount: Address<TAccountStrategyAccount>;
   /** Open orders account PDA */
@@ -203,6 +211,7 @@ export type ExecuteStrategyInput<
 export function getExecuteStrategyInstruction<
   TAccountKeeper extends string,
   TAccountStrategyAuthority extends string,
+  TAccountStrategyOwner extends string,
   TAccountStrategyAccount extends string,
   TAccountOpenOrdersAccount extends string,
   TAccountMarket extends string,
@@ -220,6 +229,7 @@ export function getExecuteStrategyInstruction<
   input: ExecuteStrategyInput<
     TAccountKeeper,
     TAccountStrategyAuthority,
+    TAccountStrategyOwner,
     TAccountStrategyAccount,
     TAccountOpenOrdersAccount,
     TAccountMarket,
@@ -238,6 +248,7 @@ export function getExecuteStrategyInstruction<
   TProgramAddress,
   TAccountKeeper,
   TAccountStrategyAuthority,
+  TAccountStrategyOwner,
   TAccountStrategyAccount,
   TAccountOpenOrdersAccount,
   TAccountMarket,
@@ -262,6 +273,7 @@ export function getExecuteStrategyInstruction<
       value: input.strategyAuthority ?? null,
       isWritable: true,
     },
+    strategyOwner: { value: input.strategyOwner ?? null, isWritable: true },
     strategyAccount: { value: input.strategyAccount ?? null, isWritable: true },
     openOrdersAccount: {
       value: input.openOrdersAccount ?? null,
@@ -300,6 +312,7 @@ export function getExecuteStrategyInstruction<
     accounts: [
       getAccountMeta("keeper", accounts.keeper),
       getAccountMeta("strategyAuthority", accounts.strategyAuthority),
+      getAccountMeta("strategyOwner", accounts.strategyOwner),
       getAccountMeta("strategyAccount", accounts.strategyAccount),
       getAccountMeta("openOrdersAccount", accounts.openOrdersAccount),
       getAccountMeta("market", accounts.market),
@@ -321,6 +334,7 @@ export function getExecuteStrategyInstruction<
     TProgramAddress,
     TAccountKeeper,
     TAccountStrategyAuthority,
+    TAccountStrategyOwner,
     TAccountStrategyAccount,
     TAccountOpenOrdersAccount,
     TAccountMarket,
@@ -346,30 +360,32 @@ export type ParsedExecuteStrategyInstruction<
     keeper: TAccountMetas[0];
     /** Strategy authority PDA */
     strategyAuthority: TAccountMetas[1];
+    /** Strategy owner */
+    strategyOwner: TAccountMetas[2];
     /** Strategy account PDA */
-    strategyAccount: TAccountMetas[2];
+    strategyAccount: TAccountMetas[3];
     /** Open orders account PDA */
-    openOrdersAccount: TAccountMetas[3];
+    openOrdersAccount: TAccountMetas[4];
     /** Market PDA */
-    market: TAccountMetas[4];
+    market: TAccountMetas[5];
     /** Bids PDA */
-    bids: TAccountMetas[5];
+    bids: TAccountMetas[6];
     /** Asks PDA */
-    asks: TAccountMetas[6];
+    asks: TAccountMetas[7];
     /** Market Config PDA */
-    marketConfig: TAccountMetas[7];
+    marketConfig: TAccountMetas[8];
     /** Funding State PDA */
-    fundingState: TAccountMetas[8];
+    fundingState: TAccountMetas[9];
     /** User Account PDA */
-    userAccount: TAccountMetas[9];
+    userAccount: TAccountMetas[10];
     /** Position PDA */
-    position: TAccountMetas[10];
+    position: TAccountMetas[11];
     /** Risk Program */
-    riskProgram: TAccountMetas[11];
+    riskProgram: TAccountMetas[12];
     /** Orderbook Program */
-    orderbookProgram: TAccountMetas[12];
+    orderbookProgram: TAccountMetas[13];
     /** System program */
-    systemProgram: TAccountMetas[13];
+    systemProgram: TAccountMetas[14];
   };
   data: ExecuteStrategyInstructionData;
 };
@@ -382,12 +398,12 @@ export function parseExecuteStrategyInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedExecuteStrategyInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 14) {
+  if (instruction.accounts.length < 15) {
     throw new SolanaError(
       SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
       {
         actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 14,
+        expectedAccountMetas: 15,
       },
     );
   }
@@ -402,6 +418,7 @@ export function parseExecuteStrategyInstruction<
     accounts: {
       keeper: getNextAccount(),
       strategyAuthority: getNextAccount(),
+      strategyOwner: getNextAccount(),
       strategyAccount: getNextAccount(),
       openOrdersAccount: getNextAccount(),
       market: getNextAccount(),

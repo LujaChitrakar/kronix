@@ -38,11 +38,6 @@ pub struct PlaceTakeOrder {
     
               
           pub asks: solana_address::Address,
-                /// Risk program
-
-    
-              
-          pub risk_program: solana_address::Address,
                 /// Taker UserAccount
 
     
@@ -63,6 +58,16 @@ pub struct PlaceTakeOrder {
     
               
           pub funding_state: solana_address::Address,
+                /// Orderbook program
+
+    
+              
+          pub orderbook_program: solana_address::Address,
+                /// Risk program
+
+    
+              
+          pub risk_program: solana_address::Address,
                 /// System program
 
     
@@ -77,7 +82,7 @@ impl PlaceTakeOrder {
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
   pub fn instruction_with_remaining_accounts(&self, args: PlaceTakeOrderInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
-    let mut accounts = Vec::with_capacity(11+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(12+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.signer,
             true
@@ -98,10 +103,6 @@ impl PlaceTakeOrder {
             self.asks,
             false
           ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
-            self.risk_program,
-            false
-          ));
                                           accounts.push(solana_instruction::AccountMeta::new(
             self.taker_user_account,
             false
@@ -116,6 +117,14 @@ impl PlaceTakeOrder {
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
             self.funding_state,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.orderbook_program,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.risk_program,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -188,12 +197,13 @@ impl PlaceTakeOrderInstructionArgs {
                 ///   2. `[writable]` market
                 ///   3. `[writable]` bids
                 ///   4. `[writable]` asks
-          ///   5. `[]` risk_program
-                ///   6. `[writable]` taker_user_account
-                ///   7. `[writable]` taker_position
-          ///   8. `[]` market_config
-                ///   9. `[writable]` funding_state
-                ///   10. `[optional]` system_program (default to `11111111111111111111111111111111`)
+                ///   5. `[writable]` taker_user_account
+                ///   6. `[writable]` taker_position
+          ///   7. `[]` market_config
+                ///   8. `[writable]` funding_state
+          ///   9. `[]` orderbook_program
+          ///   10. `[]` risk_program
+                ///   11. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct PlaceTakeOrderBuilder {
             signer: Option<solana_address::Address>,
@@ -201,11 +211,12 @@ pub struct PlaceTakeOrderBuilder {
                 market: Option<solana_address::Address>,
                 bids: Option<solana_address::Address>,
                 asks: Option<solana_address::Address>,
-                risk_program: Option<solana_address::Address>,
                 taker_user_account: Option<solana_address::Address>,
                 taker_position: Option<solana_address::Address>,
                 market_config: Option<solana_address::Address>,
                 funding_state: Option<solana_address::Address>,
+                orderbook_program: Option<solana_address::Address>,
+                risk_program: Option<solana_address::Address>,
                 system_program: Option<solana_address::Address>,
                         max_base_lots: Option<i64>,
                 max_quote_lots: Option<i64>,
@@ -254,12 +265,6 @@ impl PlaceTakeOrderBuilder {
                         self.asks = Some(asks);
                     self
     }
-            /// Risk program
-#[inline(always)]
-    pub fn risk_program(&mut self, risk_program: solana_address::Address) -> &mut Self {
-                        self.risk_program = Some(risk_program);
-                    self
-    }
             /// Taker UserAccount
 #[inline(always)]
     pub fn taker_user_account(&mut self, taker_user_account: solana_address::Address) -> &mut Self {
@@ -282,6 +287,18 @@ impl PlaceTakeOrderBuilder {
 #[inline(always)]
     pub fn funding_state(&mut self, funding_state: solana_address::Address) -> &mut Self {
                         self.funding_state = Some(funding_state);
+                    self
+    }
+            /// Orderbook program
+#[inline(always)]
+    pub fn orderbook_program(&mut self, orderbook_program: solana_address::Address) -> &mut Self {
+                        self.orderbook_program = Some(orderbook_program);
+                    self
+    }
+            /// Risk program
+#[inline(always)]
+    pub fn risk_program(&mut self, risk_program: solana_address::Address) -> &mut Self {
+                        self.risk_program = Some(risk_program);
                     self
     }
             /// `[optional account, default to '11111111111111111111111111111111']`
@@ -361,11 +378,12 @@ impl PlaceTakeOrderBuilder {
                                         market: self.market.expect("market is not set"),
                                         bids: self.bids.expect("bids is not set"),
                                         asks: self.asks.expect("asks is not set"),
-                                        risk_program: self.risk_program.expect("risk_program is not set"),
                                         taker_user_account: self.taker_user_account.expect("taker_user_account is not set"),
                                         taker_position: self.taker_position.expect("taker_position is not set"),
                                         market_config: self.market_config.expect("market_config is not set"),
                                         funding_state: self.funding_state.expect("funding_state is not set"),
+                                        orderbook_program: self.orderbook_program.expect("orderbook_program is not set"),
+                                        risk_program: self.risk_program.expect("risk_program is not set"),
                                         system_program: self.system_program.unwrap_or(solana_address::address!("11111111111111111111111111111111")),
                       };
           let args = PlaceTakeOrderInstructionArgs {
@@ -412,11 +430,6 @@ impl PlaceTakeOrderBuilder {
       
                     
               pub asks: &'b solana_account_info::AccountInfo<'a>,
-                        /// Risk program
-
-      
-                    
-              pub risk_program: &'b solana_account_info::AccountInfo<'a>,
                         /// Taker UserAccount
 
       
@@ -437,6 +450,16 @@ impl PlaceTakeOrderBuilder {
       
                     
               pub funding_state: &'b solana_account_info::AccountInfo<'a>,
+                        /// Orderbook program
+
+      
+                    
+              pub orderbook_program: &'b solana_account_info::AccountInfo<'a>,
+                        /// Risk program
+
+      
+                    
+              pub risk_program: &'b solana_account_info::AccountInfo<'a>,
                         /// System program
 
       
@@ -473,11 +496,6 @@ pub struct PlaceTakeOrderCpi<'a, 'b> {
     
               
           pub asks: &'b solana_account_info::AccountInfo<'a>,
-                /// Risk program
-
-    
-              
-          pub risk_program: &'b solana_account_info::AccountInfo<'a>,
                 /// Taker UserAccount
 
     
@@ -498,6 +516,16 @@ pub struct PlaceTakeOrderCpi<'a, 'b> {
     
               
           pub funding_state: &'b solana_account_info::AccountInfo<'a>,
+                /// Orderbook program
+
+    
+              
+          pub orderbook_program: &'b solana_account_info::AccountInfo<'a>,
+                /// Risk program
+
+    
+              
+          pub risk_program: &'b solana_account_info::AccountInfo<'a>,
                 /// System program
 
     
@@ -520,11 +548,12 @@ impl<'a, 'b> PlaceTakeOrderCpi<'a, 'b> {
               market: accounts.market,
               bids: accounts.bids,
               asks: accounts.asks,
-              risk_program: accounts.risk_program,
               taker_user_account: accounts.taker_user_account,
               taker_position: accounts.taker_position,
               market_config: accounts.market_config,
               funding_state: accounts.funding_state,
+              orderbook_program: accounts.orderbook_program,
+              risk_program: accounts.risk_program,
               system_program: accounts.system_program,
                     __args: args,
           }
@@ -549,7 +578,7 @@ impl<'a, 'b> PlaceTakeOrderCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program_error::ProgramResult {
-    let mut accounts = Vec::with_capacity(11+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(12+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.signer.key,
             true
@@ -570,10 +599,6 @@ impl<'a, 'b> PlaceTakeOrderCpi<'a, 'b> {
             *self.asks.key,
             false
           ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
-            *self.risk_program.key,
-            false
-          ));
                                           accounts.push(solana_instruction::AccountMeta::new(
             *self.taker_user_account.key,
             false
@@ -588,6 +613,14 @@ impl<'a, 'b> PlaceTakeOrderCpi<'a, 'b> {
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
             *self.funding_state.key,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.orderbook_program.key,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.risk_program.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -610,18 +643,19 @@ impl<'a, 'b> PlaceTakeOrderCpi<'a, 'b> {
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(12 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(13 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
                   account_infos.push(self.signer.clone());
                         account_infos.push(self.open_orders_account.clone());
                         account_infos.push(self.market.clone());
                         account_infos.push(self.bids.clone());
                         account_infos.push(self.asks.clone());
-                        account_infos.push(self.risk_program.clone());
                         account_infos.push(self.taker_user_account.clone());
                         account_infos.push(self.taker_position.clone());
                         account_infos.push(self.market_config.clone());
                         account_infos.push(self.funding_state.clone());
+                        account_infos.push(self.orderbook_program.clone());
+                        account_infos.push(self.risk_program.clone());
                         account_infos.push(self.system_program.clone());
               remaining_accounts.iter().for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
 
@@ -642,12 +676,13 @@ impl<'a, 'b> PlaceTakeOrderCpi<'a, 'b> {
                 ///   2. `[writable]` market
                 ///   3. `[writable]` bids
                 ///   4. `[writable]` asks
-          ///   5. `[]` risk_program
-                ///   6. `[writable]` taker_user_account
-                ///   7. `[writable]` taker_position
-          ///   8. `[]` market_config
-                ///   9. `[writable]` funding_state
-          ///   10. `[]` system_program
+                ///   5. `[writable]` taker_user_account
+                ///   6. `[writable]` taker_position
+          ///   7. `[]` market_config
+                ///   8. `[writable]` funding_state
+          ///   9. `[]` orderbook_program
+          ///   10. `[]` risk_program
+          ///   11. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct PlaceTakeOrderCpiBuilder<'a, 'b> {
   instruction: Box<PlaceTakeOrderCpiBuilderInstruction<'a, 'b>>,
@@ -662,11 +697,12 @@ impl<'a, 'b> PlaceTakeOrderCpiBuilder<'a, 'b> {
               market: None,
               bids: None,
               asks: None,
-              risk_program: None,
               taker_user_account: None,
               taker_position: None,
               market_config: None,
               funding_state: None,
+              orderbook_program: None,
+              risk_program: None,
               system_program: None,
                                             max_base_lots: None,
                                 max_quote_lots: None,
@@ -712,12 +748,6 @@ impl<'a, 'b> PlaceTakeOrderCpiBuilder<'a, 'b> {
                         self.instruction.asks = Some(asks);
                     self
     }
-      /// Risk program
-#[inline(always)]
-    pub fn risk_program(&mut self, risk_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.risk_program = Some(risk_program);
-                    self
-    }
       /// Taker UserAccount
 #[inline(always)]
     pub fn taker_user_account(&mut self, taker_user_account: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
@@ -740,6 +770,18 @@ impl<'a, 'b> PlaceTakeOrderCpiBuilder<'a, 'b> {
 #[inline(always)]
     pub fn funding_state(&mut self, funding_state: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
                         self.instruction.funding_state = Some(funding_state);
+                    self
+    }
+      /// Orderbook program
+#[inline(always)]
+    pub fn orderbook_program(&mut self, orderbook_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.orderbook_program = Some(orderbook_program);
+                    self
+    }
+      /// Risk program
+#[inline(always)]
+    pub fn risk_program(&mut self, risk_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.risk_program = Some(risk_program);
                     self
     }
       /// System program
@@ -845,8 +887,6 @@ impl<'a, 'b> PlaceTakeOrderCpiBuilder<'a, 'b> {
                   
           asks: self.instruction.asks.expect("asks is not set"),
                   
-          risk_program: self.instruction.risk_program.expect("risk_program is not set"),
-                  
           taker_user_account: self.instruction.taker_user_account.expect("taker_user_account is not set"),
                   
           taker_position: self.instruction.taker_position.expect("taker_position is not set"),
@@ -854,6 +894,10 @@ impl<'a, 'b> PlaceTakeOrderCpiBuilder<'a, 'b> {
           market_config: self.instruction.market_config.expect("market_config is not set"),
                   
           funding_state: self.instruction.funding_state.expect("funding_state is not set"),
+                  
+          orderbook_program: self.instruction.orderbook_program.expect("orderbook_program is not set"),
+                  
+          risk_program: self.instruction.risk_program.expect("risk_program is not set"),
                   
           system_program: self.instruction.system_program.expect("system_program is not set"),
                           __args: args,
@@ -870,11 +914,12 @@ struct PlaceTakeOrderCpiBuilderInstruction<'a, 'b> {
                 market: Option<&'b solana_account_info::AccountInfo<'a>>,
                 bids: Option<&'b solana_account_info::AccountInfo<'a>>,
                 asks: Option<&'b solana_account_info::AccountInfo<'a>>,
-                risk_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                 taker_user_account: Option<&'b solana_account_info::AccountInfo<'a>>,
                 taker_position: Option<&'b solana_account_info::AccountInfo<'a>>,
                 market_config: Option<&'b solana_account_info::AccountInfo<'a>>,
                 funding_state: Option<&'b solana_account_info::AccountInfo<'a>>,
+                orderbook_program: Option<&'b solana_account_info::AccountInfo<'a>>,
+                risk_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                 system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                         max_base_lots: Option<i64>,
                 max_quote_lots: Option<i64>,

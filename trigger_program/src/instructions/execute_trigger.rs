@@ -31,9 +31,9 @@ pub struct ExecuteTriggerParams {
 pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     let [
             keeper,              // permissionless — any signer
-            trigger_order,
-            trigger_order_owner,
             trigger_authority,
+            trigger_order_owner,
+            trigger_order,
             market,              // orderbook market state
             open_orders_account, // trigger owner's OO account
             bids,

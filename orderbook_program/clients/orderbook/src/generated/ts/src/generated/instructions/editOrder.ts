@@ -32,6 +32,7 @@ import {
   type Instruction,
   type InstructionWithAccounts,
   type InstructionWithData,
+  type ReadonlyAccount,
   type ReadonlyUint8Array,
   type TransactionSigner,
   type WritableAccount,
@@ -56,6 +57,14 @@ export type EditOrderInstruction<
   TAccountMarket extends string | AccountMeta<string> = string,
   TAccountBids extends string | AccountMeta<string> = string,
   TAccountAsks extends string | AccountMeta<string> = string,
+  TAccountTakerUserAccount extends string | AccountMeta<string> = string,
+  TAccountTakerPosition extends string | AccountMeta<string> = string,
+  TAccountMarketConfig extends string | AccountMeta<string> = string,
+  TAccountFundingState extends string | AccountMeta<string> = string,
+  TAccountOrderbookProgram extends string | AccountMeta<string> = string,
+  TAccountRiskProgram extends string | AccountMeta<string> = string,
+  TAccountSystemProgram extends string | AccountMeta<string> =
+    "11111111111111111111111111111111",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -77,6 +86,27 @@ export type EditOrderInstruction<
       TAccountAsks extends string
         ? WritableAccount<TAccountAsks>
         : TAccountAsks,
+      TAccountTakerUserAccount extends string
+        ? WritableAccount<TAccountTakerUserAccount>
+        : TAccountTakerUserAccount,
+      TAccountTakerPosition extends string
+        ? WritableAccount<TAccountTakerPosition>
+        : TAccountTakerPosition,
+      TAccountMarketConfig extends string
+        ? ReadonlyAccount<TAccountMarketConfig>
+        : TAccountMarketConfig,
+      TAccountFundingState extends string
+        ? WritableAccount<TAccountFundingState>
+        : TAccountFundingState,
+      TAccountOrderbookProgram extends string
+        ? ReadonlyAccount<TAccountOrderbookProgram>
+        : TAccountOrderbookProgram,
+      TAccountRiskProgram extends string
+        ? ReadonlyAccount<TAccountRiskProgram>
+        : TAccountRiskProgram,
+      TAccountSystemProgram extends string
+        ? ReadonlyAccount<TAccountSystemProgram>
+        : TAccountSystemProgram,
       ...TRemainingAccounts,
     ]
   >;
@@ -167,6 +197,13 @@ export type EditOrderInput<
   TAccountMarket extends string = string,
   TAccountBids extends string = string,
   TAccountAsks extends string = string,
+  TAccountTakerUserAccount extends string = string,
+  TAccountTakerPosition extends string = string,
+  TAccountMarketConfig extends string = string,
+  TAccountFundingState extends string = string,
+  TAccountOrderbookProgram extends string = string,
+  TAccountRiskProgram extends string = string,
+  TAccountSystemProgram extends string = string,
 > = {
   /** Order owner */
   signer: TransactionSigner<TAccountSigner>;
@@ -178,6 +215,20 @@ export type EditOrderInput<
   bids: Address<TAccountBids>;
   /** Asks BookSide */
   asks: Address<TAccountAsks>;
+  /** Taker UserAccount */
+  takerUserAccount: Address<TAccountTakerUserAccount>;
+  /** Taker Position */
+  takerPosition: Address<TAccountTakerPosition>;
+  /** Market config */
+  marketConfig: Address<TAccountMarketConfig>;
+  /** Funding state */
+  fundingState: Address<TAccountFundingState>;
+  /** Orderbook program */
+  orderbookProgram: Address<TAccountOrderbookProgram>;
+  /** Risk program */
+  riskProgram: Address<TAccountRiskProgram>;
+  /** System program */
+  systemProgram?: Address<TAccountSystemProgram>;
   newPriceLots: EditOrderInstructionDataArgs["newPriceLots"];
   newBaseLots: EditOrderInstructionDataArgs["newBaseLots"];
   newQuoteLots: EditOrderInstructionDataArgs["newQuoteLots"];
@@ -198,6 +249,13 @@ export function getEditOrderInstruction<
   TAccountMarket extends string,
   TAccountBids extends string,
   TAccountAsks extends string,
+  TAccountTakerUserAccount extends string,
+  TAccountTakerPosition extends string,
+  TAccountMarketConfig extends string,
+  TAccountFundingState extends string,
+  TAccountOrderbookProgram extends string,
+  TAccountRiskProgram extends string,
+  TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof ORDERBOOK_PROGRAM_ADDRESS,
 >(
   input: EditOrderInput<
@@ -205,7 +263,14 @@ export function getEditOrderInstruction<
     TAccountOpenOrdersAccount,
     TAccountMarket,
     TAccountBids,
-    TAccountAsks
+    TAccountAsks,
+    TAccountTakerUserAccount,
+    TAccountTakerPosition,
+    TAccountMarketConfig,
+    TAccountFundingState,
+    TAccountOrderbookProgram,
+    TAccountRiskProgram,
+    TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): EditOrderInstruction<
@@ -214,7 +279,14 @@ export function getEditOrderInstruction<
   TAccountOpenOrdersAccount,
   TAccountMarket,
   TAccountBids,
-  TAccountAsks
+  TAccountAsks,
+  TAccountTakerUserAccount,
+  TAccountTakerPosition,
+  TAccountMarketConfig,
+  TAccountFundingState,
+  TAccountOrderbookProgram,
+  TAccountRiskProgram,
+  TAccountSystemProgram
 > {
   // Program address.
   const programAddress = config?.programAddress ?? ORDERBOOK_PROGRAM_ADDRESS;
@@ -229,6 +301,19 @@ export function getEditOrderInstruction<
     market: { value: input.market ?? null, isWritable: true },
     bids: { value: input.bids ?? null, isWritable: true },
     asks: { value: input.asks ?? null, isWritable: true },
+    takerUserAccount: {
+      value: input.takerUserAccount ?? null,
+      isWritable: true,
+    },
+    takerPosition: { value: input.takerPosition ?? null, isWritable: true },
+    marketConfig: { value: input.marketConfig ?? null, isWritable: false },
+    fundingState: { value: input.fundingState ?? null, isWritable: true },
+    orderbookProgram: {
+      value: input.orderbookProgram ?? null,
+      isWritable: false,
+    },
+    riskProgram: { value: input.riskProgram ?? null, isWritable: false },
+    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -238,6 +323,12 @@ export function getEditOrderInstruction<
   // Original args.
   const args = { ...input };
 
+  // Resolve default values.
+  if (!accounts.systemProgram.value) {
+    accounts.systemProgram.value =
+      "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
+  }
+
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
@@ -246,6 +337,13 @@ export function getEditOrderInstruction<
       getAccountMeta("market", accounts.market),
       getAccountMeta("bids", accounts.bids),
       getAccountMeta("asks", accounts.asks),
+      getAccountMeta("takerUserAccount", accounts.takerUserAccount),
+      getAccountMeta("takerPosition", accounts.takerPosition),
+      getAccountMeta("marketConfig", accounts.marketConfig),
+      getAccountMeta("fundingState", accounts.fundingState),
+      getAccountMeta("orderbookProgram", accounts.orderbookProgram),
+      getAccountMeta("riskProgram", accounts.riskProgram),
+      getAccountMeta("systemProgram", accounts.systemProgram),
     ],
     data: getEditOrderInstructionDataEncoder().encode(
       args as EditOrderInstructionDataArgs,
@@ -257,7 +355,14 @@ export function getEditOrderInstruction<
     TAccountOpenOrdersAccount,
     TAccountMarket,
     TAccountBids,
-    TAccountAsks
+    TAccountAsks,
+    TAccountTakerUserAccount,
+    TAccountTakerPosition,
+    TAccountMarketConfig,
+    TAccountFundingState,
+    TAccountOrderbookProgram,
+    TAccountRiskProgram,
+    TAccountSystemProgram
   >);
 }
 
@@ -277,6 +382,20 @@ export type ParsedEditOrderInstruction<
     bids: TAccountMetas[3];
     /** Asks BookSide */
     asks: TAccountMetas[4];
+    /** Taker UserAccount */
+    takerUserAccount: TAccountMetas[5];
+    /** Taker Position */
+    takerPosition: TAccountMetas[6];
+    /** Market config */
+    marketConfig: TAccountMetas[7];
+    /** Funding state */
+    fundingState: TAccountMetas[8];
+    /** Orderbook program */
+    orderbookProgram: TAccountMetas[9];
+    /** Risk program */
+    riskProgram: TAccountMetas[10];
+    /** System program */
+    systemProgram: TAccountMetas[11];
   };
   data: EditOrderInstructionData;
 };
@@ -289,12 +408,12 @@ export function parseEditOrderInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedEditOrderInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 5) {
+  if (instruction.accounts.length < 12) {
     throw new SolanaError(
       SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
       {
         actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 5,
+        expectedAccountMetas: 12,
       },
     );
   }
@@ -312,6 +431,13 @@ export function parseEditOrderInstruction<
       market: getNextAccount(),
       bids: getNextAccount(),
       asks: getNextAccount(),
+      takerUserAccount: getNextAccount(),
+      takerPosition: getNextAccount(),
+      marketConfig: getNextAccount(),
+      fundingState: getNextAccount(),
+      orderbookProgram: getNextAccount(),
+      riskProgram: getNextAccount(),
+      systemProgram: getNextAccount(),
     },
     data: getEditOrderInstructionDataDecoder().decode(instruction.data),
   };

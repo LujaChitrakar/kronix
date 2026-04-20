@@ -29,7 +29,9 @@ pub fn process_instruction(
             process_cancel_trigger_order(accounts, data)?
         }
         TriggerProgramInstruction::ExecuteTrigger => process_execute_trigger(accounts, data)?,
-        TriggerProgramInstruction::PruneTrigger => process_prune_expired_triggers(accounts, data)?,
+        TriggerProgramInstruction::PruneExpiredTrigger => {
+            process_prune_expired_triggers(accounts, data)?
+        }
     }
     Ok(())
 }

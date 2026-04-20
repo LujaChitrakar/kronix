@@ -28,7 +28,6 @@ import {
   type Instruction,
   type InstructionWithAccounts,
   type InstructionWithData,
-  type ReadonlyAccount,
   type ReadonlySignerAccount,
   type ReadonlyUint8Array,
   type TransactionSigner,
@@ -50,8 +49,6 @@ export type SetDelegateInstruction<
   TProgram extends string = typeof ORDERBOOK_PROGRAM_ADDRESS,
   TAccountSigner extends string | AccountMeta<string> = string,
   TAccountOpenOrdersAccount extends string | AccountMeta<string> = string,
-  TAccountSystemProgram extends string | AccountMeta<string> =
-    "11111111111111111111111111111111",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -64,9 +61,6 @@ export type SetDelegateInstruction<
       TAccountOpenOrdersAccount extends string
         ? WritableAccount<TAccountOpenOrdersAccount>
         : TAccountOpenOrdersAccount,
-      TAccountSystemProgram extends string
-        ? ReadonlyAccount<TAccountSystemProgram>
-        : TAccountSystemProgram,
       ...TRemainingAccounts,
     ]
   >;
@@ -108,34 +102,25 @@ export function getSetDelegateInstructionDataCodec(): FixedSizeCodec<
 export type SetDelegateInput<
   TAccountSigner extends string = string,
   TAccountOpenOrdersAccount extends string = string,
-  TAccountSystemProgram extends string = string,
 > = {
   /** signer */
   signer: TransactionSigner<TAccountSigner>;
   /** OO account */
   openOrdersAccount: Address<TAccountOpenOrdersAccount>;
-  /** System program */
-  systemProgram?: Address<TAccountSystemProgram>;
   delegate: SetDelegateInstructionDataArgs["delegate"];
 };
 
 export function getSetDelegateInstruction<
   TAccountSigner extends string,
   TAccountOpenOrdersAccount extends string,
-  TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof ORDERBOOK_PROGRAM_ADDRESS,
 >(
-  input: SetDelegateInput<
-    TAccountSigner,
-    TAccountOpenOrdersAccount,
-    TAccountSystemProgram
-  >,
+  input: SetDelegateInput<TAccountSigner, TAccountOpenOrdersAccount>,
   config?: { programAddress?: TProgramAddress },
 ): SetDelegateInstruction<
   TProgramAddress,
   TAccountSigner,
-  TAccountOpenOrdersAccount,
-  TAccountSystemProgram
+  TAccountOpenOrdersAccount
 > {
   // Program address.
   const programAddress = config?.programAddress ?? ORDERBOOK_PROGRAM_ADDRESS;
@@ -147,7 +132,6 @@ export function getSetDelegateInstruction<
       value: input.openOrdersAccount ?? null,
       isWritable: true,
     },
-    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -157,18 +141,11 @@ export function getSetDelegateInstruction<
   // Original args.
   const args = { ...input };
 
-  // Resolve default values.
-  if (!accounts.systemProgram.value) {
-    accounts.systemProgram.value =
-      "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
-  }
-
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
       getAccountMeta("signer", accounts.signer),
       getAccountMeta("openOrdersAccount", accounts.openOrdersAccount),
-      getAccountMeta("systemProgram", accounts.systemProgram),
     ],
     data: getSetDelegateInstructionDataEncoder().encode(
       args as SetDelegateInstructionDataArgs,
@@ -177,8 +154,7 @@ export function getSetDelegateInstruction<
   } as SetDelegateInstruction<
     TProgramAddress,
     TAccountSigner,
-    TAccountOpenOrdersAccount,
-    TAccountSystemProgram
+    TAccountOpenOrdersAccount
   >);
 }
 
@@ -192,8 +168,6 @@ export type ParsedSetDelegateInstruction<
     signer: TAccountMetas[0];
     /** OO account */
     openOrdersAccount: TAccountMetas[1];
-    /** System program */
-    systemProgram: TAccountMetas[2];
   };
   data: SetDelegateInstructionData;
 };
@@ -206,12 +180,12 @@ export function parseSetDelegateInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedSetDelegateInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 3) {
+  if (instruction.accounts.length < 2) {
     throw new SolanaError(
       SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
       {
         actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 3,
+        expectedAccountMetas: 2,
       },
     );
   }
@@ -223,11 +197,7 @@ export function parseSetDelegateInstruction<
   };
   return {
     programAddress: instruction.programAddress,
-    accounts: {
-      signer: getNextAccount(),
-      openOrdersAccount: getNextAccount(),
-      systemProgram: getNextAccount(),
-    },
+    accounts: { signer: getNextAccount(), openOrdersAccount: getNextAccount() },
     data: getSetDelegateInstructionDataDecoder().decode(instruction.data),
   };
 }

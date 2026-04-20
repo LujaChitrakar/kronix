@@ -535,14 +535,6 @@
       "name": "SettleFill",
       "accounts": [
         {
-          "name": "orderbookProgram",
-          "isMut": false,
-          "isSigner": true,
-          "docs": [
-            "Orderbook program"
-          ]
-        },
-        {
           "name": "userAccount",
           "isMut": true,
           "isSigner": false,
@@ -572,6 +564,14 @@
           "isSigner": false,
           "docs": [
             "FundingState"
+          ]
+        },
+        {
+          "name": "orderbookProgram",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "Orderbook program"
           ]
         },
         {

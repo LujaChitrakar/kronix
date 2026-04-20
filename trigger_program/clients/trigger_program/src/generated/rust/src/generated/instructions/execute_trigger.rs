@@ -19,16 +19,21 @@ pub struct ExecuteTrigger {
     
               
           pub keeper: solana_address::Address,
-                /// Trigger order PDA
-
-    
-              
-          pub trigger_order: solana_address::Address,
                 /// Trigger order authority PDA
 
     
               
           pub trigger_authority: solana_address::Address,
+                /// Trigger order owner PDA
+
+    
+              
+          pub trigger_order_owner: solana_address::Address,
+                /// Trigger order PDA
+
+    
+              
+          pub trigger_order: solana_address::Address,
                 /// Market PDA
 
     
@@ -98,17 +103,21 @@ impl ExecuteTrigger {
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
   pub fn instruction_with_remaining_accounts(&self, args: ExecuteTriggerInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
-    let mut accounts = Vec::with_capacity(15+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(16+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             self.keeper,
             true
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            self.trigger_order,
+            self.trigger_authority,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.trigger_order_owner,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            self.trigger_authority,
+            self.trigger_order,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
@@ -212,25 +221,27 @@ impl ExecuteTriggerInstructionArgs {
 /// ### Accounts:
 ///
                       ///   0. `[writable, signer]` keeper
-                ///   1. `[writable]` trigger_order
-                ///   2. `[writable]` trigger_authority
-                ///   3. `[writable]` market
-                ///   4. `[writable]` open_orders_account
-                ///   5. `[writable]` bids
-                ///   6. `[writable]` asks
-                ///   7. `[writable]` market_config
-                ///   8. `[writable]` funding_state
-                ///   9. `[writable]` user_account
-                ///   10. `[writable]` position
-                ///   11. `[writable]` oracle
-          ///   12. `[]` orderbook_program
-          ///   13. `[]` risk_program
-                ///   14. `[optional]` system_program (default to `11111111111111111111111111111111`)
+                ///   1. `[writable]` trigger_authority
+          ///   2. `[]` trigger_order_owner
+                ///   3. `[writable]` trigger_order
+                ///   4. `[writable]` market
+                ///   5. `[writable]` open_orders_account
+                ///   6. `[writable]` bids
+                ///   7. `[writable]` asks
+                ///   8. `[writable]` market_config
+                ///   9. `[writable]` funding_state
+                ///   10. `[writable]` user_account
+                ///   11. `[writable]` position
+                ///   12. `[writable]` oracle
+          ///   13. `[]` orderbook_program
+          ///   14. `[]` risk_program
+                ///   15. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct ExecuteTriggerBuilder {
             keeper: Option<solana_address::Address>,
-                trigger_order: Option<solana_address::Address>,
                 trigger_authority: Option<solana_address::Address>,
+                trigger_order_owner: Option<solana_address::Address>,
+                trigger_order: Option<solana_address::Address>,
                 market: Option<solana_address::Address>,
                 open_orders_account: Option<solana_address::Address>,
                 bids: Option<solana_address::Address>,
@@ -257,16 +268,22 @@ impl ExecuteTriggerBuilder {
                         self.keeper = Some(keeper);
                     self
     }
-            /// Trigger order PDA
-#[inline(always)]
-    pub fn trigger_order(&mut self, trigger_order: solana_address::Address) -> &mut Self {
-                        self.trigger_order = Some(trigger_order);
-                    self
-    }
             /// Trigger order authority PDA
 #[inline(always)]
     pub fn trigger_authority(&mut self, trigger_authority: solana_address::Address) -> &mut Self {
                         self.trigger_authority = Some(trigger_authority);
+                    self
+    }
+            /// Trigger order owner PDA
+#[inline(always)]
+    pub fn trigger_order_owner(&mut self, trigger_order_owner: solana_address::Address) -> &mut Self {
+                        self.trigger_order_owner = Some(trigger_order_owner);
+                    self
+    }
+            /// Trigger order PDA
+#[inline(always)]
+    pub fn trigger_order(&mut self, trigger_order: solana_address::Address) -> &mut Self {
+                        self.trigger_order = Some(trigger_order);
                     self
     }
             /// Market PDA
@@ -363,8 +380,9 @@ impl ExecuteTriggerBuilder {
   pub fn instruction(&self) -> solana_instruction::Instruction {
     let accounts = ExecuteTrigger {
                               keeper: self.keeper.expect("keeper is not set"),
-                                        trigger_order: self.trigger_order.expect("trigger_order is not set"),
                                         trigger_authority: self.trigger_authority.expect("trigger_authority is not set"),
+                                        trigger_order_owner: self.trigger_order_owner.expect("trigger_order_owner is not set"),
+                                        trigger_order: self.trigger_order.expect("trigger_order is not set"),
                                         market: self.market.expect("market is not set"),
                                         open_orders_account: self.open_orders_account.expect("open_orders_account is not set"),
                                         bids: self.bids.expect("bids is not set"),
@@ -393,16 +411,21 @@ impl ExecuteTriggerBuilder {
       
                     
               pub keeper: &'b solana_account_info::AccountInfo<'a>,
-                        /// Trigger order PDA
-
-      
-                    
-              pub trigger_order: &'b solana_account_info::AccountInfo<'a>,
                         /// Trigger order authority PDA
 
       
                     
               pub trigger_authority: &'b solana_account_info::AccountInfo<'a>,
+                        /// Trigger order owner PDA
+
+      
+                    
+              pub trigger_order_owner: &'b solana_account_info::AccountInfo<'a>,
+                        /// Trigger order PDA
+
+      
+                    
+              pub trigger_order: &'b solana_account_info::AccountInfo<'a>,
                         /// Market PDA
 
       
@@ -474,16 +497,21 @@ pub struct ExecuteTriggerCpi<'a, 'b> {
     
               
           pub keeper: &'b solana_account_info::AccountInfo<'a>,
-                /// Trigger order PDA
-
-    
-              
-          pub trigger_order: &'b solana_account_info::AccountInfo<'a>,
                 /// Trigger order authority PDA
 
     
               
           pub trigger_authority: &'b solana_account_info::AccountInfo<'a>,
+                /// Trigger order owner PDA
+
+    
+              
+          pub trigger_order_owner: &'b solana_account_info::AccountInfo<'a>,
+                /// Trigger order PDA
+
+    
+              
+          pub trigger_order: &'b solana_account_info::AccountInfo<'a>,
                 /// Market PDA
 
     
@@ -557,8 +585,9 @@ impl<'a, 'b> ExecuteTriggerCpi<'a, 'b> {
     Self {
       __program: program,
               keeper: accounts.keeper,
-              trigger_order: accounts.trigger_order,
               trigger_authority: accounts.trigger_authority,
+              trigger_order_owner: accounts.trigger_order_owner,
+              trigger_order: accounts.trigger_order,
               market: accounts.market,
               open_orders_account: accounts.open_orders_account,
               bids: accounts.bids,
@@ -594,17 +623,21 @@ impl<'a, 'b> ExecuteTriggerCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program_error::ProgramResult {
-    let mut accounts = Vec::with_capacity(15+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(16+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             *self.keeper.key,
             true
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            *self.trigger_order.key,
+            *self.trigger_authority.key,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.trigger_order_owner.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            *self.trigger_authority.key,
+            *self.trigger_order.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
@@ -671,11 +704,12 @@ impl<'a, 'b> ExecuteTriggerCpi<'a, 'b> {
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(16 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(17 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
                   account_infos.push(self.keeper.clone());
-                        account_infos.push(self.trigger_order.clone());
                         account_infos.push(self.trigger_authority.clone());
+                        account_infos.push(self.trigger_order_owner.clone());
+                        account_infos.push(self.trigger_order.clone());
                         account_infos.push(self.market.clone());
                         account_infos.push(self.open_orders_account.clone());
                         account_infos.push(self.bids.clone());
@@ -703,20 +737,21 @@ impl<'a, 'b> ExecuteTriggerCpi<'a, 'b> {
 /// ### Accounts:
 ///
                       ///   0. `[writable, signer]` keeper
-                ///   1. `[writable]` trigger_order
-                ///   2. `[writable]` trigger_authority
-                ///   3. `[writable]` market
-                ///   4. `[writable]` open_orders_account
-                ///   5. `[writable]` bids
-                ///   6. `[writable]` asks
-                ///   7. `[writable]` market_config
-                ///   8. `[writable]` funding_state
-                ///   9. `[writable]` user_account
-                ///   10. `[writable]` position
-                ///   11. `[writable]` oracle
-          ///   12. `[]` orderbook_program
-          ///   13. `[]` risk_program
-          ///   14. `[]` system_program
+                ///   1. `[writable]` trigger_authority
+          ///   2. `[]` trigger_order_owner
+                ///   3. `[writable]` trigger_order
+                ///   4. `[writable]` market
+                ///   5. `[writable]` open_orders_account
+                ///   6. `[writable]` bids
+                ///   7. `[writable]` asks
+                ///   8. `[writable]` market_config
+                ///   9. `[writable]` funding_state
+                ///   10. `[writable]` user_account
+                ///   11. `[writable]` position
+                ///   12. `[writable]` oracle
+          ///   13. `[]` orderbook_program
+          ///   14. `[]` risk_program
+          ///   15. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct ExecuteTriggerCpiBuilder<'a, 'b> {
   instruction: Box<ExecuteTriggerCpiBuilderInstruction<'a, 'b>>,
@@ -727,8 +762,9 @@ impl<'a, 'b> ExecuteTriggerCpiBuilder<'a, 'b> {
     let instruction = Box::new(ExecuteTriggerCpiBuilderInstruction {
       __program: program,
               keeper: None,
-              trigger_order: None,
               trigger_authority: None,
+              trigger_order_owner: None,
+              trigger_order: None,
               market: None,
               open_orders_account: None,
               bids: None,
@@ -752,16 +788,22 @@ impl<'a, 'b> ExecuteTriggerCpiBuilder<'a, 'b> {
                         self.instruction.keeper = Some(keeper);
                     self
     }
-      /// Trigger order PDA
-#[inline(always)]
-    pub fn trigger_order(&mut self, trigger_order: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.trigger_order = Some(trigger_order);
-                    self
-    }
       /// Trigger order authority PDA
 #[inline(always)]
     pub fn trigger_authority(&mut self, trigger_authority: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
                         self.instruction.trigger_authority = Some(trigger_authority);
+                    self
+    }
+      /// Trigger order owner PDA
+#[inline(always)]
+    pub fn trigger_order_owner(&mut self, trigger_order_owner: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.trigger_order_owner = Some(trigger_order_owner);
+                    self
+    }
+      /// Trigger order PDA
+#[inline(always)]
+    pub fn trigger_order(&mut self, trigger_order: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.trigger_order = Some(trigger_order);
                     self
     }
       /// Market PDA
@@ -871,9 +913,11 @@ impl<'a, 'b> ExecuteTriggerCpiBuilder<'a, 'b> {
                   
           keeper: self.instruction.keeper.expect("keeper is not set"),
                   
-          trigger_order: self.instruction.trigger_order.expect("trigger_order is not set"),
-                  
           trigger_authority: self.instruction.trigger_authority.expect("trigger_authority is not set"),
+                  
+          trigger_order_owner: self.instruction.trigger_order_owner.expect("trigger_order_owner is not set"),
+                  
+          trigger_order: self.instruction.trigger_order.expect("trigger_order is not set"),
                   
           market: self.instruction.market.expect("market is not set"),
                   
@@ -908,8 +952,9 @@ impl<'a, 'b> ExecuteTriggerCpiBuilder<'a, 'b> {
 struct ExecuteTriggerCpiBuilderInstruction<'a, 'b> {
   __program: &'b solana_account_info::AccountInfo<'a>,
             keeper: Option<&'b solana_account_info::AccountInfo<'a>>,
-                trigger_order: Option<&'b solana_account_info::AccountInfo<'a>>,
                 trigger_authority: Option<&'b solana_account_info::AccountInfo<'a>>,
+                trigger_order_owner: Option<&'b solana_account_info::AccountInfo<'a>>,
+                trigger_order: Option<&'b solana_account_info::AccountInfo<'a>>,
                 market: Option<&'b solana_account_info::AccountInfo<'a>>,
                 open_orders_account: Option<&'b solana_account_info::AccountInfo<'a>>,
                 bids: Option<&'b solana_account_info::AccountInfo<'a>>,

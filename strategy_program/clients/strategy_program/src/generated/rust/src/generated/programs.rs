@@ -9,5 +9,5 @@ use solana_address::{address, Address};
 
 
   /// `strategy_program` program ID.
-  pub const STRATEGY_PROGRAM_ID: Address = address!("5uPoD26g3gKYFhYR4poXe4oxHATBnWb3CUoGue9vaCpa");
+  pub const STRATEGY_PROGRAM_ID: Address = address!("7jUHqPKWF4ebe4gSRMwy1FfAWyuiQjpjTdzqtbMK6S9q");
 

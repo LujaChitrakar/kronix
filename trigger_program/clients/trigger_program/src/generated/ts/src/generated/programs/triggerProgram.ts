@@ -29,12 +29,12 @@ import {
   getEditTriggerInstruction,
   getExecuteTriggerInstruction,
   getPlaceTriggerOrderInstruction,
-  getPruneTriggerInstruction,
+  getPruneExpiredTriggerInstruction,
   parseCancelTriggerOrderInstruction,
   parseEditTriggerInstruction,
   parseExecuteTriggerInstruction,
   parsePlaceTriggerOrderInstruction,
-  parsePruneTriggerInstruction,
+  parsePruneExpiredTriggerInstruction,
   type CancelTriggerOrderInput,
   type EditTriggerInput,
   type ExecuteTriggerInput,
@@ -42,20 +42,20 @@ import {
   type ParsedEditTriggerInstruction,
   type ParsedExecuteTriggerInstruction,
   type ParsedPlaceTriggerOrderInstruction,
-  type ParsedPruneTriggerInstruction,
+  type ParsedPruneExpiredTriggerInstruction,
   type PlaceTriggerOrderInput,
-  type PruneTriggerInput,
+  type PruneExpiredTriggerInput,
 } from "../instructions";
 
 export const TRIGGER_PROGRAM_PROGRAM_ADDRESS =
-  "H4CnxfeSWvWqhBz2apY8JBdJxkn6qJf7crLiYqBz74fD" as Address<"H4CnxfeSWvWqhBz2apY8JBdJxkn6qJf7crLiYqBz74fD">;
+  "FBux8UY7koXsvDp3GThjvtiMo4GagsDdkPDbU4VbQzV2" as Address<"FBux8UY7koXsvDp3GThjvtiMo4GagsDdkPDbU4VbQzV2">;
 
 export enum TriggerProgramInstruction {
   PlaceTriggerOrder,
   EditTrigger,
   ExecuteTrigger,
   CancelTriggerOrder,
-  PruneTrigger,
+  PruneExpiredTrigger,
 }
 
 export function identifyTriggerProgramInstruction(
@@ -75,7 +75,7 @@ export function identifyTriggerProgramInstruction(
     return TriggerProgramInstruction.CancelTriggerOrder;
   }
   if (containsBytes(data, getU8Encoder().encode(4), 0)) {
-    return TriggerProgramInstruction.PruneTrigger;
+    return TriggerProgramInstruction.PruneExpiredTrigger;
   }
   throw new SolanaError(
     SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_INSTRUCTION,
@@ -84,7 +84,7 @@ export function identifyTriggerProgramInstruction(
 }
 
 export type ParsedTriggerProgramInstruction<
-  TProgram extends string = "H4CnxfeSWvWqhBz2apY8JBdJxkn6qJf7crLiYqBz74fD",
+  TProgram extends string = "FBux8UY7koXsvDp3GThjvtiMo4GagsDdkPDbU4VbQzV2",
 > =
   | ({
       instructionType: TriggerProgramInstruction.PlaceTriggerOrder;
@@ -99,8 +99,8 @@ export type ParsedTriggerProgramInstruction<
       instructionType: TriggerProgramInstruction.CancelTriggerOrder;
     } & ParsedCancelTriggerOrderInstruction<TProgram>)
   | ({
-      instructionType: TriggerProgramInstruction.PruneTrigger;
-    } & ParsedPruneTriggerInstruction<TProgram>);
+      instructionType: TriggerProgramInstruction.PruneExpiredTrigger;
+    } & ParsedPruneExpiredTriggerInstruction<TProgram>);
 
 export function parseTriggerProgramInstruction<TProgram extends string>(
   instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
@@ -135,11 +135,11 @@ export function parseTriggerProgramInstruction<TProgram extends string>(
         ...parseCancelTriggerOrderInstruction(instruction),
       };
     }
-    case TriggerProgramInstruction.PruneTrigger: {
+    case TriggerProgramInstruction.PruneExpiredTrigger: {
       assertIsInstructionWithAccounts(instruction);
       return {
-        instructionType: TriggerProgramInstruction.PruneTrigger,
-        ...parsePruneTriggerInstruction(instruction),
+        instructionType: TriggerProgramInstruction.PruneExpiredTrigger,
+        ...parsePruneExpiredTriggerInstruction(instruction),
       };
     }
     default:
@@ -173,9 +173,10 @@ export type TriggerProgramPluginInstructions = {
     input: CancelTriggerOrderInput,
   ) => ReturnType<typeof getCancelTriggerOrderInstruction> &
     SelfPlanAndSendFunctions;
-  pruneTrigger: (
-    input: PruneTriggerInput,
-  ) => ReturnType<typeof getPruneTriggerInstruction> & SelfPlanAndSendFunctions;
+  pruneExpiredTrigger: (
+    input: PruneExpiredTriggerInput,
+  ) => ReturnType<typeof getPruneExpiredTriggerInstruction> &
+    SelfPlanAndSendFunctions;
 };
 
 export type TriggerProgramPluginRequirements = ClientWithTransactionPlanning &
@@ -207,10 +208,10 @@ export function triggerProgramProgram() {
               client,
               getCancelTriggerOrderInstruction(input),
             ),
-          pruneTrigger: (input) =>
+          pruneExpiredTrigger: (input) =>
             addSelfPlanAndSendFunctions(
               client,
-              getPruneTriggerInstruction(input),
+              getPruneExpiredTriggerInstruction(input),
             ),
         },
       },

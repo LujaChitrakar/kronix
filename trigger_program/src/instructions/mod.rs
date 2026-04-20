@@ -25,30 +25,31 @@ pub enum TriggerInstruction {
     EditTrigger(EditTriggerParams),
 
     #[account(0, name = "keeper", desc = "Fee payer", signer, writable)]
-    #[account(1, name = "trigger_order", desc = "Trigger order PDA", writable)]
     #[account(
-        2,
+        1,
         name = "trigger_authority",
         desc = "Trigger order authority PDA",
         writable
     )]
-    #[account(3, name = "market", desc = "Market PDA", writable)]
+    #[account(2, name = "trigger_order_owner", desc = "Trigger order owner PDA")]
+    #[account(3, name = "trigger_order", desc = "Trigger order PDA", writable)]
+    #[account(4, name = "market", desc = "Market PDA", writable)]
     #[account(
-        4,
+        5,
         name = "open_orders_account",
         desc = "Open orders account PDA",
         writable
     )]
-    #[account(5, name = "bids", desc = "Bids PDA", writable)]
-    #[account(6, name = "asks", desc = "Asks PDA", writable)]
-    #[account(7, name = "market_config", desc = "Market Config PDA", writable)]
-    #[account(8, name = "funding_state", desc = "Funding State PDA", writable)]
-    #[account(9, name = "user_account", desc = "User Account PDA", writable)]
-    #[account(10, name = "position", desc = "Position PDA", writable)]
-    #[account(11, name = "oracle", desc = "Oracle PDA", writable)]
-    #[account(12, name = "orderbook_program", desc = "Orderbook Program")]
-    #[account(13, name = "risk_program", desc = "Risk Program")]
-    #[account(14, name = "system_program", desc = "System program")]
+    #[account(6, name = "bids", desc = "Bids PDA", writable)]
+    #[account(7, name = "asks", desc = "Asks PDA", writable)]
+    #[account(8, name = "market_config", desc = "Market Config PDA", writable)]
+    #[account(9, name = "funding_state", desc = "Funding State PDA", writable)]
+    #[account(10, name = "user_account", desc = "User Account PDA", writable)]
+    #[account(11, name = "position", desc = "Position PDA", writable)]
+    #[account(12, name = "oracle", desc = "Oracle PDA", writable)]
+    #[account(13, name = "orderbook_program", desc = "Orderbook Program")]
+    #[account(14, name = "risk_program", desc = "Risk Program")]
+    #[account(15, name = "system_program", desc = "System program")]
     ExecuteTrigger(ExecuteTriggerParams),
 
     #[account(0, name = "signer", desc = "Fee payer", signer, writable)]
@@ -56,7 +57,7 @@ pub enum TriggerInstruction {
     CancelTriggerOrder,
 
     #[account(0, name = "keeper", desc = "Fee payer", signer, writable)]
-    PruneTrigger,
+    PruneExpiredTrigger,
 }
 
 #[repr(u8)]
@@ -65,7 +66,7 @@ pub enum TriggerProgramInstruction {
     EditTrigger = 1,
     ExecuteTrigger = 2,
     CancelTriggerOrder = 3,
-    PruneTrigger = 4,
+    PruneExpiredTrigger = 4,
 }
 
 impl TryFrom<&u8> for TriggerProgramInstruction {
@@ -77,7 +78,7 @@ impl TryFrom<&u8> for TriggerProgramInstruction {
             1 => Ok(TriggerProgramInstruction::EditTrigger),
             2 => Ok(TriggerProgramInstruction::ExecuteTrigger),
             3 => Ok(TriggerProgramInstruction::CancelTriggerOrder),
-            4 => Ok(TriggerProgramInstruction::PruneTrigger),
+            4 => Ok(TriggerProgramInstruction::PruneExpiredTrigger),
             _ => Err(ProgramError::InvalidInstructionData),
         }
     }

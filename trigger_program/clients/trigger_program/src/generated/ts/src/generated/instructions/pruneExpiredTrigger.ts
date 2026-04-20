@@ -34,13 +34,13 @@ import {
 } from "@solana/program-client-core";
 import { TRIGGER_PROGRAM_PROGRAM_ADDRESS } from "../programs";
 
-export const PRUNE_TRIGGER_DISCRIMINATOR = 4;
+export const PRUNE_EXPIRED_TRIGGER_DISCRIMINATOR = 4;
 
-export function getPruneTriggerDiscriminatorBytes() {
-  return getU8Encoder().encode(PRUNE_TRIGGER_DISCRIMINATOR);
+export function getPruneExpiredTriggerDiscriminatorBytes() {
+  return getU8Encoder().encode(PRUNE_EXPIRED_TRIGGER_DISCRIMINATOR);
 }
 
-export type PruneTriggerInstruction<
+export type PruneExpiredTriggerInstruction<
   TProgram extends string = typeof TRIGGER_PROGRAM_PROGRAM_ADDRESS,
   TAccountKeeper extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -56,43 +56,46 @@ export type PruneTriggerInstruction<
     ]
   >;
 
-export type PruneTriggerInstructionData = { discriminator: number };
+export type PruneExpiredTriggerInstructionData = { discriminator: number };
 
-export type PruneTriggerInstructionDataArgs = {};
+export type PruneExpiredTriggerInstructionDataArgs = {};
 
-export function getPruneTriggerInstructionDataEncoder(): FixedSizeEncoder<PruneTriggerInstructionDataArgs> {
+export function getPruneExpiredTriggerInstructionDataEncoder(): FixedSizeEncoder<PruneExpiredTriggerInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([["discriminator", getU8Encoder()]]),
-    (value) => ({ ...value, discriminator: PRUNE_TRIGGER_DISCRIMINATOR }),
+    (value) => ({
+      ...value,
+      discriminator: PRUNE_EXPIRED_TRIGGER_DISCRIMINATOR,
+    }),
   );
 }
 
-export function getPruneTriggerInstructionDataDecoder(): FixedSizeDecoder<PruneTriggerInstructionData> {
+export function getPruneExpiredTriggerInstructionDataDecoder(): FixedSizeDecoder<PruneExpiredTriggerInstructionData> {
   return getStructDecoder([["discriminator", getU8Decoder()]]);
 }
 
-export function getPruneTriggerInstructionDataCodec(): FixedSizeCodec<
-  PruneTriggerInstructionDataArgs,
-  PruneTriggerInstructionData
+export function getPruneExpiredTriggerInstructionDataCodec(): FixedSizeCodec<
+  PruneExpiredTriggerInstructionDataArgs,
+  PruneExpiredTriggerInstructionData
 > {
   return combineCodec(
-    getPruneTriggerInstructionDataEncoder(),
-    getPruneTriggerInstructionDataDecoder(),
+    getPruneExpiredTriggerInstructionDataEncoder(),
+    getPruneExpiredTriggerInstructionDataDecoder(),
   );
 }
 
-export type PruneTriggerInput<TAccountKeeper extends string = string> = {
+export type PruneExpiredTriggerInput<TAccountKeeper extends string = string> = {
   /** Fee payer */
   keeper: TransactionSigner<TAccountKeeper>;
 };
 
-export function getPruneTriggerInstruction<
+export function getPruneExpiredTriggerInstruction<
   TAccountKeeper extends string,
   TProgramAddress extends Address = typeof TRIGGER_PROGRAM_PROGRAM_ADDRESS,
 >(
-  input: PruneTriggerInput<TAccountKeeper>,
+  input: PruneExpiredTriggerInput<TAccountKeeper>,
   config?: { programAddress?: TProgramAddress },
-): PruneTriggerInstruction<TProgramAddress, TAccountKeeper> {
+): PruneExpiredTriggerInstruction<TProgramAddress, TAccountKeeper> {
   // Program address.
   const programAddress =
     config?.programAddress ?? TRIGGER_PROGRAM_PROGRAM_ADDRESS;
@@ -109,12 +112,12 @@ export function getPruneTriggerInstruction<
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [getAccountMeta("keeper", accounts.keeper)],
-    data: getPruneTriggerInstructionDataEncoder().encode({}),
+    data: getPruneExpiredTriggerInstructionDataEncoder().encode({}),
     programAddress,
-  } as PruneTriggerInstruction<TProgramAddress, TAccountKeeper>);
+  } as PruneExpiredTriggerInstruction<TProgramAddress, TAccountKeeper>);
 }
 
-export type ParsedPruneTriggerInstruction<
+export type ParsedPruneExpiredTriggerInstruction<
   TProgram extends string = typeof TRIGGER_PROGRAM_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
@@ -123,17 +126,17 @@ export type ParsedPruneTriggerInstruction<
     /** Fee payer */
     keeper: TAccountMetas[0];
   };
-  data: PruneTriggerInstructionData;
+  data: PruneExpiredTriggerInstructionData;
 };
 
-export function parsePruneTriggerInstruction<
+export function parsePruneExpiredTriggerInstruction<
   TProgram extends string,
   TAccountMetas extends readonly AccountMeta[],
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
-): ParsedPruneTriggerInstruction<TProgram, TAccountMetas> {
+): ParsedPruneExpiredTriggerInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 1) {
     throw new SolanaError(
       SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
@@ -152,6 +155,8 @@ export function parsePruneTriggerInstruction<
   return {
     programAddress: instruction.programAddress,
     accounts: { keeper: getNextAccount() },
-    data: getPruneTriggerInstructionDataDecoder().decode(instruction.data),
+    data: getPruneExpiredTriggerInstructionDataDecoder().decode(
+      instruction.data,
+    ),
   };
 }

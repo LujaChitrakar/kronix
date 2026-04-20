@@ -10,4 +10,4 @@ export * from "./cancelTriggerOrder";
 export * from "./editTrigger";
 export * from "./executeTrigger";
 export * from "./placeTriggerOrder";
-export * from "./pruneTrigger";
+export * from "./pruneExpiredTrigger";

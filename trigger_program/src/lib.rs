@@ -11,4 +11,4 @@ pub mod instructions;
 pub mod oracle;
 pub mod states;
 
-pinocchio_pubkey::declare_id!("H4CnxfeSWvWqhBz2apY8JBdJxkn6qJf7crLiYqBz74fD");
+pinocchio_pubkey::declare_id!("FBux8UY7koXsvDp3GThjvtiMo4GagsDdkPDbU4VbQzV2");

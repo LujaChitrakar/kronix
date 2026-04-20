@@ -35,6 +35,7 @@ export type OpenOrder = {
   isFree: number;
   side: number;
   isFilled: number;
+  makerOut: number;
   padding: ReadonlyUint8Array;
 };
 
@@ -47,6 +48,7 @@ export type OpenOrderArgs = {
   isFree: number;
   side: number;
   isFilled: number;
+  makerOut: number;
   padding: ReadonlyUint8Array;
 };
 
@@ -60,7 +62,8 @@ export function getOpenOrderEncoder(): FixedSizeEncoder<OpenOrderArgs> {
     ["isFree", getU8Encoder()],
     ["side", getU8Encoder()],
     ["isFilled", getU8Encoder()],
-    ["padding", fixEncoderSize(getBytesEncoder(), 5)],
+    ["makerOut", getU8Encoder()],
+    ["padding", fixEncoderSize(getBytesEncoder(), 4)],
   ]);
 }
 
@@ -74,7 +77,8 @@ export function getOpenOrderDecoder(): FixedSizeDecoder<OpenOrder> {
     ["isFree", getU8Decoder()],
     ["side", getU8Decoder()],
     ["isFilled", getU8Decoder()],
-    ["padding", fixDecoderSize(getBytesDecoder(), 5)],
+    ["makerOut", getU8Decoder()],
+    ["padding", fixDecoderSize(getBytesDecoder(), 4)],
   ]);
 }
 

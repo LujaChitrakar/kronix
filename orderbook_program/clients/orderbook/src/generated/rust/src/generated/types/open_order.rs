@@ -18,7 +18,8 @@ pub fill_price: i64,
 pub is_free: u8,
 pub side: u8,
 pub is_filled: u8,
-pub padding: [u8; 5],
+pub maker_out: u8,
+pub padding: [u8; 4],
 }
 
 

@@ -52,11 +52,11 @@ export function getSettleFillDiscriminatorBytes() {
 
 export type SettleFillInstruction<
   TProgram extends string = typeof RISK_PROGRAM_PROGRAM_ADDRESS,
-  TAccountOrderbookProgram extends string | AccountMeta<string> = string,
   TAccountUserAccount extends string | AccountMeta<string> = string,
   TAccountPosition extends string | AccountMeta<string> = string,
   TAccountMarketConfig extends string | AccountMeta<string> = string,
   TAccountFundingState extends string | AccountMeta<string> = string,
+  TAccountOrderbookProgram extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -64,10 +64,6 @@ export type SettleFillInstruction<
   InstructionWithData<ReadonlyUint8Array> &
   InstructionWithAccounts<
     [
-      TAccountOrderbookProgram extends string
-        ? ReadonlySignerAccount<TAccountOrderbookProgram> &
-            AccountSignerMeta<TAccountOrderbookProgram>
-        : TAccountOrderbookProgram,
       TAccountUserAccount extends string
         ? WritableAccount<TAccountUserAccount>
         : TAccountUserAccount,
@@ -80,6 +76,10 @@ export type SettleFillInstruction<
       TAccountFundingState extends string
         ? WritableAccount<TAccountFundingState>
         : TAccountFundingState,
+      TAccountOrderbookProgram extends string
+        ? ReadonlySignerAccount<TAccountOrderbookProgram> &
+            AccountSignerMeta<TAccountOrderbookProgram>
+        : TAccountOrderbookProgram,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
@@ -160,15 +160,13 @@ export function getSettleFillInstructionDataCodec(): FixedSizeCodec<
 }
 
 export type SettleFillInput<
-  TAccountOrderbookProgram extends string = string,
   TAccountUserAccount extends string = string,
   TAccountPosition extends string = string,
   TAccountMarketConfig extends string = string,
   TAccountFundingState extends string = string,
+  TAccountOrderbookProgram extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
-  /** Orderbook program */
-  orderbookProgram: TransactionSigner<TAccountOrderbookProgram>;
   /** UserAccount PDA */
   userAccount: Address<TAccountUserAccount>;
   /** Position PDA */
@@ -177,6 +175,8 @@ export type SettleFillInput<
   marketConfig: Address<TAccountMarketConfig>;
   /** FundingState */
   fundingState: Address<TAccountFundingState>;
+  /** Orderbook program */
+  orderbookProgram: TransactionSigner<TAccountOrderbookProgram>;
   /** System program */
   systemProgram?: Address<TAccountSystemProgram>;
   priceLots: SettleFillInstructionDataArgs["priceLots"];
@@ -192,30 +192,30 @@ export type SettleFillInput<
 };
 
 export function getSettleFillInstruction<
-  TAccountOrderbookProgram extends string,
   TAccountUserAccount extends string,
   TAccountPosition extends string,
   TAccountMarketConfig extends string,
   TAccountFundingState extends string,
+  TAccountOrderbookProgram extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof RISK_PROGRAM_PROGRAM_ADDRESS,
 >(
   input: SettleFillInput<
-    TAccountOrderbookProgram,
     TAccountUserAccount,
     TAccountPosition,
     TAccountMarketConfig,
     TAccountFundingState,
+    TAccountOrderbookProgram,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): SettleFillInstruction<
   TProgramAddress,
-  TAccountOrderbookProgram,
   TAccountUserAccount,
   TAccountPosition,
   TAccountMarketConfig,
   TAccountFundingState,
+  TAccountOrderbookProgram,
   TAccountSystemProgram
 > {
   // Program address.
@@ -223,14 +223,14 @@ export function getSettleFillInstruction<
 
   // Original accounts.
   const originalAccounts = {
-    orderbookProgram: {
-      value: input.orderbookProgram ?? null,
-      isWritable: false,
-    },
     userAccount: { value: input.userAccount ?? null, isWritable: true },
     position: { value: input.position ?? null, isWritable: true },
     marketConfig: { value: input.marketConfig ?? null, isWritable: false },
     fundingState: { value: input.fundingState ?? null, isWritable: true },
+    orderbookProgram: {
+      value: input.orderbookProgram ?? null,
+      isWritable: false,
+    },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
@@ -250,11 +250,11 @@ export function getSettleFillInstruction<
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta("orderbookProgram", accounts.orderbookProgram),
       getAccountMeta("userAccount", accounts.userAccount),
       getAccountMeta("position", accounts.position),
       getAccountMeta("marketConfig", accounts.marketConfig),
       getAccountMeta("fundingState", accounts.fundingState),
+      getAccountMeta("orderbookProgram", accounts.orderbookProgram),
       getAccountMeta("systemProgram", accounts.systemProgram),
     ],
     data: getSettleFillInstructionDataEncoder().encode(
@@ -263,11 +263,11 @@ export function getSettleFillInstruction<
     programAddress,
   } as SettleFillInstruction<
     TProgramAddress,
-    TAccountOrderbookProgram,
     TAccountUserAccount,
     TAccountPosition,
     TAccountMarketConfig,
     TAccountFundingState,
+    TAccountOrderbookProgram,
     TAccountSystemProgram
   >);
 }
@@ -278,16 +278,16 @@ export type ParsedSettleFillInstruction<
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    /** Orderbook program */
-    orderbookProgram: TAccountMetas[0];
     /** UserAccount PDA */
-    userAccount: TAccountMetas[1];
+    userAccount: TAccountMetas[0];
     /** Position PDA */
-    position: TAccountMetas[2];
+    position: TAccountMetas[1];
     /** MarketConfig */
-    marketConfig: TAccountMetas[3];
+    marketConfig: TAccountMetas[2];
     /** FundingState */
-    fundingState: TAccountMetas[4];
+    fundingState: TAccountMetas[3];
+    /** Orderbook program */
+    orderbookProgram: TAccountMetas[4];
     /** System program */
     systemProgram: TAccountMetas[5];
   };
@@ -320,11 +320,11 @@ export function parseSettleFillInstruction<
   return {
     programAddress: instruction.programAddress,
     accounts: {
-      orderbookProgram: getNextAccount(),
       userAccount: getNextAccount(),
       position: getNextAccount(),
       marketConfig: getNextAccount(),
       fundingState: getNextAccount(),
+      orderbookProgram: getNextAccount(),
       systemProgram: getNextAccount(),
     },
     data: getSettleFillInstructionDataDecoder().decode(instruction.data),

@@ -52,7 +52,7 @@ import {
 } from "../instructions";
 
 export const STRATEGY_PROGRAM_PROGRAM_ADDRESS =
-  "5uPoD26g3gKYFhYR4poXe4oxHATBnWb3CUoGue9vaCpa" as Address<"5uPoD26g3gKYFhYR4poXe4oxHATBnWb3CUoGue9vaCpa">;
+  "7jUHqPKWF4ebe4gSRMwy1FfAWyuiQjpjTdzqtbMK6S9q" as Address<"7jUHqPKWF4ebe4gSRMwy1FfAWyuiQjpjTdzqtbMK6S9q">;
 
 export enum StrategyProgramInstruction {
   CreateStrategy,
@@ -92,7 +92,7 @@ export function identifyStrategyProgramInstruction(
 }
 
 export type ParsedStrategyProgramInstruction<
-  TProgram extends string = "5uPoD26g3gKYFhYR4poXe4oxHATBnWb3CUoGue9vaCpa",
+  TProgram extends string = "7jUHqPKWF4ebe4gSRMwy1FfAWyuiQjpjTdzqtbMK6S9q",
 > =
   | ({
       instructionType: StrategyProgramInstruction.CreateStrategy;

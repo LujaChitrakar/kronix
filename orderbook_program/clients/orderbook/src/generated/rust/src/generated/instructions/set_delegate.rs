@@ -23,11 +23,6 @@ pub struct SetDelegate {
     
               
           pub open_orders_account: solana_address::Address,
-                /// System program
-
-    
-              
-          pub system_program: solana_address::Address,
       }
 
 impl SetDelegate {
@@ -37,17 +32,13 @@ impl SetDelegate {
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
   pub fn instruction_with_remaining_accounts(&self, args: SetDelegateInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
-    let mut accounts = Vec::with_capacity(3+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(2+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.signer,
             true
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
             self.open_orders_account,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
-            self.system_program,
             false
           ));
                       accounts.extend_from_slice(remaining_accounts);
@@ -104,12 +95,10 @@ impl SetDelegateInstructionArgs {
 ///
                 ///   0. `[signer]` signer
                 ///   1. `[writable]` open_orders_account
-                ///   2. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct SetDelegateBuilder {
             signer: Option<solana_address::Address>,
                 open_orders_account: Option<solana_address::Address>,
-                system_program: Option<solana_address::Address>,
                         delegate: Option<[u8; 32]>,
         __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
@@ -128,13 +117,6 @@ impl SetDelegateBuilder {
 #[inline(always)]
     pub fn open_orders_account(&mut self, open_orders_account: solana_address::Address) -> &mut Self {
                         self.open_orders_account = Some(open_orders_account);
-                    self
-    }
-            /// `[optional account, default to '11111111111111111111111111111111']`
-/// System program
-#[inline(always)]
-    pub fn system_program(&mut self, system_program: solana_address::Address) -> &mut Self {
-                        self.system_program = Some(system_program);
                     self
     }
                     #[inline(always)]
@@ -159,7 +141,6 @@ impl SetDelegateBuilder {
     let accounts = SetDelegate {
                               signer: self.signer.expect("signer is not set"),
                                         open_orders_account: self.open_orders_account.expect("open_orders_account is not set"),
-                                        system_program: self.system_program.unwrap_or(solana_address::address!("11111111111111111111111111111111")),
                       };
           let args = SetDelegateInstructionArgs {
                                                               delegate: self.delegate.clone().expect("delegate is not set"),
@@ -181,11 +162,6 @@ impl SetDelegateBuilder {
       
                     
               pub open_orders_account: &'b solana_account_info::AccountInfo<'a>,
-                        /// System program
-
-      
-                    
-              pub system_program: &'b solana_account_info::AccountInfo<'a>,
             }
 
 /// `set_delegate` CPI instruction.
@@ -202,11 +178,6 @@ pub struct SetDelegateCpi<'a, 'b> {
     
               
           pub open_orders_account: &'b solana_account_info::AccountInfo<'a>,
-                /// System program
-
-    
-              
-          pub system_program: &'b solana_account_info::AccountInfo<'a>,
             /// The arguments for the instruction.
     pub __args: SetDelegateInstructionArgs,
   }
@@ -221,7 +192,6 @@ impl<'a, 'b> SetDelegateCpi<'a, 'b> {
       __program: program,
               signer: accounts.signer,
               open_orders_account: accounts.open_orders_account,
-              system_program: accounts.system_program,
                     __args: args,
           }
   }
@@ -245,17 +215,13 @@ impl<'a, 'b> SetDelegateCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program_error::ProgramResult {
-    let mut accounts = Vec::with_capacity(3+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(2+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.signer.key,
             true
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
             *self.open_orders_account.key,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
-            *self.system_program.key,
             false
           ));
                       remaining_accounts.iter().for_each(|remaining_account| {
@@ -274,11 +240,10 @@ impl<'a, 'b> SetDelegateCpi<'a, 'b> {
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(4 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(3 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
                   account_infos.push(self.signer.clone());
                         account_infos.push(self.open_orders_account.clone());
-                        account_infos.push(self.system_program.clone());
               remaining_accounts.iter().for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
 
     if signers_seeds.is_empty() {
@@ -295,7 +260,6 @@ impl<'a, 'b> SetDelegateCpi<'a, 'b> {
 ///
                 ///   0. `[signer]` signer
                 ///   1. `[writable]` open_orders_account
-          ///   2. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct SetDelegateCpiBuilder<'a, 'b> {
   instruction: Box<SetDelegateCpiBuilderInstruction<'a, 'b>>,
@@ -307,7 +271,6 @@ impl<'a, 'b> SetDelegateCpiBuilder<'a, 'b> {
       __program: program,
               signer: None,
               open_orders_account: None,
-              system_program: None,
                                             delegate: None,
                     __remaining_accounts: Vec::new(),
     });
@@ -323,12 +286,6 @@ impl<'a, 'b> SetDelegateCpiBuilder<'a, 'b> {
 #[inline(always)]
     pub fn open_orders_account(&mut self, open_orders_account: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
                         self.instruction.open_orders_account = Some(open_orders_account);
-                    self
-    }
-      /// System program
-#[inline(always)]
-    pub fn system_program(&mut self, system_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.system_program = Some(system_program);
                     self
     }
                     #[inline(always)]
@@ -367,8 +324,6 @@ impl<'a, 'b> SetDelegateCpiBuilder<'a, 'b> {
           signer: self.instruction.signer.expect("signer is not set"),
                   
           open_orders_account: self.instruction.open_orders_account.expect("open_orders_account is not set"),
-                  
-          system_program: self.instruction.system_program.expect("system_program is not set"),
                           __args: args,
             };
     instruction.invoke_signed_with_remaining_accounts(signers_seeds, &self.instruction.__remaining_accounts)
@@ -380,7 +335,6 @@ struct SetDelegateCpiBuilderInstruction<'a, 'b> {
   __program: &'b solana_account_info::AccountInfo<'a>,
             signer: Option<&'b solana_account_info::AccountInfo<'a>>,
                 open_orders_account: Option<&'b solana_account_info::AccountInfo<'a>>,
-                system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                         delegate: Option<[u8; 32]>,
         /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
   __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,

@@ -28,11 +28,6 @@ pub struct ClaimFill {
     
               
           pub market: solana_address::Address,
-                /// Risk program
-
-    
-              
-          pub risk_program: solana_address::Address,
                 /// Maker UserAccount
 
     
@@ -53,6 +48,16 @@ pub struct ClaimFill {
     
               
           pub funding_state: solana_address::Address,
+                /// Orderbook program
+
+    
+              
+          pub orderbook_program: solana_address::Address,
+                /// Risk program
+
+    
+              
+          pub risk_program: solana_address::Address,
                 /// System program
 
     
@@ -67,7 +72,7 @@ impl ClaimFill {
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
   pub fn instruction_with_remaining_accounts(&self, args: ClaimFillInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
-    let mut accounts = Vec::with_capacity(9+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(10+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.signer,
             true
@@ -78,10 +83,6 @@ impl ClaimFill {
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.market,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
-            self.risk_program,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
@@ -98,6 +99,14 @@ impl ClaimFill {
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
             self.funding_state,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.orderbook_program,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.risk_program,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -162,22 +171,24 @@ impl ClaimFillInstructionArgs {
                 ///   0. `[signer]` signer
                 ///   1. `[writable]` open_orders_account
           ///   2. `[]` market
-          ///   3. `[]` risk_program
-                ///   4. `[writable]` maker_user_account
-                ///   5. `[writable]` maker_position
-          ///   6. `[]` market_config
-                ///   7. `[writable]` funding_state
-                ///   8. `[optional]` system_program (default to `11111111111111111111111111111111`)
+                ///   3. `[writable]` maker_user_account
+                ///   4. `[writable]` maker_position
+          ///   5. `[]` market_config
+                ///   6. `[writable]` funding_state
+          ///   7. `[]` orderbook_program
+          ///   8. `[]` risk_program
+                ///   9. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct ClaimFillBuilder {
             signer: Option<solana_address::Address>,
                 open_orders_account: Option<solana_address::Address>,
                 market: Option<solana_address::Address>,
-                risk_program: Option<solana_address::Address>,
                 maker_user_account: Option<solana_address::Address>,
                 maker_position: Option<solana_address::Address>,
                 market_config: Option<solana_address::Address>,
                 funding_state: Option<solana_address::Address>,
+                orderbook_program: Option<solana_address::Address>,
+                risk_program: Option<solana_address::Address>,
                 system_program: Option<solana_address::Address>,
                         order_slot: Option<u8>,
                 bump_position: Option<u8>,
@@ -208,12 +219,6 @@ impl ClaimFillBuilder {
                         self.market = Some(market);
                     self
     }
-            /// Risk program
-#[inline(always)]
-    pub fn risk_program(&mut self, risk_program: solana_address::Address) -> &mut Self {
-                        self.risk_program = Some(risk_program);
-                    self
-    }
             /// Maker UserAccount
 #[inline(always)]
     pub fn maker_user_account(&mut self, maker_user_account: solana_address::Address) -> &mut Self {
@@ -236,6 +241,18 @@ impl ClaimFillBuilder {
 #[inline(always)]
     pub fn funding_state(&mut self, funding_state: solana_address::Address) -> &mut Self {
                         self.funding_state = Some(funding_state);
+                    self
+    }
+            /// Orderbook program
+#[inline(always)]
+    pub fn orderbook_program(&mut self, orderbook_program: solana_address::Address) -> &mut Self {
+                        self.orderbook_program = Some(orderbook_program);
+                    self
+    }
+            /// Risk program
+#[inline(always)]
+    pub fn risk_program(&mut self, risk_program: solana_address::Address) -> &mut Self {
+                        self.risk_program = Some(risk_program);
                     self
     }
             /// `[optional account, default to '11111111111111111111111111111111']`
@@ -283,11 +300,12 @@ impl ClaimFillBuilder {
                               signer: self.signer.expect("signer is not set"),
                                         open_orders_account: self.open_orders_account.expect("open_orders_account is not set"),
                                         market: self.market.expect("market is not set"),
-                                        risk_program: self.risk_program.expect("risk_program is not set"),
                                         maker_user_account: self.maker_user_account.expect("maker_user_account is not set"),
                                         maker_position: self.maker_position.expect("maker_position is not set"),
                                         market_config: self.market_config.expect("market_config is not set"),
                                         funding_state: self.funding_state.expect("funding_state is not set"),
+                                        orderbook_program: self.orderbook_program.expect("orderbook_program is not set"),
+                                        risk_program: self.risk_program.expect("risk_program is not set"),
                                         system_program: self.system_program.unwrap_or(solana_address::address!("11111111111111111111111111111111")),
                       };
           let args = ClaimFillInstructionArgs {
@@ -318,11 +336,6 @@ impl ClaimFillBuilder {
       
                     
               pub market: &'b solana_account_info::AccountInfo<'a>,
-                        /// Risk program
-
-      
-                    
-              pub risk_program: &'b solana_account_info::AccountInfo<'a>,
                         /// Maker UserAccount
 
       
@@ -343,6 +356,16 @@ impl ClaimFillBuilder {
       
                     
               pub funding_state: &'b solana_account_info::AccountInfo<'a>,
+                        /// Orderbook program
+
+      
+                    
+              pub orderbook_program: &'b solana_account_info::AccountInfo<'a>,
+                        /// Risk program
+
+      
+                    
+              pub risk_program: &'b solana_account_info::AccountInfo<'a>,
                         /// System program
 
       
@@ -369,11 +392,6 @@ pub struct ClaimFillCpi<'a, 'b> {
     
               
           pub market: &'b solana_account_info::AccountInfo<'a>,
-                /// Risk program
-
-    
-              
-          pub risk_program: &'b solana_account_info::AccountInfo<'a>,
                 /// Maker UserAccount
 
     
@@ -394,6 +412,16 @@ pub struct ClaimFillCpi<'a, 'b> {
     
               
           pub funding_state: &'b solana_account_info::AccountInfo<'a>,
+                /// Orderbook program
+
+    
+              
+          pub orderbook_program: &'b solana_account_info::AccountInfo<'a>,
+                /// Risk program
+
+    
+              
+          pub risk_program: &'b solana_account_info::AccountInfo<'a>,
                 /// System program
 
     
@@ -414,11 +442,12 @@ impl<'a, 'b> ClaimFillCpi<'a, 'b> {
               signer: accounts.signer,
               open_orders_account: accounts.open_orders_account,
               market: accounts.market,
-              risk_program: accounts.risk_program,
               maker_user_account: accounts.maker_user_account,
               maker_position: accounts.maker_position,
               market_config: accounts.market_config,
               funding_state: accounts.funding_state,
+              orderbook_program: accounts.orderbook_program,
+              risk_program: accounts.risk_program,
               system_program: accounts.system_program,
                     __args: args,
           }
@@ -443,7 +472,7 @@ impl<'a, 'b> ClaimFillCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program_error::ProgramResult {
-    let mut accounts = Vec::with_capacity(9+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(10+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.signer.key,
             true
@@ -454,10 +483,6 @@ impl<'a, 'b> ClaimFillCpi<'a, 'b> {
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.market.key,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
-            *self.risk_program.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
@@ -474,6 +499,14 @@ impl<'a, 'b> ClaimFillCpi<'a, 'b> {
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
             *self.funding_state.key,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.orderbook_program.key,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.risk_program.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -496,16 +529,17 @@ impl<'a, 'b> ClaimFillCpi<'a, 'b> {
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(10 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(11 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
                   account_infos.push(self.signer.clone());
                         account_infos.push(self.open_orders_account.clone());
                         account_infos.push(self.market.clone());
-                        account_infos.push(self.risk_program.clone());
                         account_infos.push(self.maker_user_account.clone());
                         account_infos.push(self.maker_position.clone());
                         account_infos.push(self.market_config.clone());
                         account_infos.push(self.funding_state.clone());
+                        account_infos.push(self.orderbook_program.clone());
+                        account_infos.push(self.risk_program.clone());
                         account_infos.push(self.system_program.clone());
               remaining_accounts.iter().for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
 
@@ -524,12 +558,13 @@ impl<'a, 'b> ClaimFillCpi<'a, 'b> {
                 ///   0. `[signer]` signer
                 ///   1. `[writable]` open_orders_account
           ///   2. `[]` market
-          ///   3. `[]` risk_program
-                ///   4. `[writable]` maker_user_account
-                ///   5. `[writable]` maker_position
-          ///   6. `[]` market_config
-                ///   7. `[writable]` funding_state
-          ///   8. `[]` system_program
+                ///   3. `[writable]` maker_user_account
+                ///   4. `[writable]` maker_position
+          ///   5. `[]` market_config
+                ///   6. `[writable]` funding_state
+          ///   7. `[]` orderbook_program
+          ///   8. `[]` risk_program
+          ///   9. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct ClaimFillCpiBuilder<'a, 'b> {
   instruction: Box<ClaimFillCpiBuilderInstruction<'a, 'b>>,
@@ -542,11 +577,12 @@ impl<'a, 'b> ClaimFillCpiBuilder<'a, 'b> {
               signer: None,
               open_orders_account: None,
               market: None,
-              risk_program: None,
               maker_user_account: None,
               maker_position: None,
               market_config: None,
               funding_state: None,
+              orderbook_program: None,
+              risk_program: None,
               system_program: None,
                                             order_slot: None,
                                 bump_position: None,
@@ -574,12 +610,6 @@ impl<'a, 'b> ClaimFillCpiBuilder<'a, 'b> {
                         self.instruction.market = Some(market);
                     self
     }
-      /// Risk program
-#[inline(always)]
-    pub fn risk_program(&mut self, risk_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.risk_program = Some(risk_program);
-                    self
-    }
       /// Maker UserAccount
 #[inline(always)]
     pub fn maker_user_account(&mut self, maker_user_account: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
@@ -602,6 +632,18 @@ impl<'a, 'b> ClaimFillCpiBuilder<'a, 'b> {
 #[inline(always)]
     pub fn funding_state(&mut self, funding_state: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
                         self.instruction.funding_state = Some(funding_state);
+                    self
+    }
+      /// Orderbook program
+#[inline(always)]
+    pub fn orderbook_program(&mut self, orderbook_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.orderbook_program = Some(orderbook_program);
+                    self
+    }
+      /// Risk program
+#[inline(always)]
+    pub fn risk_program(&mut self, risk_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.risk_program = Some(risk_program);
                     self
     }
       /// System program
@@ -667,8 +709,6 @@ impl<'a, 'b> ClaimFillCpiBuilder<'a, 'b> {
                   
           market: self.instruction.market.expect("market is not set"),
                   
-          risk_program: self.instruction.risk_program.expect("risk_program is not set"),
-                  
           maker_user_account: self.instruction.maker_user_account.expect("maker_user_account is not set"),
                   
           maker_position: self.instruction.maker_position.expect("maker_position is not set"),
@@ -676,6 +716,10 @@ impl<'a, 'b> ClaimFillCpiBuilder<'a, 'b> {
           market_config: self.instruction.market_config.expect("market_config is not set"),
                   
           funding_state: self.instruction.funding_state.expect("funding_state is not set"),
+                  
+          orderbook_program: self.instruction.orderbook_program.expect("orderbook_program is not set"),
+                  
+          risk_program: self.instruction.risk_program.expect("risk_program is not set"),
                   
           system_program: self.instruction.system_program.expect("system_program is not set"),
                           __args: args,
@@ -690,11 +734,12 @@ struct ClaimFillCpiBuilderInstruction<'a, 'b> {
             signer: Option<&'b solana_account_info::AccountInfo<'a>>,
                 open_orders_account: Option<&'b solana_account_info::AccountInfo<'a>>,
                 market: Option<&'b solana_account_info::AccountInfo<'a>>,
-                risk_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                 maker_user_account: Option<&'b solana_account_info::AccountInfo<'a>>,
                 maker_position: Option<&'b solana_account_info::AccountInfo<'a>>,
                 market_config: Option<&'b solana_account_info::AccountInfo<'a>>,
                 funding_state: Option<&'b solana_account_info::AccountInfo<'a>>,
+                orderbook_program: Option<&'b solana_account_info::AccountInfo<'a>>,
+                risk_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                 system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                         order_slot: Option<u8>,
                 bump_position: Option<u8>,

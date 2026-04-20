@@ -51,11 +51,12 @@ export type ClaimFillInstruction<
   TAccountSigner extends string | AccountMeta<string> = string,
   TAccountOpenOrdersAccount extends string | AccountMeta<string> = string,
   TAccountMarket extends string | AccountMeta<string> = string,
-  TAccountRiskProgram extends string | AccountMeta<string> = string,
   TAccountMakerUserAccount extends string | AccountMeta<string> = string,
   TAccountMakerPosition extends string | AccountMeta<string> = string,
   TAccountMarketConfig extends string | AccountMeta<string> = string,
   TAccountFundingState extends string | AccountMeta<string> = string,
+  TAccountOrderbookProgram extends string | AccountMeta<string> = string,
+  TAccountRiskProgram extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -73,9 +74,6 @@ export type ClaimFillInstruction<
       TAccountMarket extends string
         ? ReadonlyAccount<TAccountMarket>
         : TAccountMarket,
-      TAccountRiskProgram extends string
-        ? ReadonlyAccount<TAccountRiskProgram>
-        : TAccountRiskProgram,
       TAccountMakerUserAccount extends string
         ? WritableAccount<TAccountMakerUserAccount>
         : TAccountMakerUserAccount,
@@ -88,6 +86,12 @@ export type ClaimFillInstruction<
       TAccountFundingState extends string
         ? WritableAccount<TAccountFundingState>
         : TAccountFundingState,
+      TAccountOrderbookProgram extends string
+        ? ReadonlyAccount<TAccountOrderbookProgram>
+        : TAccountOrderbookProgram,
+      TAccountRiskProgram extends string
+        ? ReadonlyAccount<TAccountRiskProgram>
+        : TAccountRiskProgram,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
@@ -147,11 +151,12 @@ export type ClaimFillInput<
   TAccountSigner extends string = string,
   TAccountOpenOrdersAccount extends string = string,
   TAccountMarket extends string = string,
-  TAccountRiskProgram extends string = string,
   TAccountMakerUserAccount extends string = string,
   TAccountMakerPosition extends string = string,
   TAccountMarketConfig extends string = string,
   TAccountFundingState extends string = string,
+  TAccountOrderbookProgram extends string = string,
+  TAccountRiskProgram extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   /** Maker */
@@ -160,8 +165,6 @@ export type ClaimFillInput<
   openOrdersAccount: Address<TAccountOpenOrdersAccount>;
   /** Market state */
   market: Address<TAccountMarket>;
-  /** Risk program */
-  riskProgram: Address<TAccountRiskProgram>;
   /** Maker UserAccount */
   makerUserAccount: Address<TAccountMakerUserAccount>;
   /** Maker Position */
@@ -170,6 +173,10 @@ export type ClaimFillInput<
   marketConfig: Address<TAccountMarketConfig>;
   /** Funding state */
   fundingState: Address<TAccountFundingState>;
+  /** Orderbook program */
+  orderbookProgram: Address<TAccountOrderbookProgram>;
+  /** Risk program */
+  riskProgram: Address<TAccountRiskProgram>;
   /** System program */
   systemProgram?: Address<TAccountSystemProgram>;
   orderSlot: ClaimFillInstructionDataArgs["orderSlot"];
@@ -182,11 +189,12 @@ export function getClaimFillInstruction<
   TAccountSigner extends string,
   TAccountOpenOrdersAccount extends string,
   TAccountMarket extends string,
-  TAccountRiskProgram extends string,
   TAccountMakerUserAccount extends string,
   TAccountMakerPosition extends string,
   TAccountMarketConfig extends string,
   TAccountFundingState extends string,
+  TAccountOrderbookProgram extends string,
+  TAccountRiskProgram extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof ORDERBOOK_PROGRAM_ADDRESS,
 >(
@@ -194,11 +202,12 @@ export function getClaimFillInstruction<
     TAccountSigner,
     TAccountOpenOrdersAccount,
     TAccountMarket,
-    TAccountRiskProgram,
     TAccountMakerUserAccount,
     TAccountMakerPosition,
     TAccountMarketConfig,
     TAccountFundingState,
+    TAccountOrderbookProgram,
+    TAccountRiskProgram,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
@@ -207,11 +216,12 @@ export function getClaimFillInstruction<
   TAccountSigner,
   TAccountOpenOrdersAccount,
   TAccountMarket,
-  TAccountRiskProgram,
   TAccountMakerUserAccount,
   TAccountMakerPosition,
   TAccountMarketConfig,
   TAccountFundingState,
+  TAccountOrderbookProgram,
+  TAccountRiskProgram,
   TAccountSystemProgram
 > {
   // Program address.
@@ -225,7 +235,6 @@ export function getClaimFillInstruction<
       isWritable: true,
     },
     market: { value: input.market ?? null, isWritable: false },
-    riskProgram: { value: input.riskProgram ?? null, isWritable: false },
     makerUserAccount: {
       value: input.makerUserAccount ?? null,
       isWritable: true,
@@ -233,6 +242,11 @@ export function getClaimFillInstruction<
     makerPosition: { value: input.makerPosition ?? null, isWritable: true },
     marketConfig: { value: input.marketConfig ?? null, isWritable: false },
     fundingState: { value: input.fundingState ?? null, isWritable: true },
+    orderbookProgram: {
+      value: input.orderbookProgram ?? null,
+      isWritable: false,
+    },
+    riskProgram: { value: input.riskProgram ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
@@ -255,11 +269,12 @@ export function getClaimFillInstruction<
       getAccountMeta("signer", accounts.signer),
       getAccountMeta("openOrdersAccount", accounts.openOrdersAccount),
       getAccountMeta("market", accounts.market),
-      getAccountMeta("riskProgram", accounts.riskProgram),
       getAccountMeta("makerUserAccount", accounts.makerUserAccount),
       getAccountMeta("makerPosition", accounts.makerPosition),
       getAccountMeta("marketConfig", accounts.marketConfig),
       getAccountMeta("fundingState", accounts.fundingState),
+      getAccountMeta("orderbookProgram", accounts.orderbookProgram),
+      getAccountMeta("riskProgram", accounts.riskProgram),
       getAccountMeta("systemProgram", accounts.systemProgram),
     ],
     data: getClaimFillInstructionDataEncoder().encode(
@@ -271,11 +286,12 @@ export function getClaimFillInstruction<
     TAccountSigner,
     TAccountOpenOrdersAccount,
     TAccountMarket,
-    TAccountRiskProgram,
     TAccountMakerUserAccount,
     TAccountMakerPosition,
     TAccountMarketConfig,
     TAccountFundingState,
+    TAccountOrderbookProgram,
+    TAccountRiskProgram,
     TAccountSystemProgram
   >);
 }
@@ -292,18 +308,20 @@ export type ParsedClaimFillInstruction<
     openOrdersAccount: TAccountMetas[1];
     /** Market state */
     market: TAccountMetas[2];
-    /** Risk program */
-    riskProgram: TAccountMetas[3];
     /** Maker UserAccount */
-    makerUserAccount: TAccountMetas[4];
+    makerUserAccount: TAccountMetas[3];
     /** Maker Position */
-    makerPosition: TAccountMetas[5];
+    makerPosition: TAccountMetas[4];
     /** Market config */
-    marketConfig: TAccountMetas[6];
+    marketConfig: TAccountMetas[5];
     /** Funding state */
-    fundingState: TAccountMetas[7];
+    fundingState: TAccountMetas[6];
+    /** Orderbook program */
+    orderbookProgram: TAccountMetas[7];
+    /** Risk program */
+    riskProgram: TAccountMetas[8];
     /** System program */
-    systemProgram: TAccountMetas[8];
+    systemProgram: TAccountMetas[9];
   };
   data: ClaimFillInstructionData;
 };
@@ -316,12 +334,12 @@ export function parseClaimFillInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedClaimFillInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 9) {
+  if (instruction.accounts.length < 10) {
     throw new SolanaError(
       SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
       {
         actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 9,
+        expectedAccountMetas: 10,
       },
     );
   }
@@ -337,11 +355,12 @@ export function parseClaimFillInstruction<
       signer: getNextAccount(),
       openOrdersAccount: getNextAccount(),
       market: getNextAccount(),
-      riskProgram: getNextAccount(),
       makerUserAccount: getNextAccount(),
       makerPosition: getNextAccount(),
       marketConfig: getNextAccount(),
       fundingState: getNextAccount(),
+      orderbookProgram: getNextAccount(),
+      riskProgram: getNextAccount(),
       systemProgram: getNextAccount(),
     },
     data: getClaimFillInstructionDataDecoder().decode(instruction.data),
