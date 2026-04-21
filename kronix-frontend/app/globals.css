@@ -73,6 +73,64 @@
 .font-headline { font-family: "Manrope", sans-serif; }
 .font-body     { font-family: "Inter", sans-serif; }
 .font-label    { font-family: "Inter", sans-serif; }
+.font-mono     { font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace; }
+
+/* ── HL-style surfaces + dividers ─────────────────────────────────────── */
+.bg-kx-surface      { background-color: #14181A; }
+.bg-kx-surface-hi   { background-color: #181D1F; }
+.bg-kx-surface-lo   { background-color: #10141D; }
+.bg-kx-base         { background-color: #0B0F0D; }
+
+.kx-border          { border-color: rgba(77, 255, 180, 0.08); }
+.kx-border-strong   { border-color: rgba(77, 255, 180, 0.18); }
+
+.grid-bg {
+  background-image:
+    linear-gradient(to right, rgba(77, 255, 180, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(77, 255, 180, 0.035) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+.grid-bg-fade {
+  mask-image: radial-gradient(ellipse at center, black 20%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 20%, transparent 75%);
+}
+
+.hairline-t { border-top: 1px solid rgba(77, 255, 180, 0.08); }
+.hairline-b { border-bottom: 1px solid rgba(77, 255, 180, 0.08); }
+
+.ticker-fade {
+  mask-image: linear-gradient(90deg, transparent 0%, black 6%, black 94%, transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, black 6%, black 94%, transparent 100%);
+}
+
+.scan-line {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(77, 255, 180, 0.4) 50%,
+    transparent 100%
+  );
+}
+
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.ticker-track {
+  animation: ticker-scroll 60s linear infinite;
+  will-change: transform;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
 
 /*
   ── Explicit utility overrides ──────────────────────────────────────────────
@@ -109,9 +167,13 @@
 }
 
 body {
-  background-color: rgb(17, 23, 21);
+  background-color: #0B0F0D;
   color: #e3e1ea;
   -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(circle at 20% 10%, rgba(77, 255, 180, 0.04), transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(77, 255, 180, 0.03), transparent 40%);
+  background-attachment: fixed;
 }
 
 @keyframes pulse-glow {

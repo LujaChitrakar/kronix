@@ -1,66 +1,90 @@
+import SectionLabel from "./SectionLabel";
+
 const strategies = [
   {
     id: "RSI",
+    slug: "REVERSAL",
     name: "RSI Reversal",
     body: "Entries and exits based on momentum thresholds. Configurable period, oversold and overbought bands, any timeframe.",
+    params: ["PERIOD", "OVERSOLD", "OVERBOUGHT"],
   },
   {
     id: "EMA",
+    slug: "CROSS",
     name: "EMA Cross",
     body: "Long or short entries triggered when fast and slow moving averages cross in a given direction.",
+    params: ["FAST", "SLOW", "DIRECTION"],
   },
   {
     id: "DCA",
+    slug: "RANGE",
     name: "Range DCA",
     body: "Recurring buys and sells within user-defined price bands. Grid count and schedule set at activation.",
+    params: ["LOWER", "UPPER", "GRID"],
   },
   {
-    id: "SR",
+    id: "S/R",
+    slug: "ZONES",
     name: "Liquidity Zones",
     body: "Limit orders anchored to user-defined support and resistance levels, with automatic exits if those levels break.",
+    params: ["LEVELS", "TOLERANCE", "EXIT"],
   },
 ];
 
 export default function Strategies() {
   return (
     <section className="relative w-full px-4 sm:px-8 py-24 sm:py-32 max-w-7xl mx-auto">
-      <div className="mb-12 sm:mb-16 max-w-3xl">
-        <p className="font-['Inter'] text-[0.6875rem] uppercase tracking-widest text-[#BACBBE]/60 mb-3">
-          The Kronix Engine
-        </p>
+      <SectionLabel index="03" label="KRONIX ENGINE" />
+
+      <div className="max-w-3xl mb-16">
         <h2 className="font-headline text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tighter text-white leading-[0.95] mb-6">
           Self-executing strategies.<br />
           Not price alerts.
         </h2>
         <p className="font-body text-base sm:text-lg text-[#BACBBE] leading-relaxed">
           Encode logic onchain. Engine evaluates price data and user thresholds.
-          Execution happens automatically. No bot, no keeper outside the Jito validator network.
+          Execution happens automatically — no bot, no keeper outside the Jito
+          validator network.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 border-t border-l kx-border">
         {strategies.map((s, i) => (
           <div
             key={s.id}
-            className="relative bg-[#1a1b21] border border-[#3B4A41]/30 rounded-xl p-6 sm:p-8 flex items-start gap-5 hover:border-[#4DFFB4]/30 transition-colors duration-300"
+            className="group relative bg-[#14181A] hover:bg-[#181D1F] border-r border-b kx-border p-6 sm:p-8 flex flex-col gap-5 transition-colors duration-200"
           >
-            <div className="shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-[#222F2B] border border-[#4DFFB4]/20 flex items-center justify-center">
-              <span className="font-['Inter'] text-[0.625rem] font-bold tracking-widest text-[#4DFFB4]">
-                {s.id}
-              </span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-baseline justify-between gap-4 mb-2">
-                <h3 className="font-headline text-xl sm:text-2xl font-bold text-white tracking-tight">
-                  {s.name}
-                </h3>
-                <span className="font-['Inter'] text-[0.625rem] uppercase tracking-widest text-[#BACBBE]/40">
-                  {String(i + 1).padStart(2, "0")}
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-[0.625rem] tracking-widest text-[#4DFFB4]">
+                  [{s.id}]
+                </span>
+                <span className="font-mono text-[0.625rem] tracking-widest text-[#BACBBE]/40">
+                  {`// ${s.slug}`}
                 </span>
               </div>
-              <p className="font-body text-sm text-[#BACBBE] leading-relaxed">
-                {s.body}
-              </p>
+              <span className="font-mono text-[0.625rem] tracking-widest text-[#BACBBE]/40 tabular-nums">
+                {String(i + 1).padStart(2, "0")} / 04
+              </span>
+            </div>
+
+            <h3 className="font-headline text-2xl sm:text-3xl font-bold text-white tracking-tight">
+              {s.name}
+            </h3>
+
+            <p className="font-body text-sm text-[#BACBBE] leading-relaxed flex-1">
+              {s.body}
+            </p>
+
+            <div className="flex flex-wrap gap-1.5 hairline-t pt-4">
+              {s.params.map((p) => (
+                <span
+                  key={p}
+                  className="font-mono text-[0.625rem] tracking-widest text-[#BACBBE]/70 px-2 py-1 border kx-border bg-[#0B0F0D]"
+                >
+                  {p}
+                </span>
+              ))}
             </div>
           </div>
         ))}
