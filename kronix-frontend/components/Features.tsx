@@ -15,7 +15,7 @@ const features = [
     num: "02",
     tag: "SINGLE-TOKEN",
     title: "PERPS",
-    body: "Standard perpetuals on major assets. Crankless settlement — fills settle immediately via CPI. No EventQueue, no keeper dependency.",
+    body: "Standard perpetuals on major assets. Crankless settlement which fills settle immediately. No EventQueue, no keeper dependency.",
     meta: [
       ["ENGINE", "Crit-bit"],
       ["SETTLE", "Instant"],
@@ -25,7 +25,7 @@ const features = [
     num: "03",
     tag: "AUTOMATION",
     title: "ENGINE",
-    body: "First non-custodial, fully onchain strategy automation layer on Solana. Encode trading logic once — executes continuously without bots or counterparties.",
+    body: "Non-custodial, fully onchain strategy automation layer on Solana. Encode trading logic once and it executes continuously without bots or counterparties.",
     meta: [
       ["CUSTODY", "None"],
       ["UPTIME", "Always-on"],
@@ -39,7 +39,7 @@ export default function Features() {
       <SectionLabel index="01" label="PRIMITIVES" />
 
       <h2 className="font-headline text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tighter text-white leading-[0.95] max-w-4xl mb-16">
-        Two primitives missing<br />
+        Primitives missing<br />
         from onchain markets.
       </h2>
 
