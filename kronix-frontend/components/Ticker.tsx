@@ -12,14 +12,7 @@ export default function Ticker() {
   return (
     <div className="relative w-full hairline-t hairline-b bg-[#10141D] overflow-hidden">
       {/* Preview tag */}
-      <div className="absolute left-0 top-0 bottom-0 z-20 flex items-center px-3 sm:px-5 bg-[#10141D] border-r kx-border-strong">
-        <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-[#4DFFB4] pulse-dot" />
-          <span className="font-mono text-[0.625rem] sm:text-[0.6875rem] font-bold tracking-widest text-[#4DFFB4]">
-            PREVIEW
-          </span>
-        </div>
-      </div>
+      
 
       <div className="ticker-fade pl-24 sm:pl-32 py-4 sm:py-5">
         <div className="flex ticker-track whitespace-nowrap">

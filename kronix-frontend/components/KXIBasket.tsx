@@ -11,7 +11,7 @@ const basket = [
 export default function KXIBasket() {
   return (
     <section className="relative w-full px-4 sm:px-8 py-24 sm:py-32 max-w-7xl mx-auto">
-      <SectionLabel index="02" label="KXI COMPOSITION" />
+      <SectionLabel index="03" label="KXI COMPOSITION" />
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-16 items-start">
         {/* Left: copy */}
@@ -23,8 +23,8 @@ export default function KXIBasket() {
           </h2>
           <p className="font-body text-base text-[#BACBBE] leading-relaxed mb-8">
             Square-root of market cap dampens dominance of mega-caps and lifts
-            mid-caps. Result — a smoother, directional proxy for the crypto
-            market, not a BTC shadow.
+            mid-caps. Results to a smoother, directional proxy for the crypto
+            market.
           </p>
 
           {/* Formula callout */}
@@ -170,7 +170,7 @@ export default function KXIBasket() {
             </div>
 
             <p className="font-mono text-[0.625rem] tracking-wider text-[#BACBBE]/50 mt-4 leading-relaxed">
-              {"// SQUARE-ROOT FLATTENS MEGA-CAP DOMINANCE. BTC ALLOCATION DROPS"}<br />
+              {"// SQUARE-ROOT FLATTENS MEGA-CAP DOMINANCE."}<br />
               {"// ~24PP. MID-CAPS GAIN WEIGHT WITHOUT BEING NOISE."}
             </p>
           </div>

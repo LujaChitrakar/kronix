@@ -13,8 +13,8 @@ export default function Home() {
       <Navbar />
       <Hero />
       <Features />
-      <KXIBasket />
       <Strategies />
+      <KXIBasket />
       <Trust />
       <Ticker />
       {/*<Footer />*/}

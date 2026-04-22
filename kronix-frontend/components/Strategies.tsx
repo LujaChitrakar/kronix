@@ -34,7 +34,7 @@ const strategies = [
 export default function Strategies() {
   return (
     <section className="relative w-full px-4 sm:px-8 py-24 sm:py-32 max-w-7xl mx-auto">
-      <SectionLabel index="03" label="KRONIX ENGINE" />
+      <SectionLabel index="02" label="KRONIX ENGINE" />
 
       <div className="max-w-3xl mb-16">
         <h2 className="font-headline text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tighter text-white leading-[0.95] mb-6">
@@ -43,8 +43,7 @@ export default function Strategies() {
         </h2>
         <p className="font-body text-base sm:text-lg text-[#BACBBE] leading-relaxed">
           Encode logic onchain. Engine evaluates price data and user thresholds.
-          Execution happens automatically — no bot, no keeper outside the Jito
-          validator network.
+          Execution happens automatically.
         </p>
       </div>
 
