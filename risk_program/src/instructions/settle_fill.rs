@@ -1,19 +1,11 @@
 use bytemuck::{Pod, Zeroable};
-use pinocchio::{
-    cpi::{Seed, Signer},
-    error::ProgramError,
-    sysvars::{rent::Rent, Sysvar},
-    AccountView, Address, ProgramResult,
-};
-use pinocchio_system::instructions::CreateAccount;
+use pinocchio::{error::ProgramError, AccountView, ProgramResult};
 use shank::ShankType;
 
 use crate::{
     constants::{POSITION_SEED, USER_ACCOUNT_SEED},
     errors::RiskProgramError,
-    helper::{
-        verify_account_owner, verify_initialized, verify_pda, verify_program_id, verify_signer,
-    },
+    helper::{verify_account_owner, verify_initialized, verify_pda, verify_program_id},
     instructions::settle_funding_internal,
     state::{FundingState, MarketConfig, Position, UserAccount},
 };
@@ -39,7 +31,6 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
         position,          // taker or maker Position
         market_config,
         funding_state,
-        orderbook_program, // must be orderbook_program ID
         system_program,
         _remaining @ ..,
     ] = accounts
@@ -47,11 +38,6 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 
-    verify_signer(orderbook_program)?;
-    verify_program_id(
-        orderbook_program,
-        &Address::from(crate::ORDERBOOK_PROGRAM_ID),
-    )?;
     verify_program_id(system_program, &pinocchio_system::ID)?;
     verify_initialized(user_account)?;
     verify_initialized(position)?;

@@ -1,12 +1,13 @@
 use litesvm::LiteSVM;
-use litesvm_token::{CreateAccount, CreateMint, MintTo, spl_token};
+use litesvm_token::{spl_token, CreateAccount, CreateMint, MintTo};
 
-use solana_address::{Address, address};
+use solana_address::{address, Address};
 use solana_clock::Clock;
 use solana_keypair::Keypair;
 use solana_message::{AccountMeta, Instruction, Message};
 use solana_native_token::LAMPORTS_PER_SOL;
 use solana_sdk_ids::system_program;
+
 use solana_signer::Signer;
 use solana_transaction::Transaction;
 
@@ -32,14 +33,15 @@ pub fn setup() -> (LiteSVM, Keypair, Keypair, Address) {
 
     #[cfg(feature = "devnet")]
     let mut svm = LiteSVM::new_with_rpc("https://api.devnet.solana.com");
-    
+
     #[cfg(not(feature = "devnet"))]
     let user1 = Keypair::new();
-    
+
     #[cfg(feature = "devnet")]
     let user1 = solana_sdk::signature::read_keypair_file(
-        std::env::var("HOME").unwrap() + "/.config/solana/id.json"
-    ).unwrap();
+        std::env::var("HOME").unwrap() + "/.config/solana/id.json",
+    )
+    .unwrap();
     let user2 = Keypair::new();
 
     #[cfg(not(feature = "devnet"))]
