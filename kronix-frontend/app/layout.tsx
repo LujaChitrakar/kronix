@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Manrope, Inter, JetBrains_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -43,6 +44,7 @@ export default function RootLayout({
         className={`${manrope.variable} ${inter.variable} ${jetbrainsMono.variable} font-[Inter,sans-serif] selection:bg-[#1A2320] selection:text-[#00734c]`}
       >
         {children}
+        <Analytics />
       </body>
     </html>
   );
