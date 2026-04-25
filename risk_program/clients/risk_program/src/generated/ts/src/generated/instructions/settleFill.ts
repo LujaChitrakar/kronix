@@ -24,7 +24,6 @@ import {
   SolanaError,
   transformEncoder,
   type AccountMeta,
-  type AccountSignerMeta,
   type Address,
   type FixedSizeCodec,
   type FixedSizeDecoder,
@@ -33,9 +32,7 @@ import {
   type InstructionWithAccounts,
   type InstructionWithData,
   type ReadonlyAccount,
-  type ReadonlySignerAccount,
   type ReadonlyUint8Array,
-  type TransactionSigner,
   type WritableAccount,
 } from "@solana/kit";
 import {
@@ -56,7 +53,6 @@ export type SettleFillInstruction<
   TAccountPosition extends string | AccountMeta<string> = string,
   TAccountMarketConfig extends string | AccountMeta<string> = string,
   TAccountFundingState extends string | AccountMeta<string> = string,
-  TAccountOrderbookProgram extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -76,10 +72,6 @@ export type SettleFillInstruction<
       TAccountFundingState extends string
         ? WritableAccount<TAccountFundingState>
         : TAccountFundingState,
-      TAccountOrderbookProgram extends string
-        ? ReadonlySignerAccount<TAccountOrderbookProgram> &
-            AccountSignerMeta<TAccountOrderbookProgram>
-        : TAccountOrderbookProgram,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
@@ -164,7 +156,6 @@ export type SettleFillInput<
   TAccountPosition extends string = string,
   TAccountMarketConfig extends string = string,
   TAccountFundingState extends string = string,
-  TAccountOrderbookProgram extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   /** UserAccount PDA */
@@ -175,8 +166,6 @@ export type SettleFillInput<
   marketConfig: Address<TAccountMarketConfig>;
   /** FundingState */
   fundingState: Address<TAccountFundingState>;
-  /** Orderbook program */
-  orderbookProgram: TransactionSigner<TAccountOrderbookProgram>;
   /** System program */
   systemProgram?: Address<TAccountSystemProgram>;
   priceLots: SettleFillInstructionDataArgs["priceLots"];
@@ -196,7 +185,6 @@ export function getSettleFillInstruction<
   TAccountPosition extends string,
   TAccountMarketConfig extends string,
   TAccountFundingState extends string,
-  TAccountOrderbookProgram extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof RISK_PROGRAM_PROGRAM_ADDRESS,
 >(
@@ -205,7 +193,6 @@ export function getSettleFillInstruction<
     TAccountPosition,
     TAccountMarketConfig,
     TAccountFundingState,
-    TAccountOrderbookProgram,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
@@ -215,7 +202,6 @@ export function getSettleFillInstruction<
   TAccountPosition,
   TAccountMarketConfig,
   TAccountFundingState,
-  TAccountOrderbookProgram,
   TAccountSystemProgram
 > {
   // Program address.
@@ -227,10 +213,6 @@ export function getSettleFillInstruction<
     position: { value: input.position ?? null, isWritable: true },
     marketConfig: { value: input.marketConfig ?? null, isWritable: false },
     fundingState: { value: input.fundingState ?? null, isWritable: true },
-    orderbookProgram: {
-      value: input.orderbookProgram ?? null,
-      isWritable: false,
-    },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
@@ -254,7 +236,6 @@ export function getSettleFillInstruction<
       getAccountMeta("position", accounts.position),
       getAccountMeta("marketConfig", accounts.marketConfig),
       getAccountMeta("fundingState", accounts.fundingState),
-      getAccountMeta("orderbookProgram", accounts.orderbookProgram),
       getAccountMeta("systemProgram", accounts.systemProgram),
     ],
     data: getSettleFillInstructionDataEncoder().encode(
@@ -267,7 +248,6 @@ export function getSettleFillInstruction<
     TAccountPosition,
     TAccountMarketConfig,
     TAccountFundingState,
-    TAccountOrderbookProgram,
     TAccountSystemProgram
   >);
 }
@@ -286,10 +266,8 @@ export type ParsedSettleFillInstruction<
     marketConfig: TAccountMetas[2];
     /** FundingState */
     fundingState: TAccountMetas[3];
-    /** Orderbook program */
-    orderbookProgram: TAccountMetas[4];
     /** System program */
-    systemProgram: TAccountMetas[5];
+    systemProgram: TAccountMetas[4];
   };
   data: SettleFillInstructionData;
 };
@@ -302,12 +280,12 @@ export function parseSettleFillInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedSettleFillInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 6) {
+  if (instruction.accounts.length < 5) {
     throw new SolanaError(
       SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
       {
         actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 6,
+        expectedAccountMetas: 5,
       },
     );
   }
@@ -324,7 +302,6 @@ export function parseSettleFillInstruction<
       position: getNextAccount(),
       marketConfig: getNextAccount(),
       fundingState: getNextAccount(),
-      orderbookProgram: getNextAccount(),
       systemProgram: getNextAccount(),
     },
     data: getSettleFillInstructionDataDecoder().decode(instruction.data),

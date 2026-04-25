@@ -8,68 +8,59 @@
 use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
-pub const CANCEL_ORDER_DISCRIMINATOR: u8 = 7;
+pub const INITIALIZE_FILLS_LOG_DISCRIMINATOR: u8 = 2;
 
 /// Accounts.
 #[derive(Debug)]
-pub struct CancelOrder {
-            /// Order owner
+pub struct InitializeFillsLog {
+            /// Taker
 
     
               
           pub signer: solana_address::Address,
-                /// OO account
+                /// FillsLog PDA
 
     
               
-          pub open_orders_account: solana_address::Address,
+          pub fills_log: solana_address::Address,
                 /// Market state
 
     
               
           pub market: solana_address::Address,
-                /// Bids BookSide
+                /// System program
 
     
               
-          pub bids: solana_address::Address,
-                /// Asks BookSide
-
-    
-              
-          pub asks: solana_address::Address,
+          pub system_program: solana_address::Address,
       }
 
-impl CancelOrder {
-  pub fn instruction(&self, args: CancelOrderInstructionArgs) -> solana_instruction::Instruction {
+impl InitializeFillsLog {
+  pub fn instruction(&self, args: InitializeFillsLogInstructionArgs) -> solana_instruction::Instruction {
     self.instruction_with_remaining_accounts(args, &[])
   }
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
-  pub fn instruction_with_remaining_accounts(&self, args: CancelOrderInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
-    let mut accounts = Vec::with_capacity(5+ remaining_accounts.len());
-                            accounts.push(solana_instruction::AccountMeta::new_readonly(
+  pub fn instruction_with_remaining_accounts(&self, args: InitializeFillsLogInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
+    let mut accounts = Vec::with_capacity(4+ remaining_accounts.len());
+                            accounts.push(solana_instruction::AccountMeta::new(
             self.signer,
             true
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            self.open_orders_account,
+            self.fills_log,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.market,
             false
           ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            self.bids,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            self.asks,
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.system_program,
             false
           ));
                       accounts.extend_from_slice(remaining_accounts);
-    let mut data = CancelOrderInstructionData::new().try_to_vec().unwrap();
+    let mut data = InitializeFillsLogInstructionData::new().try_to_vec().unwrap();
           let mut args = args.try_to_vec().unwrap();
       data.append(&mut args);
     
@@ -82,14 +73,14 @@ impl CancelOrder {
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
- pub struct CancelOrderInstructionData {
+ pub struct InitializeFillsLogInstructionData {
             discriminator: u8,
                         }
 
-impl CancelOrderInstructionData {
+impl InitializeFillsLogInstructionData {
   pub fn new() -> Self {
     Self {
-                        discriminator: 7,
+                        discriminator: 2,
                                                             }
   }
 
@@ -98,62 +89,60 @@ impl CancelOrderInstructionData {
   }
   }
 
-impl Default for CancelOrderInstructionData {
+impl Default for InitializeFillsLogInstructionData {
   fn default() -> Self {
     Self::new()
   }
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
- pub struct CancelOrderInstructionArgs {
-                  pub order_id: [u8; 16],
-                pub side: u8,
+ pub struct InitializeFillsLogInstructionArgs {
+                  pub bump: u8,
                 pub padding: [u8; 7],
+                pub client_order_id: u64,
       }
 
-impl CancelOrderInstructionArgs {
+impl InitializeFillsLogInstructionArgs {
   pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
     borsh::to_vec(self)
   }
 }
 
 
-/// Instruction builder for `CancelOrder`.
+/// Instruction builder for `InitializeFillsLog`.
 ///
 /// ### Accounts:
 ///
-                ///   0. `[signer]` signer
-                ///   1. `[writable]` open_orders_account
+                      ///   0. `[writable, signer]` signer
+                ///   1. `[writable]` fills_log
           ///   2. `[]` market
-                ///   3. `[writable]` bids
-                ///   4. `[writable]` asks
+                ///   3. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
-pub struct CancelOrderBuilder {
+pub struct InitializeFillsLogBuilder {
             signer: Option<solana_address::Address>,
-                open_orders_account: Option<solana_address::Address>,
+                fills_log: Option<solana_address::Address>,
                 market: Option<solana_address::Address>,
-                bids: Option<solana_address::Address>,
-                asks: Option<solana_address::Address>,
-                        order_id: Option<[u8; 16]>,
-                side: Option<u8>,
+                system_program: Option<solana_address::Address>,
+                        bump: Option<u8>,
                 padding: Option<[u8; 7]>,
+                client_order_id: Option<u64>,
         __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
-impl CancelOrderBuilder {
+impl InitializeFillsLogBuilder {
   pub fn new() -> Self {
     Self::default()
   }
-            /// Order owner
+            /// Taker
 #[inline(always)]
     pub fn signer(&mut self, signer: solana_address::Address) -> &mut Self {
                         self.signer = Some(signer);
                     self
     }
-            /// OO account
+            /// FillsLog PDA
 #[inline(always)]
-    pub fn open_orders_account(&mut self, open_orders_account: solana_address::Address) -> &mut Self {
-                        self.open_orders_account = Some(open_orders_account);
+    pub fn fills_log(&mut self, fills_log: solana_address::Address) -> &mut Self {
+                        self.fills_log = Some(fills_log);
                     self
     }
             /// Market state
@@ -162,31 +151,26 @@ impl CancelOrderBuilder {
                         self.market = Some(market);
                     self
     }
-            /// Bids BookSide
+            /// `[optional account, default to '11111111111111111111111111111111']`
+/// System program
 #[inline(always)]
-    pub fn bids(&mut self, bids: solana_address::Address) -> &mut Self {
-                        self.bids = Some(bids);
-                    self
-    }
-            /// Asks BookSide
-#[inline(always)]
-    pub fn asks(&mut self, asks: solana_address::Address) -> &mut Self {
-                        self.asks = Some(asks);
+    pub fn system_program(&mut self, system_program: solana_address::Address) -> &mut Self {
+                        self.system_program = Some(system_program);
                     self
     }
                     #[inline(always)]
-      pub fn order_id(&mut self, order_id: [u8; 16]) -> &mut Self {
-        self.order_id = Some(order_id);
-        self
-      }
-                #[inline(always)]
-      pub fn side(&mut self, side: u8) -> &mut Self {
-        self.side = Some(side);
+      pub fn bump(&mut self, bump: u8) -> &mut Self {
+        self.bump = Some(bump);
         self
       }
                 #[inline(always)]
       pub fn padding(&mut self, padding: [u8; 7]) -> &mut Self {
         self.padding = Some(padding);
+        self
+      }
+                #[inline(always)]
+      pub fn client_order_id(&mut self, client_order_id: u64) -> &mut Self {
+        self.client_order_id = Some(client_order_id);
         self
       }
         /// Add an additional account to the instruction.
@@ -203,98 +187,86 @@ impl CancelOrderBuilder {
   }
   #[allow(clippy::clone_on_copy)]
   pub fn instruction(&self) -> solana_instruction::Instruction {
-    let accounts = CancelOrder {
+    let accounts = InitializeFillsLog {
                               signer: self.signer.expect("signer is not set"),
-                                        open_orders_account: self.open_orders_account.expect("open_orders_account is not set"),
+                                        fills_log: self.fills_log.expect("fills_log is not set"),
                                         market: self.market.expect("market is not set"),
-                                        bids: self.bids.expect("bids is not set"),
-                                        asks: self.asks.expect("asks is not set"),
+                                        system_program: self.system_program.unwrap_or(solana_address::address!("11111111111111111111111111111111")),
                       };
-          let args = CancelOrderInstructionArgs {
-                                                              order_id: self.order_id.clone().expect("order_id is not set"),
-                                                                  side: self.side.clone().expect("side is not set"),
+          let args = InitializeFillsLogInstructionArgs {
+                                                              bump: self.bump.clone().expect("bump is not set"),
                                                                   padding: self.padding.clone().expect("padding is not set"),
+                                                                  client_order_id: self.client_order_id.clone().expect("client_order_id is not set"),
                                     };
     
     accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
   }
 }
 
-  /// `cancel_order` CPI accounts.
-  pub struct CancelOrderCpiAccounts<'a, 'b> {
-                  /// Order owner
+  /// `initialize_fills_log` CPI accounts.
+  pub struct InitializeFillsLogCpiAccounts<'a, 'b> {
+                  /// Taker
 
       
                     
               pub signer: &'b solana_account_info::AccountInfo<'a>,
-                        /// OO account
+                        /// FillsLog PDA
 
       
                     
-              pub open_orders_account: &'b solana_account_info::AccountInfo<'a>,
+              pub fills_log: &'b solana_account_info::AccountInfo<'a>,
                         /// Market state
 
       
                     
               pub market: &'b solana_account_info::AccountInfo<'a>,
-                        /// Bids BookSide
+                        /// System program
 
       
                     
-              pub bids: &'b solana_account_info::AccountInfo<'a>,
-                        /// Asks BookSide
-
-      
-                    
-              pub asks: &'b solana_account_info::AccountInfo<'a>,
+              pub system_program: &'b solana_account_info::AccountInfo<'a>,
             }
 
-/// `cancel_order` CPI instruction.
-pub struct CancelOrderCpi<'a, 'b> {
+/// `initialize_fills_log` CPI instruction.
+pub struct InitializeFillsLogCpi<'a, 'b> {
   /// The program to invoke.
   pub __program: &'b solana_account_info::AccountInfo<'a>,
-            /// Order owner
+            /// Taker
 
     
               
           pub signer: &'b solana_account_info::AccountInfo<'a>,
-                /// OO account
+                /// FillsLog PDA
 
     
               
-          pub open_orders_account: &'b solana_account_info::AccountInfo<'a>,
+          pub fills_log: &'b solana_account_info::AccountInfo<'a>,
                 /// Market state
 
     
               
           pub market: &'b solana_account_info::AccountInfo<'a>,
-                /// Bids BookSide
+                /// System program
 
     
               
-          pub bids: &'b solana_account_info::AccountInfo<'a>,
-                /// Asks BookSide
-
-    
-              
-          pub asks: &'b solana_account_info::AccountInfo<'a>,
+          pub system_program: &'b solana_account_info::AccountInfo<'a>,
             /// The arguments for the instruction.
-    pub __args: CancelOrderInstructionArgs,
+    pub __args: InitializeFillsLogInstructionArgs,
   }
 
-impl<'a, 'b> CancelOrderCpi<'a, 'b> {
+impl<'a, 'b> InitializeFillsLogCpi<'a, 'b> {
   pub fn new(
     program: &'b solana_account_info::AccountInfo<'a>,
-          accounts: CancelOrderCpiAccounts<'a, 'b>,
-              args: CancelOrderInstructionArgs,
+          accounts: InitializeFillsLogCpiAccounts<'a, 'b>,
+              args: InitializeFillsLogInstructionArgs,
       ) -> Self {
     Self {
       __program: program,
               signer: accounts.signer,
-              open_orders_account: accounts.open_orders_account,
+              fills_log: accounts.fills_log,
               market: accounts.market,
-              bids: accounts.bids,
-              asks: accounts.asks,
+              system_program: accounts.system_program,
                     __args: args,
           }
   }
@@ -318,25 +290,21 @@ impl<'a, 'b> CancelOrderCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program_error::ProgramResult {
-    let mut accounts = Vec::with_capacity(5+ remaining_accounts.len());
-                            accounts.push(solana_instruction::AccountMeta::new_readonly(
+    let mut accounts = Vec::with_capacity(4+ remaining_accounts.len());
+                            accounts.push(solana_instruction::AccountMeta::new(
             *self.signer.key,
             true
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            *self.open_orders_account.key,
+            *self.fills_log.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.market.key,
             false
           ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            *self.bids.key,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            *self.asks.key,
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.system_program.key,
             false
           ));
                       remaining_accounts.iter().for_each(|remaining_account| {
@@ -346,7 +314,7 @@ impl<'a, 'b> CancelOrderCpi<'a, 'b> {
           is_writable: remaining_account.2,
       })
     });
-    let mut data = CancelOrderInstructionData::new().try_to_vec().unwrap();
+    let mut data = InitializeFillsLogInstructionData::new().try_to_vec().unwrap();
           let mut args = self.__args.try_to_vec().unwrap();
       data.append(&mut args);
     
@@ -355,13 +323,12 @@ impl<'a, 'b> CancelOrderCpi<'a, 'b> {
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(6 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(5 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
                   account_infos.push(self.signer.clone());
-                        account_infos.push(self.open_orders_account.clone());
+                        account_infos.push(self.fills_log.clone());
                         account_infos.push(self.market.clone());
-                        account_infos.push(self.bids.clone());
-                        account_infos.push(self.asks.clone());
+                        account_infos.push(self.system_program.clone());
               remaining_accounts.iter().for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
 
     if signers_seeds.is_empty() {
@@ -372,46 +339,44 @@ impl<'a, 'b> CancelOrderCpi<'a, 'b> {
   }
 }
 
-/// Instruction builder for `CancelOrder` via CPI.
+/// Instruction builder for `InitializeFillsLog` via CPI.
 ///
 /// ### Accounts:
 ///
-                ///   0. `[signer]` signer
-                ///   1. `[writable]` open_orders_account
+                      ///   0. `[writable, signer]` signer
+                ///   1. `[writable]` fills_log
           ///   2. `[]` market
-                ///   3. `[writable]` bids
-                ///   4. `[writable]` asks
+          ///   3. `[]` system_program
 #[derive(Clone, Debug)]
-pub struct CancelOrderCpiBuilder<'a, 'b> {
-  instruction: Box<CancelOrderCpiBuilderInstruction<'a, 'b>>,
+pub struct InitializeFillsLogCpiBuilder<'a, 'b> {
+  instruction: Box<InitializeFillsLogCpiBuilderInstruction<'a, 'b>>,
 }
 
-impl<'a, 'b> CancelOrderCpiBuilder<'a, 'b> {
+impl<'a, 'b> InitializeFillsLogCpiBuilder<'a, 'b> {
   pub fn new(program: &'b solana_account_info::AccountInfo<'a>) -> Self {
-    let instruction = Box::new(CancelOrderCpiBuilderInstruction {
+    let instruction = Box::new(InitializeFillsLogCpiBuilderInstruction {
       __program: program,
               signer: None,
-              open_orders_account: None,
+              fills_log: None,
               market: None,
-              bids: None,
-              asks: None,
-                                            order_id: None,
-                                side: None,
+              system_program: None,
+                                            bump: None,
                                 padding: None,
+                                client_order_id: None,
                     __remaining_accounts: Vec::new(),
     });
     Self { instruction }
   }
-      /// Order owner
+      /// Taker
 #[inline(always)]
     pub fn signer(&mut self, signer: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
                         self.instruction.signer = Some(signer);
                     self
     }
-      /// OO account
+      /// FillsLog PDA
 #[inline(always)]
-    pub fn open_orders_account(&mut self, open_orders_account: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.open_orders_account = Some(open_orders_account);
+    pub fn fills_log(&mut self, fills_log: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.fills_log = Some(fills_log);
                     self
     }
       /// Market state
@@ -420,31 +385,25 @@ impl<'a, 'b> CancelOrderCpiBuilder<'a, 'b> {
                         self.instruction.market = Some(market);
                     self
     }
-      /// Bids BookSide
+      /// System program
 #[inline(always)]
-    pub fn bids(&mut self, bids: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.bids = Some(bids);
-                    self
-    }
-      /// Asks BookSide
-#[inline(always)]
-    pub fn asks(&mut self, asks: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.asks = Some(asks);
+    pub fn system_program(&mut self, system_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.system_program = Some(system_program);
                     self
     }
                     #[inline(always)]
-      pub fn order_id(&mut self, order_id: [u8; 16]) -> &mut Self {
-        self.instruction.order_id = Some(order_id);
-        self
-      }
-                #[inline(always)]
-      pub fn side(&mut self, side: u8) -> &mut Self {
-        self.instruction.side = Some(side);
+      pub fn bump(&mut self, bump: u8) -> &mut Self {
+        self.instruction.bump = Some(bump);
         self
       }
                 #[inline(always)]
       pub fn padding(&mut self, padding: [u8; 7]) -> &mut Self {
         self.instruction.padding = Some(padding);
+        self
+      }
+                #[inline(always)]
+      pub fn client_order_id(&mut self, client_order_id: u64) -> &mut Self {
+        self.instruction.client_order_id = Some(client_order_id);
         self
       }
         /// Add an additional account to the instruction.
@@ -469,23 +428,21 @@ impl<'a, 'b> CancelOrderCpiBuilder<'a, 'b> {
   #[allow(clippy::clone_on_copy)]
   #[allow(clippy::vec_init_then_push)]
   pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
-          let args = CancelOrderInstructionArgs {
-                                                              order_id: self.instruction.order_id.clone().expect("order_id is not set"),
-                                                                  side: self.instruction.side.clone().expect("side is not set"),
+          let args = InitializeFillsLogInstructionArgs {
+                                                              bump: self.instruction.bump.clone().expect("bump is not set"),
                                                                   padding: self.instruction.padding.clone().expect("padding is not set"),
+                                                                  client_order_id: self.instruction.client_order_id.clone().expect("client_order_id is not set"),
                                     };
-        let instruction = CancelOrderCpi {
+        let instruction = InitializeFillsLogCpi {
         __program: self.instruction.__program,
                   
           signer: self.instruction.signer.expect("signer is not set"),
                   
-          open_orders_account: self.instruction.open_orders_account.expect("open_orders_account is not set"),
+          fills_log: self.instruction.fills_log.expect("fills_log is not set"),
                   
           market: self.instruction.market.expect("market is not set"),
                   
-          bids: self.instruction.bids.expect("bids is not set"),
-                  
-          asks: self.instruction.asks.expect("asks is not set"),
+          system_program: self.instruction.system_program.expect("system_program is not set"),
                           __args: args,
             };
     instruction.invoke_signed_with_remaining_accounts(signers_seeds, &self.instruction.__remaining_accounts)
@@ -493,16 +450,15 @@ impl<'a, 'b> CancelOrderCpiBuilder<'a, 'b> {
 }
 
 #[derive(Clone, Debug)]
-struct CancelOrderCpiBuilderInstruction<'a, 'b> {
+struct InitializeFillsLogCpiBuilderInstruction<'a, 'b> {
   __program: &'b solana_account_info::AccountInfo<'a>,
             signer: Option<&'b solana_account_info::AccountInfo<'a>>,
-                open_orders_account: Option<&'b solana_account_info::AccountInfo<'a>>,
+                fills_log: Option<&'b solana_account_info::AccountInfo<'a>>,
                 market: Option<&'b solana_account_info::AccountInfo<'a>>,
-                bids: Option<&'b solana_account_info::AccountInfo<'a>>,
-                asks: Option<&'b solana_account_info::AccountInfo<'a>>,
-                        order_id: Option<[u8; 16]>,
-                side: Option<u8>,
+                system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
+                        bump: Option<u8>,
                 padding: Option<[u8; 7]>,
+                client_order_id: Option<u64>,
         /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
   __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }

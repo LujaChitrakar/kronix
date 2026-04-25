@@ -1,34 +1,33 @@
-use crate::states::heap::FillEvent;
+use crate::states::FillEntry;
 use pinocchio::cpi::invoke;
 use pinocchio::instruction::{InstructionAccount, InstructionView};
 use pinocchio::{AccountView, ProgramResult};
 use risk_program_cpi::{SettleFillParams, SETTLE_FILL_IX};
 
 pub fn settle_fill_cpi(
-    orderbook_program: &AccountView,
     risk_program: &AccountView,
     user_account: &AccountView,
     position: &AccountView,
     market_config: &AccountView,
     funding_state: &AccountView,
     system_program: &AccountView,
-    fill: &FillEvent,
+    fill: &FillEntry,
     market_index: u16,
     is_taker: bool,
     bump_position: u8,
     bump_user: u8,
 ) -> ProgramResult {
     let params = SettleFillParams {
-        is_taker: is_taker as u8,
-        taker_side: fill.taker_side,
         price_lots: fill.price,
         base_lots: fill.quantity,
-        maker_pubkey: fill.maker_pubkey,
-        taker_pubkey: fill.taker_pubkey,
         market_index,
+        is_taker: is_taker as u8,
+        taker_side: fill.taker_side,
         bump_position,
         bump_user,
         padding: [0; 2],
+        maker_pubkey: fill.maker_pubkey,
+        taker_pubkey: fill.taker_pubkey,
     };
 
     let params_bytes = bytemuck::bytes_of(&params);
@@ -42,7 +41,6 @@ pub fn settle_fill_cpi(
         InstructionAccount::new(position.address(), true, false),
         InstructionAccount::new(market_config.address(), false, false),
         InstructionAccount::new(funding_state.address(), true, false),
-        InstructionAccount::new(orderbook_program.address(), false, false),
         InstructionAccount::new(system_program.address(), false, false),
     ];
 
@@ -51,7 +49,6 @@ pub fn settle_fill_cpi(
         position,
         market_config,
         funding_state,
-        orderbook_program,
         system_program,
     ];
 
@@ -61,7 +58,7 @@ pub fn settle_fill_cpi(
         data: &ix_data,
     };
 
-    invoke::<6>(&ix, &account_infos)?;
+    invoke::<5>(&ix, &account_infos)?;
 
     Ok(())
 }

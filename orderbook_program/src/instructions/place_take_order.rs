@@ -2,21 +2,20 @@ use bytemuck::{Pod, Zeroable};
 use pinocchio::{
     error::ProgramError,
     sysvars::{clock::Clock, Sysvar},
-    AccountView, Address, ProgramResult,
+    AccountView, ProgramResult,
 };
 use shank::ShankType;
 
 use crate::{
-    constants::{MARKET_SEED, MAX_FILLS_PER_ORDER, OPEN_ORDERS_SEED},
-    cpi::settle_fill_cpi,
+    constants::{FILLS_LOG_SEED, MARKET_SEED, MAX_FILLS_PER_ORDER, OPEN_ORDERS_SEED},
     errors::OrderBookError,
     helper::{
         verify_account_owner, verify_initialized, verify_pda, verify_program_id, verify_signer,
         verify_writtable,
     },
     states::{
-        BookSide, MarketState, OpenOrdersAccount, Order, OrderParams, Orderbook, PlaceOrderType,
-        Side,
+        BookSide, FillEntry, FillsLog, MarketState, OpenOrdersAccount, Order, OrderParams,
+        Orderbook, PlaceOrderType, Side,
     },
 };
 
@@ -30,26 +29,12 @@ pub struct PlaceTakeOrderParams {
     pub side: u8,
     pub order_type: u8,
     pub limit: u8,
-    pub bump_position: u8,
-    pub bump_user: u8,
-    pub padding: [u8; 3],
+    pub bump_fills_log: u8,
+    pub padding: [u8; 4],
 }
 
 pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [
-        signer, 
-        open_orders_account, 
-        market, 
-        bids, 
-        asks, 
-        taker_user_account, 
-        taker_position, 
-        market_config, 
-        funding_state, 
-        orderbook_program_self, 
-        risk_program, 
-        system_program, 
-        _remaining @ ..] =
+    let [signer, open_orders_account, market, bids, asks, fills_log, system_program, _remaining @ ..] =
         accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
@@ -60,7 +45,7 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
     verify_initialized(market)?;
     verify_initialized(bids)?;
     verify_initialized(asks)?;
-    verify_program_id(orderbook_program_self, &Address::from(crate::ID))?;
+    verify_program_id(system_program, &pinocchio_system::ID)?;
 
     unsafe {
         verify_account_owner(market, &crate::ID)?;
@@ -76,6 +61,9 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
 
     let params = bytemuck::try_pod_read_unaligned::<PlaceTakeOrderParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    let clock = Clock::get()?;
+    let now_slot = clock.slot;
 
     let place_order_type = PlaceOrderType::try_from(params.order_type)
         .map_err(|_| OrderBookError::InvalidOrderType)?;
@@ -117,12 +105,21 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
         &mut oo_account_data[..OpenOrdersAccount::LEN],
     );
 
+    let log_data = fills_log.try_borrow()?;
+    let log = bytemuck::from_bytes::<FillsLog>(&log_data[..FillsLog::LEN]);
+    if !log.is_ready(now_slot) {
+        return Err(OrderBookError::PreviousFillsNotSettled.into());
+    }
+
     // validations
     {
         let market_bump = [market_state.bump];
         let market_index = market_state.market_index.to_le_bytes();
         let open_orders_account_bump = [oo_account_state.bump];
         let open_orders_account_owner = oo_account_state.owner;
+
+        let client_id_bytes = params.client_order_id.to_le_bytes();
+        let fill_bump_bytes = [params.bump_fills_log];
 
         let signer_key = signer.address().as_array();
         let is_owner = signer_key == &oo_account_state.owner;
@@ -154,6 +151,16 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
                 open_orders_account_owner.as_ref(),
                 market.address().as_array().as_ref(),
                 &open_orders_account_bump,
+            ],
+            &crate::ID,
+        )?;
+        verify_pda(
+            fills_log,
+            &[
+                FILLS_LOG_SEED,
+                signer_key.as_ref(),
+                client_id_bytes.as_ref(),
+                &fill_bump_bytes,
             ],
             &crate::ID,
         )?;
@@ -192,47 +199,38 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
         return Err(OrderBookError::InvalidOrderType.into());
     }
 
-    // setle_fills
-    for i in 0..result.fill_count as usize {
-        let fill = &result.fills[i];
+    if result.fill_count > 0 {
+        let mut log_data = fills_log.try_borrow_mut()?;
+        let log = bytemuck::from_bytes_mut::<FillsLog>(&mut log_data[..FillsLog::LEN]);
 
-        // record fill on makers 00 account
-        if let Some(maker_oo_account) = _remaining.get(i) {
-            unsafe {
-                if maker_oo_account.owner().as_array() == &crate::ID {
-                    let mut maker_oo_data = maker_oo_account.try_borrow_mut()?;
-                    let maker_oo = bytemuck::from_bytes_mut::<OpenOrdersAccount>(
-                        &mut maker_oo_data[..OpenOrdersAccount::LEN],
-                    );
+        log.reset(
+            *market.address().as_array(),
+            *signer.address().as_array(),
+            params.client_order_id,
+            now_slot,
+        );
 
-                    if maker_oo.owner == fill.maker_pubkey
-                        && maker_oo.market == *market.address().as_array()
-                    {
-                        maker_oo.record_fill(
-                            fill.maker_slot as usize,
-                            fill.quantity,
-                            fill.price,
-                            fill.maker_out(),
-                        );
-                    }
-                }
-            }
+        for i in 0..result.fill_count as usize {
+            let fill = &result.fills[i];
+
+            log.fills[i] = FillEntry {
+                taker_client_id: params.client_order_id,
+                maker_client_id: fill.maker_client_order_id,
+                price: fill.price,
+                quantity: fill.quantity,
+                taker_side: fill.taker_side,
+                maker_slot: fill.maker_slot,
+                maker_out: fill.maker_out as u8,
+                settled: 0,
+                market_index: market_state.market_index,
+                padding: [0; 2],
+                taker_pubkey: oo_account_state.owner,
+                maker_pubkey: fill.maker_pubkey,
+            };
         }
 
-        settle_fill_cpi(
-            orderbook_program_self,
-            risk_program,
-            taker_user_account,
-            taker_position,
-            market_config,
-            funding_state,
-            system_program,
-            fill,
-            market_state.market_index,
-            true,
-            params.bump_position,
-            params.bump_user,
-        )?;
+        log.fill_count = result.fill_count;
+        log.all_settled = 0; // pending settlement
     }
     Ok(())
 }

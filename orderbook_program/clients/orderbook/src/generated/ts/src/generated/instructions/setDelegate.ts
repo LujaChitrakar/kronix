@@ -39,7 +39,7 @@ import {
 } from "@solana/program-client-core";
 import { ORDERBOOK_PROGRAM_ADDRESS } from "../programs";
 
-export const SET_DELEGATE_DISCRIMINATOR = 10;
+export const SET_DELEGATE_DISCRIMINATOR = 11;
 
 export function getSetDelegateDiscriminatorBytes() {
   return getU8Encoder().encode(SET_DELEGATE_DISCRIMINATOR);

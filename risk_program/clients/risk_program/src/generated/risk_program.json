@@ -567,14 +567,6 @@
           ]
         },
         {
-          "name": "orderbookProgram",
-          "isMut": false,
-          "isSigner": true,
-          "docs": [
-            "Orderbook program"
-          ]
-        },
-        {
           "name": "systemProgram",
           "isMut": false,
           "isSigner": false,

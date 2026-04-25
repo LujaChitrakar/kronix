@@ -8,7 +8,7 @@
 use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
-pub const PLACE_TAKE_ORDER_DISCRIMINATOR: u8 = 3;
+pub const PLACE_TAKE_ORDER_DISCRIMINATOR: u8 = 4;
 
 /// Accounts.
 #[derive(Debug)]
@@ -38,36 +38,11 @@ pub struct PlaceTakeOrder {
     
               
           pub asks: solana_address::Address,
-                /// Taker UserAccount
+                /// FillsLog PDA
 
     
               
-          pub taker_user_account: solana_address::Address,
-                /// Taker Position
-
-    
-              
-          pub taker_position: solana_address::Address,
-                /// Market config
-
-    
-              
-          pub market_config: solana_address::Address,
-                /// Funding state
-
-    
-              
-          pub funding_state: solana_address::Address,
-                /// Orderbook program
-
-    
-              
-          pub orderbook_program: solana_address::Address,
-                /// Risk program
-
-    
-              
-          pub risk_program: solana_address::Address,
+          pub fills_logs: solana_address::Address,
                 /// System program
 
     
@@ -82,7 +57,7 @@ impl PlaceTakeOrder {
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
   pub fn instruction_with_remaining_accounts(&self, args: PlaceTakeOrderInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
-    let mut accounts = Vec::with_capacity(12+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(7+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.signer,
             true
@@ -104,27 +79,7 @@ impl PlaceTakeOrder {
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            self.taker_user_account,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            self.taker_position,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
-            self.market_config,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            self.funding_state,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
-            self.orderbook_program,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
-            self.risk_program,
+            self.fills_logs,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -147,13 +102,13 @@ impl PlaceTakeOrder {
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
  pub struct PlaceTakeOrderInstructionData {
             discriminator: u8,
-                                                                  }
+                                                            }
 
 impl PlaceTakeOrderInstructionData {
   pub fn new() -> Self {
     Self {
-                        discriminator: 3,
-                                                                                                                                                              }
+                        discriminator: 4,
+                                                                                                                                                }
   }
 
     pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
@@ -176,9 +131,8 @@ impl Default for PlaceTakeOrderInstructionData {
                 pub side: u8,
                 pub order_type: u8,
                 pub limit: u8,
-                pub bump_position: u8,
-                pub bump_user: u8,
-                pub padding: [u8; 3],
+                pub bump_fills_log: u8,
+                pub padding: [u8; 4],
       }
 
 impl PlaceTakeOrderInstructionArgs {
@@ -197,13 +151,8 @@ impl PlaceTakeOrderInstructionArgs {
                 ///   2. `[writable]` market
                 ///   3. `[writable]` bids
                 ///   4. `[writable]` asks
-                ///   5. `[writable]` taker_user_account
-                ///   6. `[writable]` taker_position
-          ///   7. `[]` market_config
-                ///   8. `[writable]` funding_state
-          ///   9. `[]` orderbook_program
-          ///   10. `[]` risk_program
-                ///   11. `[optional]` system_program (default to `11111111111111111111111111111111`)
+                ///   5. `[writable]` fills_logs
+                ///   6. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct PlaceTakeOrderBuilder {
             signer: Option<solana_address::Address>,
@@ -211,12 +160,7 @@ pub struct PlaceTakeOrderBuilder {
                 market: Option<solana_address::Address>,
                 bids: Option<solana_address::Address>,
                 asks: Option<solana_address::Address>,
-                taker_user_account: Option<solana_address::Address>,
-                taker_position: Option<solana_address::Address>,
-                market_config: Option<solana_address::Address>,
-                funding_state: Option<solana_address::Address>,
-                orderbook_program: Option<solana_address::Address>,
-                risk_program: Option<solana_address::Address>,
+                fills_logs: Option<solana_address::Address>,
                 system_program: Option<solana_address::Address>,
                         max_base_lots: Option<i64>,
                 max_quote_lots: Option<i64>,
@@ -225,9 +169,8 @@ pub struct PlaceTakeOrderBuilder {
                 side: Option<u8>,
                 order_type: Option<u8>,
                 limit: Option<u8>,
-                bump_position: Option<u8>,
-                bump_user: Option<u8>,
-                padding: Option<[u8; 3]>,
+                bump_fills_log: Option<u8>,
+                padding: Option<[u8; 4]>,
         __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
@@ -265,40 +208,10 @@ impl PlaceTakeOrderBuilder {
                         self.asks = Some(asks);
                     self
     }
-            /// Taker UserAccount
+            /// FillsLog PDA
 #[inline(always)]
-    pub fn taker_user_account(&mut self, taker_user_account: solana_address::Address) -> &mut Self {
-                        self.taker_user_account = Some(taker_user_account);
-                    self
-    }
-            /// Taker Position
-#[inline(always)]
-    pub fn taker_position(&mut self, taker_position: solana_address::Address) -> &mut Self {
-                        self.taker_position = Some(taker_position);
-                    self
-    }
-            /// Market config
-#[inline(always)]
-    pub fn market_config(&mut self, market_config: solana_address::Address) -> &mut Self {
-                        self.market_config = Some(market_config);
-                    self
-    }
-            /// Funding state
-#[inline(always)]
-    pub fn funding_state(&mut self, funding_state: solana_address::Address) -> &mut Self {
-                        self.funding_state = Some(funding_state);
-                    self
-    }
-            /// Orderbook program
-#[inline(always)]
-    pub fn orderbook_program(&mut self, orderbook_program: solana_address::Address) -> &mut Self {
-                        self.orderbook_program = Some(orderbook_program);
-                    self
-    }
-            /// Risk program
-#[inline(always)]
-    pub fn risk_program(&mut self, risk_program: solana_address::Address) -> &mut Self {
-                        self.risk_program = Some(risk_program);
+    pub fn fills_logs(&mut self, fills_logs: solana_address::Address) -> &mut Self {
+                        self.fills_logs = Some(fills_logs);
                     self
     }
             /// `[optional account, default to '11111111111111111111111111111111']`
@@ -344,17 +257,12 @@ impl PlaceTakeOrderBuilder {
         self
       }
                 #[inline(always)]
-      pub fn bump_position(&mut self, bump_position: u8) -> &mut Self {
-        self.bump_position = Some(bump_position);
+      pub fn bump_fills_log(&mut self, bump_fills_log: u8) -> &mut Self {
+        self.bump_fills_log = Some(bump_fills_log);
         self
       }
                 #[inline(always)]
-      pub fn bump_user(&mut self, bump_user: u8) -> &mut Self {
-        self.bump_user = Some(bump_user);
-        self
-      }
-                #[inline(always)]
-      pub fn padding(&mut self, padding: [u8; 3]) -> &mut Self {
+      pub fn padding(&mut self, padding: [u8; 4]) -> &mut Self {
         self.padding = Some(padding);
         self
       }
@@ -378,12 +286,7 @@ impl PlaceTakeOrderBuilder {
                                         market: self.market.expect("market is not set"),
                                         bids: self.bids.expect("bids is not set"),
                                         asks: self.asks.expect("asks is not set"),
-                                        taker_user_account: self.taker_user_account.expect("taker_user_account is not set"),
-                                        taker_position: self.taker_position.expect("taker_position is not set"),
-                                        market_config: self.market_config.expect("market_config is not set"),
-                                        funding_state: self.funding_state.expect("funding_state is not set"),
-                                        orderbook_program: self.orderbook_program.expect("orderbook_program is not set"),
-                                        risk_program: self.risk_program.expect("risk_program is not set"),
+                                        fills_logs: self.fills_logs.expect("fills_logs is not set"),
                                         system_program: self.system_program.unwrap_or(solana_address::address!("11111111111111111111111111111111")),
                       };
           let args = PlaceTakeOrderInstructionArgs {
@@ -394,8 +297,7 @@ impl PlaceTakeOrderBuilder {
                                                                   side: self.side.clone().expect("side is not set"),
                                                                   order_type: self.order_type.clone().expect("order_type is not set"),
                                                                   limit: self.limit.clone().expect("limit is not set"),
-                                                                  bump_position: self.bump_position.clone().expect("bump_position is not set"),
-                                                                  bump_user: self.bump_user.clone().expect("bump_user is not set"),
+                                                                  bump_fills_log: self.bump_fills_log.clone().expect("bump_fills_log is not set"),
                                                                   padding: self.padding.clone().expect("padding is not set"),
                                     };
     
@@ -430,36 +332,11 @@ impl PlaceTakeOrderBuilder {
       
                     
               pub asks: &'b solana_account_info::AccountInfo<'a>,
-                        /// Taker UserAccount
+                        /// FillsLog PDA
 
       
                     
-              pub taker_user_account: &'b solana_account_info::AccountInfo<'a>,
-                        /// Taker Position
-
-      
-                    
-              pub taker_position: &'b solana_account_info::AccountInfo<'a>,
-                        /// Market config
-
-      
-                    
-              pub market_config: &'b solana_account_info::AccountInfo<'a>,
-                        /// Funding state
-
-      
-                    
-              pub funding_state: &'b solana_account_info::AccountInfo<'a>,
-                        /// Orderbook program
-
-      
-                    
-              pub orderbook_program: &'b solana_account_info::AccountInfo<'a>,
-                        /// Risk program
-
-      
-                    
-              pub risk_program: &'b solana_account_info::AccountInfo<'a>,
+              pub fills_logs: &'b solana_account_info::AccountInfo<'a>,
                         /// System program
 
       
@@ -496,36 +373,11 @@ pub struct PlaceTakeOrderCpi<'a, 'b> {
     
               
           pub asks: &'b solana_account_info::AccountInfo<'a>,
-                /// Taker UserAccount
+                /// FillsLog PDA
 
     
               
-          pub taker_user_account: &'b solana_account_info::AccountInfo<'a>,
-                /// Taker Position
-
-    
-              
-          pub taker_position: &'b solana_account_info::AccountInfo<'a>,
-                /// Market config
-
-    
-              
-          pub market_config: &'b solana_account_info::AccountInfo<'a>,
-                /// Funding state
-
-    
-              
-          pub funding_state: &'b solana_account_info::AccountInfo<'a>,
-                /// Orderbook program
-
-    
-              
-          pub orderbook_program: &'b solana_account_info::AccountInfo<'a>,
-                /// Risk program
-
-    
-              
-          pub risk_program: &'b solana_account_info::AccountInfo<'a>,
+          pub fills_logs: &'b solana_account_info::AccountInfo<'a>,
                 /// System program
 
     
@@ -548,12 +400,7 @@ impl<'a, 'b> PlaceTakeOrderCpi<'a, 'b> {
               market: accounts.market,
               bids: accounts.bids,
               asks: accounts.asks,
-              taker_user_account: accounts.taker_user_account,
-              taker_position: accounts.taker_position,
-              market_config: accounts.market_config,
-              funding_state: accounts.funding_state,
-              orderbook_program: accounts.orderbook_program,
-              risk_program: accounts.risk_program,
+              fills_logs: accounts.fills_logs,
               system_program: accounts.system_program,
                     __args: args,
           }
@@ -578,7 +425,7 @@ impl<'a, 'b> PlaceTakeOrderCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program_error::ProgramResult {
-    let mut accounts = Vec::with_capacity(12+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(7+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.signer.key,
             true
@@ -600,27 +447,7 @@ impl<'a, 'b> PlaceTakeOrderCpi<'a, 'b> {
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            *self.taker_user_account.key,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            *self.taker_position.key,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
-            *self.market_config.key,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            *self.funding_state.key,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
-            *self.orderbook_program.key,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
-            *self.risk_program.key,
+            *self.fills_logs.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -643,19 +470,14 @@ impl<'a, 'b> PlaceTakeOrderCpi<'a, 'b> {
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(13 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(8 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
                   account_infos.push(self.signer.clone());
                         account_infos.push(self.open_orders_account.clone());
                         account_infos.push(self.market.clone());
                         account_infos.push(self.bids.clone());
                         account_infos.push(self.asks.clone());
-                        account_infos.push(self.taker_user_account.clone());
-                        account_infos.push(self.taker_position.clone());
-                        account_infos.push(self.market_config.clone());
-                        account_infos.push(self.funding_state.clone());
-                        account_infos.push(self.orderbook_program.clone());
-                        account_infos.push(self.risk_program.clone());
+                        account_infos.push(self.fills_logs.clone());
                         account_infos.push(self.system_program.clone());
               remaining_accounts.iter().for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
 
@@ -676,13 +498,8 @@ impl<'a, 'b> PlaceTakeOrderCpi<'a, 'b> {
                 ///   2. `[writable]` market
                 ///   3. `[writable]` bids
                 ///   4. `[writable]` asks
-                ///   5. `[writable]` taker_user_account
-                ///   6. `[writable]` taker_position
-          ///   7. `[]` market_config
-                ///   8. `[writable]` funding_state
-          ///   9. `[]` orderbook_program
-          ///   10. `[]` risk_program
-          ///   11. `[]` system_program
+                ///   5. `[writable]` fills_logs
+          ///   6. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct PlaceTakeOrderCpiBuilder<'a, 'b> {
   instruction: Box<PlaceTakeOrderCpiBuilderInstruction<'a, 'b>>,
@@ -697,12 +514,7 @@ impl<'a, 'b> PlaceTakeOrderCpiBuilder<'a, 'b> {
               market: None,
               bids: None,
               asks: None,
-              taker_user_account: None,
-              taker_position: None,
-              market_config: None,
-              funding_state: None,
-              orderbook_program: None,
-              risk_program: None,
+              fills_logs: None,
               system_program: None,
                                             max_base_lots: None,
                                 max_quote_lots: None,
@@ -711,8 +523,7 @@ impl<'a, 'b> PlaceTakeOrderCpiBuilder<'a, 'b> {
                                 side: None,
                                 order_type: None,
                                 limit: None,
-                                bump_position: None,
-                                bump_user: None,
+                                bump_fills_log: None,
                                 padding: None,
                     __remaining_accounts: Vec::new(),
     });
@@ -748,40 +559,10 @@ impl<'a, 'b> PlaceTakeOrderCpiBuilder<'a, 'b> {
                         self.instruction.asks = Some(asks);
                     self
     }
-      /// Taker UserAccount
+      /// FillsLog PDA
 #[inline(always)]
-    pub fn taker_user_account(&mut self, taker_user_account: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.taker_user_account = Some(taker_user_account);
-                    self
-    }
-      /// Taker Position
-#[inline(always)]
-    pub fn taker_position(&mut self, taker_position: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.taker_position = Some(taker_position);
-                    self
-    }
-      /// Market config
-#[inline(always)]
-    pub fn market_config(&mut self, market_config: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.market_config = Some(market_config);
-                    self
-    }
-      /// Funding state
-#[inline(always)]
-    pub fn funding_state(&mut self, funding_state: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.funding_state = Some(funding_state);
-                    self
-    }
-      /// Orderbook program
-#[inline(always)]
-    pub fn orderbook_program(&mut self, orderbook_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.orderbook_program = Some(orderbook_program);
-                    self
-    }
-      /// Risk program
-#[inline(always)]
-    pub fn risk_program(&mut self, risk_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.risk_program = Some(risk_program);
+    pub fn fills_logs(&mut self, fills_logs: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.fills_logs = Some(fills_logs);
                     self
     }
       /// System program
@@ -826,17 +607,12 @@ impl<'a, 'b> PlaceTakeOrderCpiBuilder<'a, 'b> {
         self
       }
                 #[inline(always)]
-      pub fn bump_position(&mut self, bump_position: u8) -> &mut Self {
-        self.instruction.bump_position = Some(bump_position);
+      pub fn bump_fills_log(&mut self, bump_fills_log: u8) -> &mut Self {
+        self.instruction.bump_fills_log = Some(bump_fills_log);
         self
       }
                 #[inline(always)]
-      pub fn bump_user(&mut self, bump_user: u8) -> &mut Self {
-        self.instruction.bump_user = Some(bump_user);
-        self
-      }
-                #[inline(always)]
-      pub fn padding(&mut self, padding: [u8; 3]) -> &mut Self {
+      pub fn padding(&mut self, padding: [u8; 4]) -> &mut Self {
         self.instruction.padding = Some(padding);
         self
       }
@@ -870,8 +646,7 @@ impl<'a, 'b> PlaceTakeOrderCpiBuilder<'a, 'b> {
                                                                   side: self.instruction.side.clone().expect("side is not set"),
                                                                   order_type: self.instruction.order_type.clone().expect("order_type is not set"),
                                                                   limit: self.instruction.limit.clone().expect("limit is not set"),
-                                                                  bump_position: self.instruction.bump_position.clone().expect("bump_position is not set"),
-                                                                  bump_user: self.instruction.bump_user.clone().expect("bump_user is not set"),
+                                                                  bump_fills_log: self.instruction.bump_fills_log.clone().expect("bump_fills_log is not set"),
                                                                   padding: self.instruction.padding.clone().expect("padding is not set"),
                                     };
         let instruction = PlaceTakeOrderCpi {
@@ -887,17 +662,7 @@ impl<'a, 'b> PlaceTakeOrderCpiBuilder<'a, 'b> {
                   
           asks: self.instruction.asks.expect("asks is not set"),
                   
-          taker_user_account: self.instruction.taker_user_account.expect("taker_user_account is not set"),
-                  
-          taker_position: self.instruction.taker_position.expect("taker_position is not set"),
-                  
-          market_config: self.instruction.market_config.expect("market_config is not set"),
-                  
-          funding_state: self.instruction.funding_state.expect("funding_state is not set"),
-                  
-          orderbook_program: self.instruction.orderbook_program.expect("orderbook_program is not set"),
-                  
-          risk_program: self.instruction.risk_program.expect("risk_program is not set"),
+          fills_logs: self.instruction.fills_logs.expect("fills_logs is not set"),
                   
           system_program: self.instruction.system_program.expect("system_program is not set"),
                           __args: args,
@@ -914,12 +679,7 @@ struct PlaceTakeOrderCpiBuilderInstruction<'a, 'b> {
                 market: Option<&'b solana_account_info::AccountInfo<'a>>,
                 bids: Option<&'b solana_account_info::AccountInfo<'a>>,
                 asks: Option<&'b solana_account_info::AccountInfo<'a>>,
-                taker_user_account: Option<&'b solana_account_info::AccountInfo<'a>>,
-                taker_position: Option<&'b solana_account_info::AccountInfo<'a>>,
-                market_config: Option<&'b solana_account_info::AccountInfo<'a>>,
-                funding_state: Option<&'b solana_account_info::AccountInfo<'a>>,
-                orderbook_program: Option<&'b solana_account_info::AccountInfo<'a>>,
-                risk_program: Option<&'b solana_account_info::AccountInfo<'a>>,
+                fills_logs: Option<&'b solana_account_info::AccountInfo<'a>>,
                 system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                         max_base_lots: Option<i64>,
                 max_quote_lots: Option<i64>,
@@ -928,9 +688,8 @@ struct PlaceTakeOrderCpiBuilderInstruction<'a, 'b> {
                 side: Option<u8>,
                 order_type: Option<u8>,
                 limit: Option<u8>,
-                bump_position: Option<u8>,
-                bump_user: Option<u8>,
-                padding: Option<[u8; 3]>,
+                bump_fills_log: Option<u8>,
+                padding: Option<[u8; 4]>,
         /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
   __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }

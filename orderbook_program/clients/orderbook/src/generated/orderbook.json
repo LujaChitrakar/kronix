@@ -109,6 +109,55 @@
       }
     },
     {
+      "name": "InitializeFillsLog",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Taker"
+          ]
+        },
+        {
+          "name": "fillsLog",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "FillsLog PDA"
+          ]
+        },
+        {
+          "name": "market",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Market state"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "System program"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "initializeFillsLogParams",
+          "type": {
+            "defined": "InitializeFillsLogParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 2
+      }
+    },
+    {
       "name": "PlaceOrder",
       "accounts": [
         {
@@ -152,51 +201,11 @@
           ]
         },
         {
-          "name": "takerUserAccount",
+          "name": "fillsLogs",
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "Taker UserAccount"
-          ]
-        },
-        {
-          "name": "takerPosition",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Taker Position"
-          ]
-        },
-        {
-          "name": "marketConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Market config"
-          ]
-        },
-        {
-          "name": "fundingState",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Funding state"
-          ]
-        },
-        {
-          "name": "orderbookProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Orderbook program"
-          ]
-        },
-        {
-          "name": "riskProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Risk program"
+            "FillsLog PDA"
           ]
         },
         {
@@ -218,7 +227,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 2
+        "value": 3
       }
     },
     {
@@ -265,51 +274,11 @@
           ]
         },
         {
-          "name": "takerUserAccount",
+          "name": "fillsLogs",
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "Taker UserAccount"
-          ]
-        },
-        {
-          "name": "takerPosition",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Taker Position"
-          ]
-        },
-        {
-          "name": "marketConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Market config"
-          ]
-        },
-        {
-          "name": "fundingState",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Funding state"
-          ]
-        },
-        {
-          "name": "orderbookProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Orderbook program"
-          ]
-        },
-        {
-          "name": "riskProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Risk program"
+            "FillsLog PDA"
           ]
         },
         {
@@ -331,7 +300,153 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 3
+        "value": 4
+      }
+    },
+    {
+      "name": "SettleFills",
+      "accounts": [
+        {
+          "name": "caller",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "Anyone"
+          ]
+        },
+        {
+          "name": "fillsLog",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "FillsLog PDA"
+          ]
+        },
+        {
+          "name": "market",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Market state"
+          ]
+        },
+        {
+          "name": "marketConfig",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Risk MarketConfig"
+          ]
+        },
+        {
+          "name": "fundingState",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "FundingState"
+          ]
+        },
+        {
+          "name": "riskProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Risk program"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "System program"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "settleFillsParams",
+          "type": {
+            "defined": "SettleFillsParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 5
+      }
+    },
+    {
+      "name": "EditOrder",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Order owner"
+          ]
+        },
+        {
+          "name": "openOrdersAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "OO account"
+          ]
+        },
+        {
+          "name": "market",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Market state"
+          ]
+        },
+        {
+          "name": "bids",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Bids BookSide"
+          ]
+        },
+        {
+          "name": "asks",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Asks BookSide"
+          ]
+        },
+        {
+          "name": "fillsLogs",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "FillsLog PDA"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "System program"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "editOrderParams",
+          "type": {
+            "defined": "EditOrderParams"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 6
       }
     },
     {
@@ -388,7 +503,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 4
+        "value": 7
       }
     },
     {
@@ -445,7 +560,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 5
+        "value": 8
       }
     },
     {
@@ -502,217 +617,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 6
-      }
-    },
-    {
-      "name": "EditOrder",
-      "accounts": [
-        {
-          "name": "signer",
-          "isMut": true,
-          "isSigner": true,
-          "docs": [
-            "Order owner"
-          ]
-        },
-        {
-          "name": "openOrdersAccount",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "OO account"
-          ]
-        },
-        {
-          "name": "market",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Market state"
-          ]
-        },
-        {
-          "name": "bids",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Bids BookSide"
-          ]
-        },
-        {
-          "name": "asks",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Asks BookSide"
-          ]
-        },
-        {
-          "name": "takerUserAccount",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Taker UserAccount"
-          ]
-        },
-        {
-          "name": "takerPosition",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Taker Position"
-          ]
-        },
-        {
-          "name": "marketConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Market config"
-          ]
-        },
-        {
-          "name": "fundingState",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Funding state"
-          ]
-        },
-        {
-          "name": "orderbookProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Orderbook program"
-          ]
-        },
-        {
-          "name": "riskProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Risk program"
-          ]
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "System program"
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "editOrderParams",
-          "type": {
-            "defined": "EditOrderParams"
-          }
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 7
-      }
-    },
-    {
-      "name": "ClaimFill",
-      "accounts": [
-        {
-          "name": "signer",
-          "isMut": false,
-          "isSigner": true,
-          "docs": [
-            "Maker"
-          ]
-        },
-        {
-          "name": "openOrdersAccount",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Maker OO account"
-          ]
-        },
-        {
-          "name": "market",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Market state"
-          ]
-        },
-        {
-          "name": "makerUserAccount",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Maker UserAccount"
-          ]
-        },
-        {
-          "name": "makerPosition",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Maker Position"
-          ]
-        },
-        {
-          "name": "marketConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Market config"
-          ]
-        },
-        {
-          "name": "fundingState",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Funding state"
-          ]
-        },
-        {
-          "name": "orderbookProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Orderbook program"
-          ]
-        },
-        {
-          "name": "riskProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Risk program"
-          ]
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "System program"
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "claimFillParams",
-          "type": {
-            "defined": "ClaimFillParams"
-          }
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 8
+        "value": 9
       }
     },
     {
@@ -761,7 +666,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 9
+        "value": 10
       }
     },
     {
@@ -794,11 +699,86 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 10
+        "value": 11
       }
     }
   ],
   "accounts": [
+    {
+      "name": "FillsLog",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "clientOrderId",
+            "type": "u64"
+          },
+          {
+            "name": "createdSlot",
+            "type": "u64"
+          },
+          {
+            "name": "fillCount",
+            "type": "u8"
+          },
+          {
+            "name": "allSettled",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                5
+              ]
+            }
+          },
+          {
+            "name": "fills",
+            "type": {
+              "array": [
+                {
+                  "defined": "FillEntry"
+                },
+                8
+              ]
+            }
+          },
+          {
+            "name": "market",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "taker",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
     {
       "name": "MarketState",
       "type": {
@@ -1198,11 +1178,7 @@
             "type": "u8"
           },
           {
-            "name": "bumpPosition",
-            "type": "u8"
-          },
-          {
-            "name": "bumpUser",
+            "name": "bumpFillsLog",
             "type": "u8"
           },
           {
@@ -1210,7 +1186,7 @@
             "type": {
               "array": [
                 "u8",
-                3
+                4
               ]
             }
           },
@@ -1222,6 +1198,31 @@
                 16
               ]
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitializeFillsLogParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                7
+              ]
+            }
+          },
+          {
+            "name": "clientOrderId",
+            "type": "u64"
           }
         ]
       }
@@ -1264,11 +1265,7 @@
             "type": "u8"
           },
           {
-            "name": "bumpPosition",
-            "type": "u8"
-          },
-          {
-            "name": "bumpUser",
+            "name": "bumpFillsLog",
             "type": "u8"
           },
           {
@@ -1276,7 +1273,7 @@
             "type": {
               "array": [
                 "u8",
-                3
+                4
               ]
             }
           }
@@ -1317,11 +1314,7 @@
             "type": "u8"
           },
           {
-            "name": "bumpPosition",
-            "type": "u8"
-          },
-          {
-            "name": "bumpUser",
+            "name": "bumpFillsLog",
             "type": "u8"
           },
           {
@@ -1329,7 +1322,7 @@
             "type": {
               "array": [
                 "u8",
-                3
+                4
               ]
             }
           }
@@ -1379,6 +1372,43 @@
       }
     },
     {
+      "name": "FillSettleParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "takerBumpUser",
+            "type": "u8"
+          },
+          {
+            "name": "takerBumpPosition",
+            "type": "u8"
+          },
+          {
+            "name": "makerBumpUser",
+            "type": "u8"
+          },
+          {
+            "name": "makerBumpPosition",
+            "type": "u8"
+          },
+          {
+            "name": "makerBumpOo",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                3
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "OpenOrder",
       "type": {
         "kind": "struct",
@@ -1401,23 +1431,11 @@
             "type": "i64"
           },
           {
-            "name": "filledQty",
-            "type": "i64"
-          },
-          {
-            "name": "fillPrice",
-            "type": "i64"
-          },
-          {
             "name": "isFree",
             "type": "u8"
           },
           {
             "name": "side",
-            "type": "u8"
-          },
-          {
-            "name": "isFilled",
             "type": "u8"
           },
           {
@@ -1429,7 +1447,7 @@
             "type": {
               "array": [
                 "u8",
-                4
+                5
               ]
             }
           }

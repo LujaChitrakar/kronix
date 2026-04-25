@@ -8,7 +8,7 @@
 use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
-pub const PRUNE_ORDERS_DISCRIMINATOR: u8 = 9;
+pub const PRUNE_ORDERS_DISCRIMINATOR: u8 = 10;
 
 /// Accounts.
 #[derive(Debug)]
@@ -80,7 +80,7 @@ impl PruneOrders {
 impl PruneOrdersInstructionData {
   pub fn new() -> Self {
     Self {
-                        discriminator: 9,
+                        discriminator: 10,
                                                             }
   }
 

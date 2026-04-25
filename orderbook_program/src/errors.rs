@@ -30,6 +30,9 @@ pub enum OrderBookError {
     InvalidOrderSlot = 26,
     NoFillToClaim = 27,
     InvalidInputLots = 28,
+    PreviousFillsNotSettled = 29,
+    InvalidMarket = 30,
+    InvalidMakerAccount = 31,
 }
 
 impl From<OrderBookError> for ProgramError {

@@ -5,54 +5,40 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
+use crate::generated::types::SettleFillsParams;
 use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
-pub const CLAIM_FILL_DISCRIMINATOR: u8 = 8;
+pub const SETTLE_FILLS_DISCRIMINATOR: u8 = 5;
 
 /// Accounts.
 #[derive(Debug)]
-pub struct ClaimFill {
-            /// Maker
+pub struct SettleFills {
+            /// Anyone
 
     
               
-          pub signer: solana_address::Address,
-                /// Maker OO account
+          pub caller: solana_address::Address,
+                /// FillsLog PDA
 
     
               
-          pub open_orders_account: solana_address::Address,
+          pub fills_log: solana_address::Address,
                 /// Market state
 
     
               
           pub market: solana_address::Address,
-                /// Maker UserAccount
-
-    
-              
-          pub maker_user_account: solana_address::Address,
-                /// Maker Position
-
-    
-              
-          pub maker_position: solana_address::Address,
-                /// Market config
+                /// Risk MarketConfig
 
     
               
           pub market_config: solana_address::Address,
-                /// Funding state
+                /// FundingState
 
     
               
           pub funding_state: solana_address::Address,
-                /// Orderbook program
-
-    
-              
-          pub orderbook_program: solana_address::Address,
                 /// Risk program
 
     
@@ -65,32 +51,24 @@ pub struct ClaimFill {
           pub system_program: solana_address::Address,
       }
 
-impl ClaimFill {
-  pub fn instruction(&self, args: ClaimFillInstructionArgs) -> solana_instruction::Instruction {
+impl SettleFills {
+  pub fn instruction(&self, args: SettleFillsInstructionArgs) -> solana_instruction::Instruction {
     self.instruction_with_remaining_accounts(args, &[])
   }
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
-  pub fn instruction_with_remaining_accounts(&self, args: ClaimFillInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
-    let mut accounts = Vec::with_capacity(10+ remaining_accounts.len());
+  pub fn instruction_with_remaining_accounts(&self, args: SettleFillsInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
+    let mut accounts = Vec::with_capacity(7+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new_readonly(
-            self.signer,
+            self.caller,
             true
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            self.open_orders_account,
+            self.fills_log,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.market,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            self.maker_user_account,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            self.maker_position,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -102,10 +80,6 @@ impl ClaimFill {
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
-            self.orderbook_program,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.risk_program,
             false
           ));
@@ -114,7 +88,7 @@ impl ClaimFill {
             false
           ));
                       accounts.extend_from_slice(remaining_accounts);
-    let mut data = ClaimFillInstructionData::new().try_to_vec().unwrap();
+    let mut data = SettleFillsInstructionData::new().try_to_vec().unwrap();
           let mut args = args.try_to_vec().unwrap();
       data.append(&mut args);
     
@@ -127,15 +101,15 @@ impl ClaimFill {
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
- pub struct ClaimFillInstructionData {
+ pub struct SettleFillsInstructionData {
             discriminator: u8,
-                              }
+            }
 
-impl ClaimFillInstructionData {
+impl SettleFillsInstructionData {
   pub fn new() -> Self {
     Self {
-                        discriminator: 8,
-                                                                          }
+                        discriminator: 5,
+                                }
   }
 
     pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
@@ -143,74 +117,62 @@ impl ClaimFillInstructionData {
   }
   }
 
-impl Default for ClaimFillInstructionData {
+impl Default for SettleFillsInstructionData {
   fn default() -> Self {
     Self::new()
   }
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
- pub struct ClaimFillInstructionArgs {
-                  pub order_slot: u8,
-                pub bump_position: u8,
-                pub bump_user: u8,
-                pub padding: [u8; 5],
+ pub struct SettleFillsInstructionArgs {
+                  pub settle_fills_params: SettleFillsParams,
       }
 
-impl ClaimFillInstructionArgs {
+impl SettleFillsInstructionArgs {
   pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
     borsh::to_vec(self)
   }
 }
 
 
-/// Instruction builder for `ClaimFill`.
+/// Instruction builder for `SettleFills`.
 ///
 /// ### Accounts:
 ///
-                ///   0. `[signer]` signer
-                ///   1. `[writable]` open_orders_account
+                ///   0. `[signer]` caller
+                ///   1. `[writable]` fills_log
           ///   2. `[]` market
-                ///   3. `[writable]` maker_user_account
-                ///   4. `[writable]` maker_position
-          ///   5. `[]` market_config
-                ///   6. `[writable]` funding_state
-          ///   7. `[]` orderbook_program
-          ///   8. `[]` risk_program
-                ///   9. `[optional]` system_program (default to `11111111111111111111111111111111`)
+          ///   3. `[]` market_config
+                ///   4. `[writable]` funding_state
+          ///   5. `[]` risk_program
+                ///   6. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
-pub struct ClaimFillBuilder {
-            signer: Option<solana_address::Address>,
-                open_orders_account: Option<solana_address::Address>,
+pub struct SettleFillsBuilder {
+            caller: Option<solana_address::Address>,
+                fills_log: Option<solana_address::Address>,
                 market: Option<solana_address::Address>,
-                maker_user_account: Option<solana_address::Address>,
-                maker_position: Option<solana_address::Address>,
                 market_config: Option<solana_address::Address>,
                 funding_state: Option<solana_address::Address>,
-                orderbook_program: Option<solana_address::Address>,
                 risk_program: Option<solana_address::Address>,
                 system_program: Option<solana_address::Address>,
-                        order_slot: Option<u8>,
-                bump_position: Option<u8>,
-                bump_user: Option<u8>,
-                padding: Option<[u8; 5]>,
+                        settle_fills_params: Option<SettleFillsParams>,
         __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
-impl ClaimFillBuilder {
+impl SettleFillsBuilder {
   pub fn new() -> Self {
     Self::default()
   }
-            /// Maker
+            /// Anyone
 #[inline(always)]
-    pub fn signer(&mut self, signer: solana_address::Address) -> &mut Self {
-                        self.signer = Some(signer);
+    pub fn caller(&mut self, caller: solana_address::Address) -> &mut Self {
+                        self.caller = Some(caller);
                     self
     }
-            /// Maker OO account
+            /// FillsLog PDA
 #[inline(always)]
-    pub fn open_orders_account(&mut self, open_orders_account: solana_address::Address) -> &mut Self {
-                        self.open_orders_account = Some(open_orders_account);
+    pub fn fills_log(&mut self, fills_log: solana_address::Address) -> &mut Self {
+                        self.fills_log = Some(fills_log);
                     self
     }
             /// Market state
@@ -219,34 +181,16 @@ impl ClaimFillBuilder {
                         self.market = Some(market);
                     self
     }
-            /// Maker UserAccount
-#[inline(always)]
-    pub fn maker_user_account(&mut self, maker_user_account: solana_address::Address) -> &mut Self {
-                        self.maker_user_account = Some(maker_user_account);
-                    self
-    }
-            /// Maker Position
-#[inline(always)]
-    pub fn maker_position(&mut self, maker_position: solana_address::Address) -> &mut Self {
-                        self.maker_position = Some(maker_position);
-                    self
-    }
-            /// Market config
+            /// Risk MarketConfig
 #[inline(always)]
     pub fn market_config(&mut self, market_config: solana_address::Address) -> &mut Self {
                         self.market_config = Some(market_config);
                     self
     }
-            /// Funding state
+            /// FundingState
 #[inline(always)]
     pub fn funding_state(&mut self, funding_state: solana_address::Address) -> &mut Self {
                         self.funding_state = Some(funding_state);
-                    self
-    }
-            /// Orderbook program
-#[inline(always)]
-    pub fn orderbook_program(&mut self, orderbook_program: solana_address::Address) -> &mut Self {
-                        self.orderbook_program = Some(orderbook_program);
                     self
     }
             /// Risk program
@@ -263,23 +207,8 @@ impl ClaimFillBuilder {
                     self
     }
                     #[inline(always)]
-      pub fn order_slot(&mut self, order_slot: u8) -> &mut Self {
-        self.order_slot = Some(order_slot);
-        self
-      }
-                #[inline(always)]
-      pub fn bump_position(&mut self, bump_position: u8) -> &mut Self {
-        self.bump_position = Some(bump_position);
-        self
-      }
-                #[inline(always)]
-      pub fn bump_user(&mut self, bump_user: u8) -> &mut Self {
-        self.bump_user = Some(bump_user);
-        self
-      }
-                #[inline(always)]
-      pub fn padding(&mut self, padding: [u8; 5]) -> &mut Self {
-        self.padding = Some(padding);
+      pub fn settle_fills_params(&mut self, settle_fills_params: SettleFillsParams) -> &mut Self {
+        self.settle_fills_params = Some(settle_fills_params);
         self
       }
         /// Add an additional account to the instruction.
@@ -296,71 +225,50 @@ impl ClaimFillBuilder {
   }
   #[allow(clippy::clone_on_copy)]
   pub fn instruction(&self) -> solana_instruction::Instruction {
-    let accounts = ClaimFill {
-                              signer: self.signer.expect("signer is not set"),
-                                        open_orders_account: self.open_orders_account.expect("open_orders_account is not set"),
+    let accounts = SettleFills {
+                              caller: self.caller.expect("caller is not set"),
+                                        fills_log: self.fills_log.expect("fills_log is not set"),
                                         market: self.market.expect("market is not set"),
-                                        maker_user_account: self.maker_user_account.expect("maker_user_account is not set"),
-                                        maker_position: self.maker_position.expect("maker_position is not set"),
                                         market_config: self.market_config.expect("market_config is not set"),
                                         funding_state: self.funding_state.expect("funding_state is not set"),
-                                        orderbook_program: self.orderbook_program.expect("orderbook_program is not set"),
                                         risk_program: self.risk_program.expect("risk_program is not set"),
                                         system_program: self.system_program.unwrap_or(solana_address::address!("11111111111111111111111111111111")),
                       };
-          let args = ClaimFillInstructionArgs {
-                                                              order_slot: self.order_slot.clone().expect("order_slot is not set"),
-                                                                  bump_position: self.bump_position.clone().expect("bump_position is not set"),
-                                                                  bump_user: self.bump_user.clone().expect("bump_user is not set"),
-                                                                  padding: self.padding.clone().expect("padding is not set"),
+          let args = SettleFillsInstructionArgs {
+                                                              settle_fills_params: self.settle_fills_params.clone().expect("settle_fills_params is not set"),
                                     };
     
     accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
   }
 }
 
-  /// `claim_fill` CPI accounts.
-  pub struct ClaimFillCpiAccounts<'a, 'b> {
-                  /// Maker
+  /// `settle_fills` CPI accounts.
+  pub struct SettleFillsCpiAccounts<'a, 'b> {
+                  /// Anyone
 
       
                     
-              pub signer: &'b solana_account_info::AccountInfo<'a>,
-                        /// Maker OO account
+              pub caller: &'b solana_account_info::AccountInfo<'a>,
+                        /// FillsLog PDA
 
       
                     
-              pub open_orders_account: &'b solana_account_info::AccountInfo<'a>,
+              pub fills_log: &'b solana_account_info::AccountInfo<'a>,
                         /// Market state
 
       
                     
               pub market: &'b solana_account_info::AccountInfo<'a>,
-                        /// Maker UserAccount
-
-      
-                    
-              pub maker_user_account: &'b solana_account_info::AccountInfo<'a>,
-                        /// Maker Position
-
-      
-                    
-              pub maker_position: &'b solana_account_info::AccountInfo<'a>,
-                        /// Market config
+                        /// Risk MarketConfig
 
       
                     
               pub market_config: &'b solana_account_info::AccountInfo<'a>,
-                        /// Funding state
+                        /// FundingState
 
       
                     
               pub funding_state: &'b solana_account_info::AccountInfo<'a>,
-                        /// Orderbook program
-
-      
-                    
-              pub orderbook_program: &'b solana_account_info::AccountInfo<'a>,
                         /// Risk program
 
       
@@ -373,50 +281,35 @@ impl ClaimFillBuilder {
               pub system_program: &'b solana_account_info::AccountInfo<'a>,
             }
 
-/// `claim_fill` CPI instruction.
-pub struct ClaimFillCpi<'a, 'b> {
+/// `settle_fills` CPI instruction.
+pub struct SettleFillsCpi<'a, 'b> {
   /// The program to invoke.
   pub __program: &'b solana_account_info::AccountInfo<'a>,
-            /// Maker
+            /// Anyone
 
     
               
-          pub signer: &'b solana_account_info::AccountInfo<'a>,
-                /// Maker OO account
+          pub caller: &'b solana_account_info::AccountInfo<'a>,
+                /// FillsLog PDA
 
     
               
-          pub open_orders_account: &'b solana_account_info::AccountInfo<'a>,
+          pub fills_log: &'b solana_account_info::AccountInfo<'a>,
                 /// Market state
 
     
               
           pub market: &'b solana_account_info::AccountInfo<'a>,
-                /// Maker UserAccount
-
-    
-              
-          pub maker_user_account: &'b solana_account_info::AccountInfo<'a>,
-                /// Maker Position
-
-    
-              
-          pub maker_position: &'b solana_account_info::AccountInfo<'a>,
-                /// Market config
+                /// Risk MarketConfig
 
     
               
           pub market_config: &'b solana_account_info::AccountInfo<'a>,
-                /// Funding state
+                /// FundingState
 
     
               
           pub funding_state: &'b solana_account_info::AccountInfo<'a>,
-                /// Orderbook program
-
-    
-              
-          pub orderbook_program: &'b solana_account_info::AccountInfo<'a>,
                 /// Risk program
 
     
@@ -428,25 +321,22 @@ pub struct ClaimFillCpi<'a, 'b> {
               
           pub system_program: &'b solana_account_info::AccountInfo<'a>,
             /// The arguments for the instruction.
-    pub __args: ClaimFillInstructionArgs,
+    pub __args: SettleFillsInstructionArgs,
   }
 
-impl<'a, 'b> ClaimFillCpi<'a, 'b> {
+impl<'a, 'b> SettleFillsCpi<'a, 'b> {
   pub fn new(
     program: &'b solana_account_info::AccountInfo<'a>,
-          accounts: ClaimFillCpiAccounts<'a, 'b>,
-              args: ClaimFillInstructionArgs,
+          accounts: SettleFillsCpiAccounts<'a, 'b>,
+              args: SettleFillsInstructionArgs,
       ) -> Self {
     Self {
       __program: program,
-              signer: accounts.signer,
-              open_orders_account: accounts.open_orders_account,
+              caller: accounts.caller,
+              fills_log: accounts.fills_log,
               market: accounts.market,
-              maker_user_account: accounts.maker_user_account,
-              maker_position: accounts.maker_position,
               market_config: accounts.market_config,
               funding_state: accounts.funding_state,
-              orderbook_program: accounts.orderbook_program,
               risk_program: accounts.risk_program,
               system_program: accounts.system_program,
                     __args: args,
@@ -472,25 +362,17 @@ impl<'a, 'b> ClaimFillCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program_error::ProgramResult {
-    let mut accounts = Vec::with_capacity(10+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(7+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new_readonly(
-            *self.signer.key,
+            *self.caller.key,
             true
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            *self.open_orders_account.key,
+            *self.fills_log.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.market.key,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            *self.maker_user_account.key,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            *self.maker_position.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -499,10 +381,6 @@ impl<'a, 'b> ClaimFillCpi<'a, 'b> {
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
             *self.funding_state.key,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
-            *self.orderbook_program.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -520,7 +398,7 @@ impl<'a, 'b> ClaimFillCpi<'a, 'b> {
           is_writable: remaining_account.2,
       })
     });
-    let mut data = ClaimFillInstructionData::new().try_to_vec().unwrap();
+    let mut data = SettleFillsInstructionData::new().try_to_vec().unwrap();
           let mut args = self.__args.try_to_vec().unwrap();
       data.append(&mut args);
     
@@ -529,16 +407,13 @@ impl<'a, 'b> ClaimFillCpi<'a, 'b> {
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(11 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(8 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
-                  account_infos.push(self.signer.clone());
-                        account_infos.push(self.open_orders_account.clone());
+                  account_infos.push(self.caller.clone());
+                        account_infos.push(self.fills_log.clone());
                         account_infos.push(self.market.clone());
-                        account_infos.push(self.maker_user_account.clone());
-                        account_infos.push(self.maker_position.clone());
                         account_infos.push(self.market_config.clone());
                         account_infos.push(self.funding_state.clone());
-                        account_infos.push(self.orderbook_program.clone());
                         account_infos.push(self.risk_program.clone());
                         account_infos.push(self.system_program.clone());
               remaining_accounts.iter().for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
@@ -551,57 +426,48 @@ impl<'a, 'b> ClaimFillCpi<'a, 'b> {
   }
 }
 
-/// Instruction builder for `ClaimFill` via CPI.
+/// Instruction builder for `SettleFills` via CPI.
 ///
 /// ### Accounts:
 ///
-                ///   0. `[signer]` signer
-                ///   1. `[writable]` open_orders_account
+                ///   0. `[signer]` caller
+                ///   1. `[writable]` fills_log
           ///   2. `[]` market
-                ///   3. `[writable]` maker_user_account
-                ///   4. `[writable]` maker_position
-          ///   5. `[]` market_config
-                ///   6. `[writable]` funding_state
-          ///   7. `[]` orderbook_program
-          ///   8. `[]` risk_program
-          ///   9. `[]` system_program
+          ///   3. `[]` market_config
+                ///   4. `[writable]` funding_state
+          ///   5. `[]` risk_program
+          ///   6. `[]` system_program
 #[derive(Clone, Debug)]
-pub struct ClaimFillCpiBuilder<'a, 'b> {
-  instruction: Box<ClaimFillCpiBuilderInstruction<'a, 'b>>,
+pub struct SettleFillsCpiBuilder<'a, 'b> {
+  instruction: Box<SettleFillsCpiBuilderInstruction<'a, 'b>>,
 }
 
-impl<'a, 'b> ClaimFillCpiBuilder<'a, 'b> {
+impl<'a, 'b> SettleFillsCpiBuilder<'a, 'b> {
   pub fn new(program: &'b solana_account_info::AccountInfo<'a>) -> Self {
-    let instruction = Box::new(ClaimFillCpiBuilderInstruction {
+    let instruction = Box::new(SettleFillsCpiBuilderInstruction {
       __program: program,
-              signer: None,
-              open_orders_account: None,
+              caller: None,
+              fills_log: None,
               market: None,
-              maker_user_account: None,
-              maker_position: None,
               market_config: None,
               funding_state: None,
-              orderbook_program: None,
               risk_program: None,
               system_program: None,
-                                            order_slot: None,
-                                bump_position: None,
-                                bump_user: None,
-                                padding: None,
+                                            settle_fills_params: None,
                     __remaining_accounts: Vec::new(),
     });
     Self { instruction }
   }
-      /// Maker
+      /// Anyone
 #[inline(always)]
-    pub fn signer(&mut self, signer: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.signer = Some(signer);
+    pub fn caller(&mut self, caller: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.caller = Some(caller);
                     self
     }
-      /// Maker OO account
+      /// FillsLog PDA
 #[inline(always)]
-    pub fn open_orders_account(&mut self, open_orders_account: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.open_orders_account = Some(open_orders_account);
+    pub fn fills_log(&mut self, fills_log: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.fills_log = Some(fills_log);
                     self
     }
       /// Market state
@@ -610,34 +476,16 @@ impl<'a, 'b> ClaimFillCpiBuilder<'a, 'b> {
                         self.instruction.market = Some(market);
                     self
     }
-      /// Maker UserAccount
-#[inline(always)]
-    pub fn maker_user_account(&mut self, maker_user_account: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.maker_user_account = Some(maker_user_account);
-                    self
-    }
-      /// Maker Position
-#[inline(always)]
-    pub fn maker_position(&mut self, maker_position: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.maker_position = Some(maker_position);
-                    self
-    }
-      /// Market config
+      /// Risk MarketConfig
 #[inline(always)]
     pub fn market_config(&mut self, market_config: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
                         self.instruction.market_config = Some(market_config);
                     self
     }
-      /// Funding state
+      /// FundingState
 #[inline(always)]
     pub fn funding_state(&mut self, funding_state: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
                         self.instruction.funding_state = Some(funding_state);
-                    self
-    }
-      /// Orderbook program
-#[inline(always)]
-    pub fn orderbook_program(&mut self, orderbook_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.orderbook_program = Some(orderbook_program);
                     self
     }
       /// Risk program
@@ -653,23 +501,8 @@ impl<'a, 'b> ClaimFillCpiBuilder<'a, 'b> {
                     self
     }
                     #[inline(always)]
-      pub fn order_slot(&mut self, order_slot: u8) -> &mut Self {
-        self.instruction.order_slot = Some(order_slot);
-        self
-      }
-                #[inline(always)]
-      pub fn bump_position(&mut self, bump_position: u8) -> &mut Self {
-        self.instruction.bump_position = Some(bump_position);
-        self
-      }
-                #[inline(always)]
-      pub fn bump_user(&mut self, bump_user: u8) -> &mut Self {
-        self.instruction.bump_user = Some(bump_user);
-        self
-      }
-                #[inline(always)]
-      pub fn padding(&mut self, padding: [u8; 5]) -> &mut Self {
-        self.instruction.padding = Some(padding);
+      pub fn settle_fills_params(&mut self, settle_fills_params: SettleFillsParams) -> &mut Self {
+        self.instruction.settle_fills_params = Some(settle_fills_params);
         self
       }
         /// Add an additional account to the instruction.
@@ -694,30 +527,21 @@ impl<'a, 'b> ClaimFillCpiBuilder<'a, 'b> {
   #[allow(clippy::clone_on_copy)]
   #[allow(clippy::vec_init_then_push)]
   pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
-          let args = ClaimFillInstructionArgs {
-                                                              order_slot: self.instruction.order_slot.clone().expect("order_slot is not set"),
-                                                                  bump_position: self.instruction.bump_position.clone().expect("bump_position is not set"),
-                                                                  bump_user: self.instruction.bump_user.clone().expect("bump_user is not set"),
-                                                                  padding: self.instruction.padding.clone().expect("padding is not set"),
+          let args = SettleFillsInstructionArgs {
+                                                              settle_fills_params: self.instruction.settle_fills_params.clone().expect("settle_fills_params is not set"),
                                     };
-        let instruction = ClaimFillCpi {
+        let instruction = SettleFillsCpi {
         __program: self.instruction.__program,
                   
-          signer: self.instruction.signer.expect("signer is not set"),
+          caller: self.instruction.caller.expect("caller is not set"),
                   
-          open_orders_account: self.instruction.open_orders_account.expect("open_orders_account is not set"),
+          fills_log: self.instruction.fills_log.expect("fills_log is not set"),
                   
           market: self.instruction.market.expect("market is not set"),
-                  
-          maker_user_account: self.instruction.maker_user_account.expect("maker_user_account is not set"),
-                  
-          maker_position: self.instruction.maker_position.expect("maker_position is not set"),
                   
           market_config: self.instruction.market_config.expect("market_config is not set"),
                   
           funding_state: self.instruction.funding_state.expect("funding_state is not set"),
-                  
-          orderbook_program: self.instruction.orderbook_program.expect("orderbook_program is not set"),
                   
           risk_program: self.instruction.risk_program.expect("risk_program is not set"),
                   
@@ -729,22 +553,16 @@ impl<'a, 'b> ClaimFillCpiBuilder<'a, 'b> {
 }
 
 #[derive(Clone, Debug)]
-struct ClaimFillCpiBuilderInstruction<'a, 'b> {
+struct SettleFillsCpiBuilderInstruction<'a, 'b> {
   __program: &'b solana_account_info::AccountInfo<'a>,
-            signer: Option<&'b solana_account_info::AccountInfo<'a>>,
-                open_orders_account: Option<&'b solana_account_info::AccountInfo<'a>>,
+            caller: Option<&'b solana_account_info::AccountInfo<'a>>,
+                fills_log: Option<&'b solana_account_info::AccountInfo<'a>>,
                 market: Option<&'b solana_account_info::AccountInfo<'a>>,
-                maker_user_account: Option<&'b solana_account_info::AccountInfo<'a>>,
-                maker_position: Option<&'b solana_account_info::AccountInfo<'a>>,
                 market_config: Option<&'b solana_account_info::AccountInfo<'a>>,
                 funding_state: Option<&'b solana_account_info::AccountInfo<'a>>,
-                orderbook_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                 risk_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                 system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
-                        order_slot: Option<u8>,
-                bump_position: Option<u8>,
-                bump_user: Option<u8>,
-                padding: Option<[u8; 5]>,
+                        settle_fills_params: Option<SettleFillsParams>,
         /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
   __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }

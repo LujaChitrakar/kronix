@@ -22,10 +22,9 @@ use crate::{
 #[repr(C)]
 pub struct ExecuteTriggerParams {
     pub market_index: u16,
-    pub bump_position: u8,
-    pub bump_user: u8,
+    pub bump_fills_log: u8,
     pub bump_authority: u8,
-    pub padding: [u8; 3],
+    pub padding: [u8; 4],
 }
 
 pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
@@ -38,13 +37,9 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
             open_orders_account, // trigger owner's OO account
             bids,
             asks,
-            market_config,
-            funding_state,
-            user_account,
-            position,
+            fills_log,
             oracle,              // Pyth — for price validation
             orderbook_program,   // CPI target
-            risk_program,
             system_program,
             _remaining @ ..,
         ] = accounts else {
@@ -97,17 +92,13 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
 
     place_take_order_cpi(
         orderbook_program,
-        risk_program,
         system_program,
         trigger_authority,
         open_orders_account,
         market,
         bids,
         asks,
-        user_account,
-        position,
-        market_config,
-        funding_state,
+        fills_log,
         order.size_lots,
         i64::MAX,
         order.client_order_id,
@@ -115,8 +106,7 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
         order.side,
         3u8,
         8u8,
-        params.bump_position,
-        params.bump_user,
+        params.bump_fills_log,
         params.bump_authority,
         owner_key,
     )?;

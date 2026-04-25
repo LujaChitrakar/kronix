@@ -5,27 +5,29 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use crate::generated::types::OpenOrder;
+use crate::generated::types::FillEntry;
 use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
-pub struct OpenOrdersAccount {
-pub owner: [u8; 32],
-pub market: [u8; 32],
-pub delegate: [u8; 32],
+pub struct FillsLog {
+pub client_order_id: u64,
+pub created_slot: u64,
+pub fill_count: u8,
+pub all_settled: u8,
 pub bump: u8,
-pub padding: [u8; 7],
-pub open_orders: [OpenOrder; 24],
+pub padding: [u8; 5],
+pub fills: [FillEntry; 8],
+pub market: [u8; 32],
+pub taker: [u8; 32],
 pub reserved: [u8; 32],
 }
 
 
 
 
-impl OpenOrdersAccount {
-      pub const LEN: usize = 1096;
+impl FillsLog {
   
   
   
@@ -36,7 +38,7 @@ impl OpenOrdersAccount {
   }
 }
 
-impl<'a> TryFrom<&solana_account_info::AccountInfo<'a>> for OpenOrdersAccount {
+impl<'a> TryFrom<&solana_account_info::AccountInfo<'a>> for FillsLog {
   type Error = std::io::Error;
 
   fn try_from(account_info: &solana_account_info::AccountInfo<'a>) -> Result<Self, Self::Error> {
@@ -46,53 +48,53 @@ impl<'a> TryFrom<&solana_account_info::AccountInfo<'a>> for OpenOrdersAccount {
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_open_orders_account(
+pub fn fetch_fills_log(
   rpc: &solana_client::rpc_client::RpcClient,
   address: &solana_address::Address,
-) -> Result<crate::shared::DecodedAccount<OpenOrdersAccount>, std::io::Error> {
-  let accounts = fetch_all_open_orders_account(rpc, &[*address])?;
+) -> Result<crate::shared::DecodedAccount<FillsLog>, std::io::Error> {
+  let accounts = fetch_all_fills_log(rpc, &[*address])?;
   Ok(accounts[0].clone())
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_all_open_orders_account(
+pub fn fetch_all_fills_log(
   rpc: &solana_client::rpc_client::RpcClient,
   addresses: &[solana_address::Address],
-) -> Result<Vec<crate::shared::DecodedAccount<OpenOrdersAccount>>, std::io::Error> {
+) -> Result<Vec<crate::shared::DecodedAccount<FillsLog>>, std::io::Error> {
     let accounts = rpc.get_multiple_accounts(addresses)
       .map_err(|e| std::io::Error::other(e.to_string()))?;
-    let mut decoded_accounts: Vec<crate::shared::DecodedAccount<OpenOrdersAccount>> = Vec::new();
+    let mut decoded_accounts: Vec<crate::shared::DecodedAccount<FillsLog>> = Vec::new();
     for i in 0..addresses.len() {
       let address = addresses[i];
       let account = accounts[i].as_ref()
         .ok_or(std::io::Error::other(format!("Account not found: {address}")))?;
-      let data = OpenOrdersAccount::from_bytes(&account.data)?;
+      let data = FillsLog::from_bytes(&account.data)?;
       decoded_accounts.push(crate::shared::DecodedAccount { address, account: account.clone(), data });
     }
     Ok(decoded_accounts)
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_maybe_open_orders_account(
+pub fn fetch_maybe_fills_log(
   rpc: &solana_client::rpc_client::RpcClient,
   address: &solana_address::Address,
-) -> Result<crate::shared::MaybeAccount<OpenOrdersAccount>, std::io::Error> {
-    let accounts = fetch_all_maybe_open_orders_account(rpc, &[*address])?;
+) -> Result<crate::shared::MaybeAccount<FillsLog>, std::io::Error> {
+    let accounts = fetch_all_maybe_fills_log(rpc, &[*address])?;
     Ok(accounts[0].clone())
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_all_maybe_open_orders_account(
+pub fn fetch_all_maybe_fills_log(
   rpc: &solana_client::rpc_client::RpcClient,
   addresses: &[solana_address::Address],
-) -> Result<Vec<crate::shared::MaybeAccount<OpenOrdersAccount>>, std::io::Error> {
+) -> Result<Vec<crate::shared::MaybeAccount<FillsLog>>, std::io::Error> {
     let accounts = rpc.get_multiple_accounts(addresses)
       .map_err(|e| std::io::Error::other(e.to_string()))?;
-    let mut decoded_accounts: Vec<crate::shared::MaybeAccount<OpenOrdersAccount>> = Vec::new();
+    let mut decoded_accounts: Vec<crate::shared::MaybeAccount<FillsLog>> = Vec::new();
     for i in 0..addresses.len() {
       let address = addresses[i];
       if let Some(account) = accounts[i].as_ref() {
-        let data = OpenOrdersAccount::from_bytes(&account.data)?;
+        let data = FillsLog::from_bytes(&account.data)?;
         decoded_accounts.push(crate::shared::MaybeAccount::Exists(crate::shared::DecodedAccount { address, account: account.clone(), data }));
       } else {
         decoded_accounts.push(crate::shared::MaybeAccount::NotFound(address));
@@ -102,17 +104,17 @@ pub fn fetch_all_maybe_open_orders_account(
 }
 
   #[cfg(feature = "anchor")]
-  impl anchor_lang::AccountDeserialize for OpenOrdersAccount {
+  impl anchor_lang::AccountDeserialize for FillsLog {
       fn try_deserialize_unchecked(buf: &mut &[u8]) -> anchor_lang::Result<Self> {
         Ok(Self::deserialize(buf)?)
       }
   }
 
   #[cfg(feature = "anchor")]
-  impl anchor_lang::AccountSerialize for OpenOrdersAccount {}
+  impl anchor_lang::AccountSerialize for FillsLog {}
 
   #[cfg(feature = "anchor")]
-  impl anchor_lang::Owner for OpenOrdersAccount {
+  impl anchor_lang::Owner for FillsLog {
       fn owner() -> anchor_lang::solana_program::pubkey::Pubkey {
         anchor_lang::solana_program::pubkey::Pubkey::from(
           crate::ORDERBOOK_ID.to_bytes()
@@ -121,11 +123,11 @@ pub fn fetch_all_maybe_open_orders_account(
   }
 
   #[cfg(feature = "anchor-idl-build")]
-  impl anchor_lang::IdlBuild for OpenOrdersAccount {}
+  impl anchor_lang::IdlBuild for FillsLog {}
 
   
   #[cfg(feature = "anchor-idl-build")]
-  impl anchor_lang::Discriminator for OpenOrdersAccount {
+  impl anchor_lang::Discriminator for FillsLog {
     const DISCRIMINATOR: &[u8] = &[0; 8];
   }
 

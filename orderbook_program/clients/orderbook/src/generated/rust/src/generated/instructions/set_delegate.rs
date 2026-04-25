@@ -8,7 +8,7 @@
 use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
-pub const SET_DELEGATE_DISCRIMINATOR: u8 = 10;
+pub const SET_DELEGATE_DISCRIMINATOR: u8 = 11;
 
 /// Accounts.
 #[derive(Debug)]
@@ -62,7 +62,7 @@ impl SetDelegate {
 impl SetDelegateInstructionData {
   pub fn new() -> Self {
     Self {
-                        discriminator: 10,
+                        discriminator: 11,
                                 }
   }
 

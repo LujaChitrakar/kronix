@@ -8,10 +8,6 @@
 
 import {
   combineCodec,
-  fixDecoderSize,
-  fixEncoderSize,
-  getBytesDecoder,
-  getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
   getU8Decoder,
@@ -22,9 +18,9 @@ import {
   type AccountMeta,
   type AccountSignerMeta,
   type Address,
-  type FixedSizeCodec,
-  type FixedSizeDecoder,
-  type FixedSizeEncoder,
+  type Codec,
+  type Decoder,
+  type Encoder,
   type Instruction,
   type InstructionWithAccounts,
   type InstructionWithData,
@@ -39,23 +35,26 @@ import {
   type ResolvedInstructionAccount,
 } from "@solana/program-client-core";
 import { ORDERBOOK_PROGRAM_ADDRESS } from "../programs";
+import {
+  getSettleFillsParamsDecoder,
+  getSettleFillsParamsEncoder,
+  type SettleFillsParams,
+  type SettleFillsParamsArgs,
+} from "../types";
 
-export const CLAIM_FILL_DISCRIMINATOR = 8;
+export const SETTLE_FILLS_DISCRIMINATOR = 5;
 
-export function getClaimFillDiscriminatorBytes() {
-  return getU8Encoder().encode(CLAIM_FILL_DISCRIMINATOR);
+export function getSettleFillsDiscriminatorBytes() {
+  return getU8Encoder().encode(SETTLE_FILLS_DISCRIMINATOR);
 }
 
-export type ClaimFillInstruction<
+export type SettleFillsInstruction<
   TProgram extends string = typeof ORDERBOOK_PROGRAM_ADDRESS,
-  TAccountSigner extends string | AccountMeta<string> = string,
-  TAccountOpenOrdersAccount extends string | AccountMeta<string> = string,
+  TAccountCaller extends string | AccountMeta<string> = string,
+  TAccountFillsLog extends string | AccountMeta<string> = string,
   TAccountMarket extends string | AccountMeta<string> = string,
-  TAccountMakerUserAccount extends string | AccountMeta<string> = string,
-  TAccountMakerPosition extends string | AccountMeta<string> = string,
   TAccountMarketConfig extends string | AccountMeta<string> = string,
   TAccountFundingState extends string | AccountMeta<string> = string,
-  TAccountOrderbookProgram extends string | AccountMeta<string> = string,
   TAccountRiskProgram extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
@@ -64,31 +63,22 @@ export type ClaimFillInstruction<
   InstructionWithData<ReadonlyUint8Array> &
   InstructionWithAccounts<
     [
-      TAccountSigner extends string
-        ? ReadonlySignerAccount<TAccountSigner> &
-            AccountSignerMeta<TAccountSigner>
-        : TAccountSigner,
-      TAccountOpenOrdersAccount extends string
-        ? WritableAccount<TAccountOpenOrdersAccount>
-        : TAccountOpenOrdersAccount,
+      TAccountCaller extends string
+        ? ReadonlySignerAccount<TAccountCaller> &
+            AccountSignerMeta<TAccountCaller>
+        : TAccountCaller,
+      TAccountFillsLog extends string
+        ? WritableAccount<TAccountFillsLog>
+        : TAccountFillsLog,
       TAccountMarket extends string
         ? ReadonlyAccount<TAccountMarket>
         : TAccountMarket,
-      TAccountMakerUserAccount extends string
-        ? WritableAccount<TAccountMakerUserAccount>
-        : TAccountMakerUserAccount,
-      TAccountMakerPosition extends string
-        ? WritableAccount<TAccountMakerPosition>
-        : TAccountMakerPosition,
       TAccountMarketConfig extends string
         ? ReadonlyAccount<TAccountMarketConfig>
         : TAccountMarketConfig,
       TAccountFundingState extends string
         ? WritableAccount<TAccountFundingState>
         : TAccountFundingState,
-      TAccountOrderbookProgram extends string
-        ? ReadonlyAccount<TAccountOrderbookProgram>
-        : TAccountOrderbookProgram,
       TAccountRiskProgram extends string
         ? ReadonlyAccount<TAccountRiskProgram>
         : TAccountRiskProgram,
@@ -99,128 +89,95 @@ export type ClaimFillInstruction<
     ]
   >;
 
-export type ClaimFillInstructionData = {
+export type SettleFillsInstructionData = {
   discriminator: number;
-  orderSlot: number;
-  bumpPosition: number;
-  bumpUser: number;
-  padding: ReadonlyUint8Array;
+  settleFillsParams: SettleFillsParams;
 };
 
-export type ClaimFillInstructionDataArgs = {
-  orderSlot: number;
-  bumpPosition: number;
-  bumpUser: number;
-  padding: ReadonlyUint8Array;
+export type SettleFillsInstructionDataArgs = {
+  settleFillsParams: SettleFillsParamsArgs;
 };
 
-export function getClaimFillInstructionDataEncoder(): FixedSizeEncoder<ClaimFillInstructionDataArgs> {
+export function getSettleFillsInstructionDataEncoder(): Encoder<SettleFillsInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", getU8Encoder()],
-      ["orderSlot", getU8Encoder()],
-      ["bumpPosition", getU8Encoder()],
-      ["bumpUser", getU8Encoder()],
-      ["padding", fixEncoderSize(getBytesEncoder(), 5)],
+      ["settleFillsParams", getSettleFillsParamsEncoder()],
     ]),
-    (value) => ({ ...value, discriminator: CLAIM_FILL_DISCRIMINATOR }),
+    (value) => ({ ...value, discriminator: SETTLE_FILLS_DISCRIMINATOR }),
   );
 }
 
-export function getClaimFillInstructionDataDecoder(): FixedSizeDecoder<ClaimFillInstructionData> {
+export function getSettleFillsInstructionDataDecoder(): Decoder<SettleFillsInstructionData> {
   return getStructDecoder([
     ["discriminator", getU8Decoder()],
-    ["orderSlot", getU8Decoder()],
-    ["bumpPosition", getU8Decoder()],
-    ["bumpUser", getU8Decoder()],
-    ["padding", fixDecoderSize(getBytesDecoder(), 5)],
+    ["settleFillsParams", getSettleFillsParamsDecoder()],
   ]);
 }
 
-export function getClaimFillInstructionDataCodec(): FixedSizeCodec<
-  ClaimFillInstructionDataArgs,
-  ClaimFillInstructionData
+export function getSettleFillsInstructionDataCodec(): Codec<
+  SettleFillsInstructionDataArgs,
+  SettleFillsInstructionData
 > {
   return combineCodec(
-    getClaimFillInstructionDataEncoder(),
-    getClaimFillInstructionDataDecoder(),
+    getSettleFillsInstructionDataEncoder(),
+    getSettleFillsInstructionDataDecoder(),
   );
 }
 
-export type ClaimFillInput<
-  TAccountSigner extends string = string,
-  TAccountOpenOrdersAccount extends string = string,
+export type SettleFillsInput<
+  TAccountCaller extends string = string,
+  TAccountFillsLog extends string = string,
   TAccountMarket extends string = string,
-  TAccountMakerUserAccount extends string = string,
-  TAccountMakerPosition extends string = string,
   TAccountMarketConfig extends string = string,
   TAccountFundingState extends string = string,
-  TAccountOrderbookProgram extends string = string,
   TAccountRiskProgram extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
-  /** Maker */
-  signer: TransactionSigner<TAccountSigner>;
-  /** Maker OO account */
-  openOrdersAccount: Address<TAccountOpenOrdersAccount>;
+  /** Anyone */
+  caller: TransactionSigner<TAccountCaller>;
+  /** FillsLog PDA */
+  fillsLog: Address<TAccountFillsLog>;
   /** Market state */
   market: Address<TAccountMarket>;
-  /** Maker UserAccount */
-  makerUserAccount: Address<TAccountMakerUserAccount>;
-  /** Maker Position */
-  makerPosition: Address<TAccountMakerPosition>;
-  /** Market config */
+  /** Risk MarketConfig */
   marketConfig: Address<TAccountMarketConfig>;
-  /** Funding state */
+  /** FundingState */
   fundingState: Address<TAccountFundingState>;
-  /** Orderbook program */
-  orderbookProgram: Address<TAccountOrderbookProgram>;
   /** Risk program */
   riskProgram: Address<TAccountRiskProgram>;
   /** System program */
   systemProgram?: Address<TAccountSystemProgram>;
-  orderSlot: ClaimFillInstructionDataArgs["orderSlot"];
-  bumpPosition: ClaimFillInstructionDataArgs["bumpPosition"];
-  bumpUser: ClaimFillInstructionDataArgs["bumpUser"];
-  padding: ClaimFillInstructionDataArgs["padding"];
+  settleFillsParams: SettleFillsInstructionDataArgs["settleFillsParams"];
 };
 
-export function getClaimFillInstruction<
-  TAccountSigner extends string,
-  TAccountOpenOrdersAccount extends string,
+export function getSettleFillsInstruction<
+  TAccountCaller extends string,
+  TAccountFillsLog extends string,
   TAccountMarket extends string,
-  TAccountMakerUserAccount extends string,
-  TAccountMakerPosition extends string,
   TAccountMarketConfig extends string,
   TAccountFundingState extends string,
-  TAccountOrderbookProgram extends string,
   TAccountRiskProgram extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof ORDERBOOK_PROGRAM_ADDRESS,
 >(
-  input: ClaimFillInput<
-    TAccountSigner,
-    TAccountOpenOrdersAccount,
+  input: SettleFillsInput<
+    TAccountCaller,
+    TAccountFillsLog,
     TAccountMarket,
-    TAccountMakerUserAccount,
-    TAccountMakerPosition,
     TAccountMarketConfig,
     TAccountFundingState,
-    TAccountOrderbookProgram,
     TAccountRiskProgram,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
-): ClaimFillInstruction<
+): SettleFillsInstruction<
   TProgramAddress,
-  TAccountSigner,
-  TAccountOpenOrdersAccount,
+  TAccountCaller,
+  TAccountFillsLog,
   TAccountMarket,
-  TAccountMakerUserAccount,
-  TAccountMakerPosition,
   TAccountMarketConfig,
   TAccountFundingState,
-  TAccountOrderbookProgram,
   TAccountRiskProgram,
   TAccountSystemProgram
 > {
@@ -229,23 +186,11 @@ export function getClaimFillInstruction<
 
   // Original accounts.
   const originalAccounts = {
-    signer: { value: input.signer ?? null, isWritable: false },
-    openOrdersAccount: {
-      value: input.openOrdersAccount ?? null,
-      isWritable: true,
-    },
+    caller: { value: input.caller ?? null, isWritable: false },
+    fillsLog: { value: input.fillsLog ?? null, isWritable: true },
     market: { value: input.market ?? null, isWritable: false },
-    makerUserAccount: {
-      value: input.makerUserAccount ?? null,
-      isWritable: true,
-    },
-    makerPosition: { value: input.makerPosition ?? null, isWritable: true },
     marketConfig: { value: input.marketConfig ?? null, isWritable: false },
     fundingState: { value: input.fundingState ?? null, isWritable: true },
-    orderbookProgram: {
-      value: input.orderbookProgram ?? null,
-      isWritable: false,
-    },
     riskProgram: { value: input.riskProgram ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
@@ -266,80 +211,68 @@ export function getClaimFillInstruction<
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta("signer", accounts.signer),
-      getAccountMeta("openOrdersAccount", accounts.openOrdersAccount),
+      getAccountMeta("caller", accounts.caller),
+      getAccountMeta("fillsLog", accounts.fillsLog),
       getAccountMeta("market", accounts.market),
-      getAccountMeta("makerUserAccount", accounts.makerUserAccount),
-      getAccountMeta("makerPosition", accounts.makerPosition),
       getAccountMeta("marketConfig", accounts.marketConfig),
       getAccountMeta("fundingState", accounts.fundingState),
-      getAccountMeta("orderbookProgram", accounts.orderbookProgram),
       getAccountMeta("riskProgram", accounts.riskProgram),
       getAccountMeta("systemProgram", accounts.systemProgram),
     ],
-    data: getClaimFillInstructionDataEncoder().encode(
-      args as ClaimFillInstructionDataArgs,
+    data: getSettleFillsInstructionDataEncoder().encode(
+      args as SettleFillsInstructionDataArgs,
     ),
     programAddress,
-  } as ClaimFillInstruction<
+  } as SettleFillsInstruction<
     TProgramAddress,
-    TAccountSigner,
-    TAccountOpenOrdersAccount,
+    TAccountCaller,
+    TAccountFillsLog,
     TAccountMarket,
-    TAccountMakerUserAccount,
-    TAccountMakerPosition,
     TAccountMarketConfig,
     TAccountFundingState,
-    TAccountOrderbookProgram,
     TAccountRiskProgram,
     TAccountSystemProgram
   >);
 }
 
-export type ParsedClaimFillInstruction<
+export type ParsedSettleFillsInstruction<
   TProgram extends string = typeof ORDERBOOK_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    /** Maker */
-    signer: TAccountMetas[0];
-    /** Maker OO account */
-    openOrdersAccount: TAccountMetas[1];
+    /** Anyone */
+    caller: TAccountMetas[0];
+    /** FillsLog PDA */
+    fillsLog: TAccountMetas[1];
     /** Market state */
     market: TAccountMetas[2];
-    /** Maker UserAccount */
-    makerUserAccount: TAccountMetas[3];
-    /** Maker Position */
-    makerPosition: TAccountMetas[4];
-    /** Market config */
-    marketConfig: TAccountMetas[5];
-    /** Funding state */
-    fundingState: TAccountMetas[6];
-    /** Orderbook program */
-    orderbookProgram: TAccountMetas[7];
+    /** Risk MarketConfig */
+    marketConfig: TAccountMetas[3];
+    /** FundingState */
+    fundingState: TAccountMetas[4];
     /** Risk program */
-    riskProgram: TAccountMetas[8];
+    riskProgram: TAccountMetas[5];
     /** System program */
-    systemProgram: TAccountMetas[9];
+    systemProgram: TAccountMetas[6];
   };
-  data: ClaimFillInstructionData;
+  data: SettleFillsInstructionData;
 };
 
-export function parseClaimFillInstruction<
+export function parseSettleFillsInstruction<
   TProgram extends string,
   TAccountMetas extends readonly AccountMeta[],
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
-): ParsedClaimFillInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 10) {
+): ParsedSettleFillsInstruction<TProgram, TAccountMetas> {
+  if (instruction.accounts.length < 7) {
     throw new SolanaError(
       SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
       {
         actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 10,
+        expectedAccountMetas: 7,
       },
     );
   }
@@ -352,17 +285,14 @@ export function parseClaimFillInstruction<
   return {
     programAddress: instruction.programAddress,
     accounts: {
-      signer: getNextAccount(),
-      openOrdersAccount: getNextAccount(),
+      caller: getNextAccount(),
+      fillsLog: getNextAccount(),
       market: getNextAccount(),
-      makerUserAccount: getNextAccount(),
-      makerPosition: getNextAccount(),
       marketConfig: getNextAccount(),
       fundingState: getNextAccount(),
-      orderbookProgram: getNextAccount(),
       riskProgram: getNextAccount(),
       systemProgram: getNextAccount(),
     },
-    data: getClaimFillInstructionDataDecoder().decode(instruction.data),
+    data: getSettleFillsInstructionDataDecoder().decode(instruction.data),
   };
 }

@@ -9,13 +9,10 @@ use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
-pub struct OpenOrder {
-pub id: [u8; 16],
-pub client_id: u64,
-pub locked_price: i64,
-pub is_free: u8,
-pub side: u8,
-pub maker_out: u8,
+pub struct ClaimFillParams {
+pub order_slot: u8,
+pub bump_position: u8,
+pub bump_user: u8,
 pub padding: [u8; 5],
 }
 

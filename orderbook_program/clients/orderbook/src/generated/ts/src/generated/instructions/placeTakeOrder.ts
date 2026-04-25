@@ -44,7 +44,7 @@ import {
 } from "@solana/program-client-core";
 import { ORDERBOOK_PROGRAM_ADDRESS } from "../programs";
 
-export const PLACE_TAKE_ORDER_DISCRIMINATOR = 3;
+export const PLACE_TAKE_ORDER_DISCRIMINATOR = 4;
 
 export function getPlaceTakeOrderDiscriminatorBytes() {
   return getU8Encoder().encode(PLACE_TAKE_ORDER_DISCRIMINATOR);
@@ -57,12 +57,7 @@ export type PlaceTakeOrderInstruction<
   TAccountMarket extends string | AccountMeta<string> = string,
   TAccountBids extends string | AccountMeta<string> = string,
   TAccountAsks extends string | AccountMeta<string> = string,
-  TAccountTakerUserAccount extends string | AccountMeta<string> = string,
-  TAccountTakerPosition extends string | AccountMeta<string> = string,
-  TAccountMarketConfig extends string | AccountMeta<string> = string,
-  TAccountFundingState extends string | AccountMeta<string> = string,
-  TAccountOrderbookProgram extends string | AccountMeta<string> = string,
-  TAccountRiskProgram extends string | AccountMeta<string> = string,
+  TAccountFillsLogs extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -86,24 +81,9 @@ export type PlaceTakeOrderInstruction<
       TAccountAsks extends string
         ? WritableAccount<TAccountAsks>
         : TAccountAsks,
-      TAccountTakerUserAccount extends string
-        ? WritableAccount<TAccountTakerUserAccount>
-        : TAccountTakerUserAccount,
-      TAccountTakerPosition extends string
-        ? WritableAccount<TAccountTakerPosition>
-        : TAccountTakerPosition,
-      TAccountMarketConfig extends string
-        ? ReadonlyAccount<TAccountMarketConfig>
-        : TAccountMarketConfig,
-      TAccountFundingState extends string
-        ? WritableAccount<TAccountFundingState>
-        : TAccountFundingState,
-      TAccountOrderbookProgram extends string
-        ? ReadonlyAccount<TAccountOrderbookProgram>
-        : TAccountOrderbookProgram,
-      TAccountRiskProgram extends string
-        ? ReadonlyAccount<TAccountRiskProgram>
-        : TAccountRiskProgram,
+      TAccountFillsLogs extends string
+        ? WritableAccount<TAccountFillsLogs>
+        : TAccountFillsLogs,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
@@ -120,8 +100,7 @@ export type PlaceTakeOrderInstructionData = {
   side: number;
   orderType: number;
   limit: number;
-  bumpPosition: number;
-  bumpUser: number;
+  bumpFillsLog: number;
   padding: ReadonlyUint8Array;
 };
 
@@ -133,8 +112,7 @@ export type PlaceTakeOrderInstructionDataArgs = {
   side: number;
   orderType: number;
   limit: number;
-  bumpPosition: number;
-  bumpUser: number;
+  bumpFillsLog: number;
   padding: ReadonlyUint8Array;
 };
 
@@ -149,9 +127,8 @@ export function getPlaceTakeOrderInstructionDataEncoder(): FixedSizeEncoder<Plac
       ["side", getU8Encoder()],
       ["orderType", getU8Encoder()],
       ["limit", getU8Encoder()],
-      ["bumpPosition", getU8Encoder()],
-      ["bumpUser", getU8Encoder()],
-      ["padding", fixEncoderSize(getBytesEncoder(), 3)],
+      ["bumpFillsLog", getU8Encoder()],
+      ["padding", fixEncoderSize(getBytesEncoder(), 4)],
     ]),
     (value) => ({ ...value, discriminator: PLACE_TAKE_ORDER_DISCRIMINATOR }),
   );
@@ -167,9 +144,8 @@ export function getPlaceTakeOrderInstructionDataDecoder(): FixedSizeDecoder<Plac
     ["side", getU8Decoder()],
     ["orderType", getU8Decoder()],
     ["limit", getU8Decoder()],
-    ["bumpPosition", getU8Decoder()],
-    ["bumpUser", getU8Decoder()],
-    ["padding", fixDecoderSize(getBytesDecoder(), 3)],
+    ["bumpFillsLog", getU8Decoder()],
+    ["padding", fixDecoderSize(getBytesDecoder(), 4)],
   ]);
 }
 
@@ -189,12 +165,7 @@ export type PlaceTakeOrderInput<
   TAccountMarket extends string = string,
   TAccountBids extends string = string,
   TAccountAsks extends string = string,
-  TAccountTakerUserAccount extends string = string,
-  TAccountTakerPosition extends string = string,
-  TAccountMarketConfig extends string = string,
-  TAccountFundingState extends string = string,
-  TAccountOrderbookProgram extends string = string,
-  TAccountRiskProgram extends string = string,
+  TAccountFillsLogs extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   /** Order placer */
@@ -207,18 +178,8 @@ export type PlaceTakeOrderInput<
   bids: Address<TAccountBids>;
   /** Asks BookSide */
   asks: Address<TAccountAsks>;
-  /** Taker UserAccount */
-  takerUserAccount: Address<TAccountTakerUserAccount>;
-  /** Taker Position */
-  takerPosition: Address<TAccountTakerPosition>;
-  /** Market config */
-  marketConfig: Address<TAccountMarketConfig>;
-  /** Funding state */
-  fundingState: Address<TAccountFundingState>;
-  /** Orderbook program */
-  orderbookProgram: Address<TAccountOrderbookProgram>;
-  /** Risk program */
-  riskProgram: Address<TAccountRiskProgram>;
+  /** FillsLog PDA */
+  fillsLogs: Address<TAccountFillsLogs>;
   /** System program */
   systemProgram?: Address<TAccountSystemProgram>;
   maxBaseLots: PlaceTakeOrderInstructionDataArgs["maxBaseLots"];
@@ -228,8 +189,7 @@ export type PlaceTakeOrderInput<
   side: PlaceTakeOrderInstructionDataArgs["side"];
   orderType: PlaceTakeOrderInstructionDataArgs["orderType"];
   limit: PlaceTakeOrderInstructionDataArgs["limit"];
-  bumpPosition: PlaceTakeOrderInstructionDataArgs["bumpPosition"];
-  bumpUser: PlaceTakeOrderInstructionDataArgs["bumpUser"];
+  bumpFillsLog: PlaceTakeOrderInstructionDataArgs["bumpFillsLog"];
   padding: PlaceTakeOrderInstructionDataArgs["padding"];
 };
 
@@ -239,12 +199,7 @@ export function getPlaceTakeOrderInstruction<
   TAccountMarket extends string,
   TAccountBids extends string,
   TAccountAsks extends string,
-  TAccountTakerUserAccount extends string,
-  TAccountTakerPosition extends string,
-  TAccountMarketConfig extends string,
-  TAccountFundingState extends string,
-  TAccountOrderbookProgram extends string,
-  TAccountRiskProgram extends string,
+  TAccountFillsLogs extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof ORDERBOOK_PROGRAM_ADDRESS,
 >(
@@ -254,12 +209,7 @@ export function getPlaceTakeOrderInstruction<
     TAccountMarket,
     TAccountBids,
     TAccountAsks,
-    TAccountTakerUserAccount,
-    TAccountTakerPosition,
-    TAccountMarketConfig,
-    TAccountFundingState,
-    TAccountOrderbookProgram,
-    TAccountRiskProgram,
+    TAccountFillsLogs,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
@@ -270,12 +220,7 @@ export function getPlaceTakeOrderInstruction<
   TAccountMarket,
   TAccountBids,
   TAccountAsks,
-  TAccountTakerUserAccount,
-  TAccountTakerPosition,
-  TAccountMarketConfig,
-  TAccountFundingState,
-  TAccountOrderbookProgram,
-  TAccountRiskProgram,
+  TAccountFillsLogs,
   TAccountSystemProgram
 > {
   // Program address.
@@ -291,18 +236,7 @@ export function getPlaceTakeOrderInstruction<
     market: { value: input.market ?? null, isWritable: true },
     bids: { value: input.bids ?? null, isWritable: true },
     asks: { value: input.asks ?? null, isWritable: true },
-    takerUserAccount: {
-      value: input.takerUserAccount ?? null,
-      isWritable: true,
-    },
-    takerPosition: { value: input.takerPosition ?? null, isWritable: true },
-    marketConfig: { value: input.marketConfig ?? null, isWritable: false },
-    fundingState: { value: input.fundingState ?? null, isWritable: true },
-    orderbookProgram: {
-      value: input.orderbookProgram ?? null,
-      isWritable: false,
-    },
-    riskProgram: { value: input.riskProgram ?? null, isWritable: false },
+    fillsLogs: { value: input.fillsLogs ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
@@ -327,12 +261,7 @@ export function getPlaceTakeOrderInstruction<
       getAccountMeta("market", accounts.market),
       getAccountMeta("bids", accounts.bids),
       getAccountMeta("asks", accounts.asks),
-      getAccountMeta("takerUserAccount", accounts.takerUserAccount),
-      getAccountMeta("takerPosition", accounts.takerPosition),
-      getAccountMeta("marketConfig", accounts.marketConfig),
-      getAccountMeta("fundingState", accounts.fundingState),
-      getAccountMeta("orderbookProgram", accounts.orderbookProgram),
-      getAccountMeta("riskProgram", accounts.riskProgram),
+      getAccountMeta("fillsLogs", accounts.fillsLogs),
       getAccountMeta("systemProgram", accounts.systemProgram),
     ],
     data: getPlaceTakeOrderInstructionDataEncoder().encode(
@@ -346,12 +275,7 @@ export function getPlaceTakeOrderInstruction<
     TAccountMarket,
     TAccountBids,
     TAccountAsks,
-    TAccountTakerUserAccount,
-    TAccountTakerPosition,
-    TAccountMarketConfig,
-    TAccountFundingState,
-    TAccountOrderbookProgram,
-    TAccountRiskProgram,
+    TAccountFillsLogs,
     TAccountSystemProgram
   >);
 }
@@ -372,20 +296,10 @@ export type ParsedPlaceTakeOrderInstruction<
     bids: TAccountMetas[3];
     /** Asks BookSide */
     asks: TAccountMetas[4];
-    /** Taker UserAccount */
-    takerUserAccount: TAccountMetas[5];
-    /** Taker Position */
-    takerPosition: TAccountMetas[6];
-    /** Market config */
-    marketConfig: TAccountMetas[7];
-    /** Funding state */
-    fundingState: TAccountMetas[8];
-    /** Orderbook program */
-    orderbookProgram: TAccountMetas[9];
-    /** Risk program */
-    riskProgram: TAccountMetas[10];
+    /** FillsLog PDA */
+    fillsLogs: TAccountMetas[5];
     /** System program */
-    systemProgram: TAccountMetas[11];
+    systemProgram: TAccountMetas[6];
   };
   data: PlaceTakeOrderInstructionData;
 };
@@ -398,12 +312,12 @@ export function parsePlaceTakeOrderInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedPlaceTakeOrderInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 12) {
+  if (instruction.accounts.length < 7) {
     throw new SolanaError(
       SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
       {
         actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 12,
+        expectedAccountMetas: 7,
       },
     );
   }
@@ -421,12 +335,7 @@ export function parsePlaceTakeOrderInstruction<
       market: getNextAccount(),
       bids: getNextAccount(),
       asks: getNextAccount(),
-      takerUserAccount: getNextAccount(),
-      takerPosition: getNextAccount(),
-      marketConfig: getNextAccount(),
-      fundingState: getNextAccount(),
-      orderbookProgram: getNextAccount(),
-      riskProgram: getNextAccount(),
+      fillsLogs: getNextAccount(),
       systemProgram: getNextAccount(),
     },
     data: getPlaceTakeOrderInstructionDataDecoder().decode(instruction.data),

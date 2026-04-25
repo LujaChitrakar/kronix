@@ -1,3 +1,4 @@
+// REMOVE
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{
     error::ProgramError,
@@ -96,62 +97,61 @@ pub fn process_claim_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResul
 
     let oo = oo_account_state.open_order_by_raw_index(slot);
 
-    if !oo.has_pending_fill() {
-        return Err(OrderBookError::NoFillToClaim.into());
-    }
+    // if !oo.has_pending_fill() {
+    //     return Err(OrderBookError::NoFillToClaim.into());
+    // }
     if oo.is_free() {
         return Err(OrderBookError::InvalidOrderSlot.into());
     }
 
     let maker_out = oo.maker_out == 1;
 
-    let fill = FillEvent {
-        event_type: 0,
-        taker_side: oo.side().invert_side() as u8,
-        maker_out: oo.maker_out,
-        maker_slot: slot as u8,
-        _padding: [0; 4],
-        timestamp: 0,
-        maker_seq_num: 0,
-        maker_timestamp: 0,
-        maker_client_order_id: oo.client_id,
-        taker_client_order_id: 0,
-        price: oo.fill_price,
-        quantity: oo.filled_qty,
-        maker_pubkey: oo_account_state.owner,
-        taker_pubkey: [0u8; 32],
-        reserved: [0; 16],
-    };
+    // let fill = FillEvent {
+    //     event_type: 0,
+    //     taker_side: oo.side().invert_side() as u8,
+    //     maker_out: oo.maker_out,
+    //     maker_slot: slot as u8,
+    //     _padding: [0; 4],
+    //     timestamp: 0,
+    //     maker_seq_num: 0,
+    //     maker_timestamp: 0,
+    //     maker_client_order_id: oo.client_id,
+    //     taker_client_order_id: 0,
+    //     // price: oo.fill_price,
+    //     // quantity: oo.filled_qty,
+    //     maker_pubkey: oo_account_state.owner,
+    //     taker_pubkey: [0u8; 32],
+    //     reserved: [0; 16],
+    // };
 
-    let maker_out = oo.has_pending_fill() && oo.filled_qty > 0;
+    // let maker_out = oo.has_pending_fill() && oo.filled_qty > 0;
 
-    settle_fill_cpi(
-        orderbook_program_self,
-        risk_program,
-        maker_user_account,
-        maker_position,
-        market_config,
-        funding_state,
-        system_program,
-        &fill,
-        market_state.market_index,
-        false, // is_taker = false, this is maker
-        params.bump_position,
-        params.bump_user,
-    )?;
+    // settle_fill_cpi(
+    //     risk_program,
+    //     maker_user_account,
+    //     maker_position,
+    //     market_config,
+    //     funding_state,
+    //     system_program,
+    //     &fill,
+    //     market_state.market_index,
+    //     false, // is_taker = false, this is maker
+    //     params.bump_position,
+    //     params.bump_user,
+    // )?;
 
-    {
-        let oo_mut = oo_account_state.open_order_mut_by_raw_index(slot);
+    // {
+    //     let oo_mut = oo_account_state.open_order_mut_by_raw_index(slot);
 
-        if maker_out {
-            *oo_mut = OpenOrder::default();
-        } else {
-            // order partially filled
-            oo_mut.filled_qty = 0;
-            oo_mut.fill_price = 0;
-            oo_mut.is_filled = 0;
-        }
-    }
+    //     if maker_out {
+    //         *oo_mut = OpenOrder::default();
+    //     } else {
+    //         // order partially filled
+    //         oo_mut.filled_qty = 0;
+    //         oo_mut.fill_price = 0;
+    //         oo_mut.is_filled = 0;
+    //     }
+    // }
 
     Ok(())
 }

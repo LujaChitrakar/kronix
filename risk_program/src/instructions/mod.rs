@@ -1,3 +1,6 @@
+use pinocchio::error::ProgramError;
+use shank::ShankInstruction;
+
 pub mod add_margin;
 pub mod close_position;
 pub mod cover_bad_debt;
@@ -22,11 +25,9 @@ pub use initialize_insurance_fund::*;
 pub use initialize_vault::*;
 pub use liquidate::*;
 pub use open_position::*;
-use pinocchio::error::ProgramError;
 pub use remove_margin::*;
 pub use settle_fill::*;
 pub use settle_funding::*;
-use shank::ShankInstruction;
 pub use update_funding_rate::*;
 pub use withdraw::*;
 
@@ -101,8 +102,7 @@ pub enum RiskInstruction {
     #[account(1, name = "position", desc = "Position PDA", writable)]
     #[account(2, name = "market_config", desc = "MarketConfig")]
     #[account(3, name = "funding_state", desc = "FundingState", writable)]
-    #[account(4, name = "orderbook_program", desc = "Orderbook program", signer)]
-    #[account(5, name = "system_program", desc = "System program")]
+    #[account(4, name = "system_program", desc = "System program")]
     SettleFill(SettleFillParams),
 
     #[account(0, name = "signer", desc = "Trader", signer)]

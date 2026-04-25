@@ -42,7 +42,7 @@ import {
 } from "@solana/program-client-core";
 import { ORDERBOOK_PROGRAM_ADDRESS } from "../programs";
 
-export const CANCEL_ALL_ORDERS_DISCRIMINATOR = 6;
+export const CANCEL_ALL_ORDERS_DISCRIMINATOR = 9;
 
 export function getCancelAllOrdersDiscriminatorBytes() {
   return getU8Encoder().encode(CANCEL_ALL_ORDERS_DISCRIMINATOR);

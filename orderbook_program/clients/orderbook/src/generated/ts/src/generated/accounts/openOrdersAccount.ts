@@ -163,5 +163,5 @@ export async function fetchAllMaybeOpenOrdersAccount(
 }
 
 export function getOpenOrdersAccountSize(): number {
-  return 1480;
+  return 1096;
 }

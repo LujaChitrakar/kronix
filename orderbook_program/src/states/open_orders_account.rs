@@ -89,11 +89,11 @@ impl OpenOrdersAccount {
         oo.id = order.key;
         oo.client_id = client_order_id;
         oo.locked_price = locked_price;
-        oo.filled_qty = 0;
-        oo.fill_price = 0;
-        oo.is_filled = 0;
+        // oo.filled_qty = 0;
+        // oo.fill_price = 0;
+        // oo.is_filled = 0;
         oo.maker_out = 0;
-        oo.padding = [0; 4];
+        oo.padding = [0; 5];
     }
 
     pub fn remove_order(&mut self, slot: usize) {
@@ -106,23 +106,23 @@ impl OpenOrdersAccount {
     /// Called by matching engine — records fill for maker to claim later
     pub fn record_fill(&mut self, slot: usize, filled_qty: i64, fill_price: i64, maker_out: bool) {
         let oo = &mut self.open_orders[slot];
-        
-        if oo.filled_qty == 0 {
-            // first fill — just set directly
-            oo.filled_qty = filled_qty;
-            oo.fill_price = fill_price;
-        } else {
-            // subsequent fill — accumulate qty, VWAP price
-            let total_qty = oo.filled_qty + filled_qty;
-            let vwap = (oo.filled_qty as i128 * oo.fill_price as i128
-                + filled_qty as i128 * fill_price as i128)
-                / total_qty as i128;
 
-            oo.filled_qty = total_qty;
-            oo.fill_price = vwap as i64;
-        }
+        // if oo.filled_qty == 0 {
+        //     // first fill — just set directly
+        //     oo.filled_qty = filled_qty;
+        //     oo.fill_price = fill_price;
+        // } else {
+        //     // subsequent fill — accumulate qty, VWAP price
+        //     let total_qty = oo.filled_qty + filled_qty;
+        //     let vwap = (oo.filled_qty as i128 * oo.fill_price as i128
+        //         + filled_qty as i128 * fill_price as i128)
+        //         / total_qty as i128;
 
-        oo.is_filled = 1;
+        //     oo.filled_qty = total_qty;
+        //     oo.fill_price = vwap as i64;
+        // }
+
+        // oo.is_filled = 1;
         oo.maker_out = maker_out as u8;
     }
 
@@ -153,16 +153,16 @@ pub struct OpenOrder {
     pub id: [u8; 16],
     pub client_id: u64,
     pub locked_price: i64,
-    pub filled_qty: i64, // base lots filled, pending claim
-    pub fill_price: i64, // fill price, pending claim
-    pub is_free: u8,     // 1 = free slot
-    pub side: u8,        // Side as u8
-    pub is_filled: u8,
+    // pub filled_qty: i64, // base lots filled, pending claim
+    // pub fill_price: i64, // fill price, pending claim
+    pub is_free: u8, // 1 = free slot
+    pub side: u8,    // Side as u8
+    // pub is_filled: u8,
     pub maker_out: u8,
-    pub padding: [u8; 4],
+    pub padding: [u8; 5],
 }
 
-const _: () = assert!(size_of::<OpenOrder>() == 16 + 8 + 8 + 8 + 8 + 1 + 1 + 1 + 1 + 4);
+const _: () = assert!(size_of::<OpenOrder>() == 16 + 8 + 8 + 1 + 1 + 1 + 5);
 const _: () = assert!(size_of::<OpenOrder>() % 8 == 0);
 
 impl Default for OpenOrder {
@@ -173,11 +173,11 @@ impl Default for OpenOrder {
             client_id: 0,
             locked_price: 0,
             id: [0u8; 16],
-            filled_qty: 0,
-            fill_price: 0,
-            is_filled: 0,
+            // filled_qty: 0,
+            // fill_price: 0,
+            // is_filled: 0,
             maker_out: 0,
-            padding: [0; 4],
+            padding: [0; 5],
         }
     }
 }
@@ -194,9 +194,9 @@ impl OpenOrder {
         }
     }
 
-    pub fn has_pending_fill(&self) -> bool {
-        self.is_filled == 1
-    }
+    // pub fn has_pending_fill(&self) -> bool {
+    //     self.is_filled == 1
+    // }
 }
 
 #[cfg(test)]
@@ -327,9 +327,9 @@ mod tests {
         oo.record_fill(0, 5, 100, false);
 
         let slot = oo.open_order_by_raw_index(0);
-        assert_eq!(slot.filled_qty, 5);
-        assert_eq!(slot.fill_price, 100);
-        assert!(slot.has_pending_fill());
+        // assert_eq!(slot.filled_qty, 5);
+        // assert_eq!(slot.fill_price, 100);
+        // assert!(slot.has_pending_fill());
         assert!(!slot.is_free()); // not free until claimed
     }
 
@@ -371,7 +371,7 @@ mod tests {
     fn open_order_default_is_free() {
         let oo = OpenOrder::default();
         assert!(oo.is_free());
-        assert!(!oo.has_pending_fill());
+        // assert!(!oo.has_pending_fill());
     }
 
     #[test]

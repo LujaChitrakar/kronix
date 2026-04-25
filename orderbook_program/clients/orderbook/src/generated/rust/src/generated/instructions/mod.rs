@@ -8,24 +8,26 @@
   pub(crate) mod r#cancel_all_orders;
   pub(crate) mod r#cancel_order;
   pub(crate) mod r#cancel_order_by_client_id;
-  pub(crate) mod r#claim_fill;
   pub(crate) mod r#create_open_orders_account;
   pub(crate) mod r#create_orderbook_market;
   pub(crate) mod r#edit_order;
+  pub(crate) mod r#initialize_fills_log;
   pub(crate) mod r#place_order;
   pub(crate) mod r#place_take_order;
   pub(crate) mod r#prune_orders;
   pub(crate) mod r#set_delegate;
+  pub(crate) mod r#settle_fills;
 
   pub use self::r#cancel_all_orders::*;
   pub use self::r#cancel_order::*;
   pub use self::r#cancel_order_by_client_id::*;
-  pub use self::r#claim_fill::*;
   pub use self::r#create_open_orders_account::*;
   pub use self::r#create_orderbook_market::*;
   pub use self::r#edit_order::*;
+  pub use self::r#initialize_fills_log::*;
   pub use self::r#place_order::*;
   pub use self::r#place_take_order::*;
   pub use self::r#prune_orders::*;
   pub use self::r#set_delegate::*;
+  pub use self::r#settle_fills::*;
 

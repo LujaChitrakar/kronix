@@ -7,17 +7,13 @@ use crate::constants::TRIGGER_AUTHORITY_SEED;
 
 pub fn place_take_order_cpi(
     orderbook_program: &AccountView,
-    risk_program: &AccountView,
     system_program: &AccountView,
     trigger_authority: &AccountView,
     open_orders_account: &AccountView,
     market: &AccountView,
     bids: &AccountView,
     asks: &AccountView,
-    taker_user_account: &AccountView,
-    taker_position: &AccountView,
-    market_config: &AccountView,
-    funding_state: &AccountView,
+    fills_log: &AccountView,
     max_base_lots: i64,
     max_quote_lots: i64,
     client_order_id: u64,
@@ -25,8 +21,7 @@ pub fn place_take_order_cpi(
     side: u8,
     order_type: u8,
     limit: u8,
-    bump_position: u8,
-    bump_user: u8,
+    bump_fills_log: u8,
     bump_authority: u8,
     owner_pubkey: [u8; 32],
 ) -> ProgramResult {
@@ -38,9 +33,8 @@ pub fn place_take_order_cpi(
         side,
         order_type,
         limit,
-        bump_position,
-        bump_user,
-        padding: [0; 3],
+        bump_fills_log,
+        padding: [0; 4],
     };
 
     let params_bytes = bytemuck::bytes_of(&params);
@@ -55,12 +49,7 @@ pub fn place_take_order_cpi(
         InstructionAccount::new(market.address(), true, false),
         InstructionAccount::new(bids.address(), true, false),
         InstructionAccount::new(asks.address(), true, false),
-        InstructionAccount::new(taker_user_account.address(), true, false),
-        InstructionAccount::new(taker_position.address(), true, false),
-        InstructionAccount::new(market_config.address(), false, false),
-        InstructionAccount::new(funding_state.address(), true, false),
-        InstructionAccount::new(orderbook_program.address(), false, false),
-        InstructionAccount::new(risk_program.address(), false, false),
+        InstructionAccount::new(fills_log.address(), true, false),
         InstructionAccount::new(system_program.address(), false, false),
     ];
 
@@ -70,12 +59,7 @@ pub fn place_take_order_cpi(
         market,
         bids,
         asks,
-        taker_user_account,
-        taker_position,
-        market_config,
-        funding_state,
-        orderbook_program,
-        risk_program,
+        fills_log,
         system_program,
     ];
 
@@ -92,7 +76,7 @@ pub fn place_take_order_cpi(
         Seed::from(bump_bytes.as_ref()),
     ];
 
-    invoke_signed::<12>(&ix, &account_infos, &[Signer::from(&seeds)])?;
+    invoke_signed::<7>(&ix, &account_infos, &[Signer::from(&seeds)])?;
 
     Ok(())
 }

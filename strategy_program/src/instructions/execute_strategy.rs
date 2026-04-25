@@ -20,8 +20,7 @@ pub struct ExecuteStrategyParams {
     pub signal: u8, // 0=Buy, 1=Sell
     // bumps for CPIs
     pub bump_oo_account: u8,
-    pub bump_position: u8,
-    pub bump_user: u8,
+    pub bump_fills_log: u8,
     pub bump_trigger_tp: u8, // for take profit trigger PDA
     pub bump_trigger_sl: u8, // for stop loss trigger PDA
     pub bump_authority: u8,
@@ -39,11 +38,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
         market,
         bids,
         asks,
-        market_config,
-        funding_state,
-        user_account,
-        position,
-        risk_program,
+        fills_log,
         orderbook_program,
         system_program,
         _remaining @ ..,
@@ -117,17 +112,13 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
 
     place_order_cpi(
         orderbook_program,
-        risk_program,
         system_program,
         strategy_authority,
         open_orders_account,
         market,
         bids,
         asks,
-        user_account,
-        position,
-        market_config,
-        funding_state,
+        fills_log,
         strategy.size_lots,
         i64::MAX,
         strategy.client_order_id,
@@ -136,8 +127,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
         params.signal,
         order_type,
         8u8,
-        params.bump_position,
-        params.bump_user,
+        params.bump_fills_log,
         params.bump_authority,
         owner_key,
     )?;

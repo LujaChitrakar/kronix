@@ -40,7 +40,7 @@ import {
 } from "@solana/program-client-core";
 import { ORDERBOOK_PROGRAM_ADDRESS } from "../programs";
 
-export const PRUNE_ORDERS_DISCRIMINATOR = 9;
+export const PRUNE_ORDERS_DISCRIMINATOR = 10;
 
 export function getPruneOrdersDiscriminatorBytes() {
   return getU8Encoder().encode(PRUNE_ORDERS_DISCRIMINATOR);

@@ -5,7 +5,11 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
+  pub(crate) mod r#claim_fill_params;
+  pub(crate) mod r#fill_settle_params;
   pub(crate) mod r#open_order;
 
+  pub use self::r#claim_fill_params::*;
+  pub use self::r#fill_settle_params::*;
   pub use self::r#open_order::*;
 

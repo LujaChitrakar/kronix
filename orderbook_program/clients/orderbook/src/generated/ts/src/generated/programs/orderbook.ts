@@ -31,8 +31,11 @@ import {
   type SelfPlanAndSendFunctions,
 } from "@solana/program-client-core";
 import {
+  getFillsLogCodec,
   getMarketStateCodec,
   getOpenOrdersAccountCodec,
+  type FillsLog,
+  type FillsLogArgs,
   type MarketState,
   type MarketStateArgs,
   type OpenOrdersAccount,
@@ -42,53 +45,58 @@ import {
   getCancelAllOrdersInstruction,
   getCancelOrderByClientIdInstruction,
   getCancelOrderInstruction,
-  getClaimFillInstruction,
   getCreateOpenOrdersAccountInstruction,
   getCreateOrderbookMarketInstruction,
   getEditOrderInstruction,
+  getInitializeFillsLogInstruction,
   getPlaceOrderInstruction,
   getPlaceTakeOrderInstruction,
   getPruneOrdersInstruction,
   getSetDelegateInstruction,
+  getSettleFillsInstruction,
   parseCancelAllOrdersInstruction,
   parseCancelOrderByClientIdInstruction,
   parseCancelOrderInstruction,
-  parseClaimFillInstruction,
   parseCreateOpenOrdersAccountInstruction,
   parseCreateOrderbookMarketInstruction,
   parseEditOrderInstruction,
+  parseInitializeFillsLogInstruction,
   parsePlaceOrderInstruction,
   parsePlaceTakeOrderInstruction,
   parsePruneOrdersInstruction,
   parseSetDelegateInstruction,
+  parseSettleFillsInstruction,
   type CancelAllOrdersInput,
   type CancelOrderByClientIdInput,
   type CancelOrderInput,
-  type ClaimFillInput,
   type CreateOpenOrdersAccountInput,
   type CreateOrderbookMarketInput,
   type EditOrderInput,
+  type InitializeFillsLogInput,
   type ParsedCancelAllOrdersInstruction,
   type ParsedCancelOrderByClientIdInstruction,
   type ParsedCancelOrderInstruction,
-  type ParsedClaimFillInstruction,
   type ParsedCreateOpenOrdersAccountInstruction,
   type ParsedCreateOrderbookMarketInstruction,
   type ParsedEditOrderInstruction,
+  type ParsedInitializeFillsLogInstruction,
   type ParsedPlaceOrderInstruction,
   type ParsedPlaceTakeOrderInstruction,
   type ParsedPruneOrdersInstruction,
   type ParsedSetDelegateInstruction,
+  type ParsedSettleFillsInstruction,
   type PlaceOrderInput,
   type PlaceTakeOrderInput,
   type PruneOrdersInput,
   type SetDelegateInput,
+  type SettleFillsInput,
 } from "../instructions";
 
 export const ORDERBOOK_PROGRAM_ADDRESS =
   "j8VeDggFuwtiCjM8uo7am8i1bWWH2sj7mBRxqTaZniU" as Address<"j8VeDggFuwtiCjM8uo7am8i1bWWH2sj7mBRxqTaZniU">;
 
 export enum OrderbookAccount {
+  FillsLog,
   MarketState,
   OpenOrdersAccount,
 }
@@ -96,13 +104,14 @@ export enum OrderbookAccount {
 export enum OrderbookInstruction {
   CreateOrderbookMarket,
   CreateOpenOrdersAccount,
+  InitializeFillsLog,
   PlaceOrder,
   PlaceTakeOrder,
+  SettleFills,
+  EditOrder,
   CancelOrder,
   CancelOrderByClientId,
   CancelAllOrders,
-  EditOrder,
-  ClaimFill,
   PruneOrders,
   SetDelegate,
 }
@@ -118,30 +127,33 @@ export function identifyOrderbookInstruction(
     return OrderbookInstruction.CreateOpenOrdersAccount;
   }
   if (containsBytes(data, getU8Encoder().encode(2), 0)) {
-    return OrderbookInstruction.PlaceOrder;
+    return OrderbookInstruction.InitializeFillsLog;
   }
   if (containsBytes(data, getU8Encoder().encode(3), 0)) {
-    return OrderbookInstruction.PlaceTakeOrder;
+    return OrderbookInstruction.PlaceOrder;
   }
   if (containsBytes(data, getU8Encoder().encode(4), 0)) {
-    return OrderbookInstruction.CancelOrder;
+    return OrderbookInstruction.PlaceTakeOrder;
   }
   if (containsBytes(data, getU8Encoder().encode(5), 0)) {
-    return OrderbookInstruction.CancelOrderByClientId;
+    return OrderbookInstruction.SettleFills;
   }
   if (containsBytes(data, getU8Encoder().encode(6), 0)) {
-    return OrderbookInstruction.CancelAllOrders;
-  }
-  if (containsBytes(data, getU8Encoder().encode(7), 0)) {
     return OrderbookInstruction.EditOrder;
   }
+  if (containsBytes(data, getU8Encoder().encode(7), 0)) {
+    return OrderbookInstruction.CancelOrder;
+  }
   if (containsBytes(data, getU8Encoder().encode(8), 0)) {
-    return OrderbookInstruction.ClaimFill;
+    return OrderbookInstruction.CancelOrderByClientId;
   }
   if (containsBytes(data, getU8Encoder().encode(9), 0)) {
-    return OrderbookInstruction.PruneOrders;
+    return OrderbookInstruction.CancelAllOrders;
   }
   if (containsBytes(data, getU8Encoder().encode(10), 0)) {
+    return OrderbookInstruction.PruneOrders;
+  }
+  if (containsBytes(data, getU8Encoder().encode(11), 0)) {
     return OrderbookInstruction.SetDelegate;
   }
   throw new SolanaError(
@@ -160,11 +172,20 @@ export type ParsedOrderbookInstruction<
       instructionType: OrderbookInstruction.CreateOpenOrdersAccount;
     } & ParsedCreateOpenOrdersAccountInstruction<TProgram>)
   | ({
+      instructionType: OrderbookInstruction.InitializeFillsLog;
+    } & ParsedInitializeFillsLogInstruction<TProgram>)
+  | ({
       instructionType: OrderbookInstruction.PlaceOrder;
     } & ParsedPlaceOrderInstruction<TProgram>)
   | ({
       instructionType: OrderbookInstruction.PlaceTakeOrder;
     } & ParsedPlaceTakeOrderInstruction<TProgram>)
+  | ({
+      instructionType: OrderbookInstruction.SettleFills;
+    } & ParsedSettleFillsInstruction<TProgram>)
+  | ({
+      instructionType: OrderbookInstruction.EditOrder;
+    } & ParsedEditOrderInstruction<TProgram>)
   | ({
       instructionType: OrderbookInstruction.CancelOrder;
     } & ParsedCancelOrderInstruction<TProgram>)
@@ -174,12 +195,6 @@ export type ParsedOrderbookInstruction<
   | ({
       instructionType: OrderbookInstruction.CancelAllOrders;
     } & ParsedCancelAllOrdersInstruction<TProgram>)
-  | ({
-      instructionType: OrderbookInstruction.EditOrder;
-    } & ParsedEditOrderInstruction<TProgram>)
-  | ({
-      instructionType: OrderbookInstruction.ClaimFill;
-    } & ParsedClaimFillInstruction<TProgram>)
   | ({
       instructionType: OrderbookInstruction.PruneOrders;
     } & ParsedPruneOrdersInstruction<TProgram>)
@@ -206,6 +221,13 @@ export function parseOrderbookInstruction<TProgram extends string>(
         ...parseCreateOpenOrdersAccountInstruction(instruction),
       };
     }
+    case OrderbookInstruction.InitializeFillsLog: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: OrderbookInstruction.InitializeFillsLog,
+        ...parseInitializeFillsLogInstruction(instruction),
+      };
+    }
     case OrderbookInstruction.PlaceOrder: {
       assertIsInstructionWithAccounts(instruction);
       return {
@@ -218,6 +240,20 @@ export function parseOrderbookInstruction<TProgram extends string>(
       return {
         instructionType: OrderbookInstruction.PlaceTakeOrder,
         ...parsePlaceTakeOrderInstruction(instruction),
+      };
+    }
+    case OrderbookInstruction.SettleFills: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: OrderbookInstruction.SettleFills,
+        ...parseSettleFillsInstruction(instruction),
+      };
+    }
+    case OrderbookInstruction.EditOrder: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: OrderbookInstruction.EditOrder,
+        ...parseEditOrderInstruction(instruction),
       };
     }
     case OrderbookInstruction.CancelOrder: {
@@ -239,20 +275,6 @@ export function parseOrderbookInstruction<TProgram extends string>(
       return {
         instructionType: OrderbookInstruction.CancelAllOrders,
         ...parseCancelAllOrdersInstruction(instruction),
-      };
-    }
-    case OrderbookInstruction.EditOrder: {
-      assertIsInstructionWithAccounts(instruction);
-      return {
-        instructionType: OrderbookInstruction.EditOrder,
-        ...parseEditOrderInstruction(instruction),
-      };
-    }
-    case OrderbookInstruction.ClaimFill: {
-      assertIsInstructionWithAccounts(instruction);
-      return {
-        instructionType: OrderbookInstruction.ClaimFill,
-        ...parseClaimFillInstruction(instruction),
       };
     }
     case OrderbookInstruction.PruneOrders: {
@@ -286,6 +308,8 @@ export type OrderbookPlugin = {
 };
 
 export type OrderbookPluginAccounts = {
+  fillsLog: ReturnType<typeof getFillsLogCodec> &
+    SelfFetchFunctions<FillsLogArgs, FillsLog>;
   marketState: ReturnType<typeof getMarketStateCodec> &
     SelfFetchFunctions<MarketStateArgs, MarketState>;
   openOrdersAccount: ReturnType<typeof getOpenOrdersAccountCodec> &
@@ -301,6 +325,10 @@ export type OrderbookPluginInstructions = {
     input: MakeOptional<CreateOpenOrdersAccountInput, "payer">,
   ) => ReturnType<typeof getCreateOpenOrdersAccountInstruction> &
     SelfPlanAndSendFunctions;
+  initializeFillsLog: (
+    input: InitializeFillsLogInput,
+  ) => ReturnType<typeof getInitializeFillsLogInstruction> &
+    SelfPlanAndSendFunctions;
   placeOrder: (
     input: PlaceOrderInput,
   ) => ReturnType<typeof getPlaceOrderInstruction> & SelfPlanAndSendFunctions;
@@ -308,6 +336,12 @@ export type OrderbookPluginInstructions = {
     input: PlaceTakeOrderInput,
   ) => ReturnType<typeof getPlaceTakeOrderInstruction> &
     SelfPlanAndSendFunctions;
+  settleFills: (
+    input: SettleFillsInput,
+  ) => ReturnType<typeof getSettleFillsInstruction> & SelfPlanAndSendFunctions;
+  editOrder: (
+    input: EditOrderInput,
+  ) => ReturnType<typeof getEditOrderInstruction> & SelfPlanAndSendFunctions;
   cancelOrder: (
     input: CancelOrderInput,
   ) => ReturnType<typeof getCancelOrderInstruction> & SelfPlanAndSendFunctions;
@@ -319,12 +353,6 @@ export type OrderbookPluginInstructions = {
     input: CancelAllOrdersInput,
   ) => ReturnType<typeof getCancelAllOrdersInstruction> &
     SelfPlanAndSendFunctions;
-  editOrder: (
-    input: EditOrderInput,
-  ) => ReturnType<typeof getEditOrderInstruction> & SelfPlanAndSendFunctions;
-  claimFill: (
-    input: ClaimFillInput,
-  ) => ReturnType<typeof getClaimFillInstruction> & SelfPlanAndSendFunctions;
   pruneOrders: (
     input: PruneOrdersInput,
   ) => ReturnType<typeof getPruneOrdersInstruction> & SelfPlanAndSendFunctions;
@@ -346,6 +374,7 @@ export function orderbookProgram() {
       ...client,
       orderbook: <OrderbookPlugin>{
         accounts: {
+          fillsLog: addSelfFetchFunctions(client, getFillsLogCodec()),
           marketState: addSelfFetchFunctions(client, getMarketStateCodec()),
           openOrdersAccount: addSelfFetchFunctions(
             client,
@@ -369,6 +398,11 @@ export function orderbookProgram() {
                 payer: input.payer ?? client.payer,
               }),
             ),
+          initializeFillsLog: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getInitializeFillsLogInstruction(input),
+            ),
           placeOrder: (input) =>
             addSelfPlanAndSendFunctions(
               client,
@@ -379,6 +413,13 @@ export function orderbookProgram() {
               client,
               getPlaceTakeOrderInstruction(input),
             ),
+          settleFills: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getSettleFillsInstruction(input),
+            ),
+          editOrder: (input) =>
+            addSelfPlanAndSendFunctions(client, getEditOrderInstruction(input)),
           cancelOrder: (input) =>
             addSelfPlanAndSendFunctions(
               client,
@@ -394,10 +435,6 @@ export function orderbookProgram() {
               client,
               getCancelAllOrdersInstruction(input),
             ),
-          editOrder: (input) =>
-            addSelfPlanAndSendFunctions(client, getEditOrderInstruction(input)),
-          claimFill: (input) =>
-            addSelfPlanAndSendFunctions(client, getClaimFillInstruction(input)),
           pruneOrders: (input) =>
             addSelfPlanAndSendFunctions(
               client,

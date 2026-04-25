@@ -5,9 +5,11 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
+  pub(crate) mod r#fills_log;
   pub(crate) mod r#market_state;
   pub(crate) mod r#open_orders_account;
 
+  pub use self::r#fills_log::*;
   pub use self::r#market_state::*;
   pub use self::r#open_orders_account::*;
 

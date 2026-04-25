@@ -6,5 +6,6 @@
  * @see https://github.com/codama-idl/codama
  */
 
+export * from "./fillsLog";
 export * from "./marketState";
 export * from "./openOrdersAccount";

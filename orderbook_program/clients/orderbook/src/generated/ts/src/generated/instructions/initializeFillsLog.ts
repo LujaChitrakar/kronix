@@ -8,6 +8,10 @@
 
 import {
   combineCodec,
+  fixDecoderSize,
+  fixEncoderSize,
+  getBytesDecoder,
+  getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
   getU64Decoder,
@@ -27,10 +31,10 @@ import {
   type InstructionWithAccounts,
   type InstructionWithData,
   type ReadonlyAccount,
-  type ReadonlySignerAccount,
   type ReadonlyUint8Array,
   type TransactionSigner,
   type WritableAccount,
+  type WritableSignerAccount,
 } from "@solana/kit";
 import {
   getAccountMetaFactory,
@@ -38,140 +42,137 @@ import {
 } from "@solana/program-client-core";
 import { ORDERBOOK_PROGRAM_ADDRESS } from "../programs";
 
-export const CANCEL_ORDER_BY_CLIENT_ID_DISCRIMINATOR = 8;
+export const INITIALIZE_FILLS_LOG_DISCRIMINATOR = 2;
 
-export function getCancelOrderByClientIdDiscriminatorBytes() {
-  return getU8Encoder().encode(CANCEL_ORDER_BY_CLIENT_ID_DISCRIMINATOR);
+export function getInitializeFillsLogDiscriminatorBytes() {
+  return getU8Encoder().encode(INITIALIZE_FILLS_LOG_DISCRIMINATOR);
 }
 
-export type CancelOrderByClientIdInstruction<
+export type InitializeFillsLogInstruction<
   TProgram extends string = typeof ORDERBOOK_PROGRAM_ADDRESS,
   TAccountSigner extends string | AccountMeta<string> = string,
-  TAccountOpenOrdersAccount extends string | AccountMeta<string> = string,
+  TAccountFillsLog extends string | AccountMeta<string> = string,
   TAccountMarket extends string | AccountMeta<string> = string,
-  TAccountBids extends string | AccountMeta<string> = string,
-  TAccountAsks extends string | AccountMeta<string> = string,
+  TAccountSystemProgram extends string | AccountMeta<string> =
+    "11111111111111111111111111111111",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
   InstructionWithAccounts<
     [
       TAccountSigner extends string
-        ? ReadonlySignerAccount<TAccountSigner> &
+        ? WritableSignerAccount<TAccountSigner> &
             AccountSignerMeta<TAccountSigner>
         : TAccountSigner,
-      TAccountOpenOrdersAccount extends string
-        ? WritableAccount<TAccountOpenOrdersAccount>
-        : TAccountOpenOrdersAccount,
+      TAccountFillsLog extends string
+        ? WritableAccount<TAccountFillsLog>
+        : TAccountFillsLog,
       TAccountMarket extends string
         ? ReadonlyAccount<TAccountMarket>
         : TAccountMarket,
-      TAccountBids extends string
-        ? WritableAccount<TAccountBids>
-        : TAccountBids,
-      TAccountAsks extends string
-        ? WritableAccount<TAccountAsks>
-        : TAccountAsks,
+      TAccountSystemProgram extends string
+        ? ReadonlyAccount<TAccountSystemProgram>
+        : TAccountSystemProgram,
       ...TRemainingAccounts,
     ]
   >;
 
-export type CancelOrderByClientIdInstructionData = {
+export type InitializeFillsLogInstructionData = {
   discriminator: number;
-  clientId: bigint;
+  bump: number;
+  padding: ReadonlyUint8Array;
+  clientOrderId: bigint;
 };
 
-export type CancelOrderByClientIdInstructionDataArgs = {
-  clientId: number | bigint;
+export type InitializeFillsLogInstructionDataArgs = {
+  bump: number;
+  padding: ReadonlyUint8Array;
+  clientOrderId: number | bigint;
 };
 
-export function getCancelOrderByClientIdInstructionDataEncoder(): FixedSizeEncoder<CancelOrderByClientIdInstructionDataArgs> {
+export function getInitializeFillsLogInstructionDataEncoder(): FixedSizeEncoder<InitializeFillsLogInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", getU8Encoder()],
-      ["clientId", getU64Encoder()],
+      ["bump", getU8Encoder()],
+      ["padding", fixEncoderSize(getBytesEncoder(), 7)],
+      ["clientOrderId", getU64Encoder()],
     ]),
     (value) => ({
       ...value,
-      discriminator: CANCEL_ORDER_BY_CLIENT_ID_DISCRIMINATOR,
+      discriminator: INITIALIZE_FILLS_LOG_DISCRIMINATOR,
     }),
   );
 }
 
-export function getCancelOrderByClientIdInstructionDataDecoder(): FixedSizeDecoder<CancelOrderByClientIdInstructionData> {
+export function getInitializeFillsLogInstructionDataDecoder(): FixedSizeDecoder<InitializeFillsLogInstructionData> {
   return getStructDecoder([
     ["discriminator", getU8Decoder()],
-    ["clientId", getU64Decoder()],
+    ["bump", getU8Decoder()],
+    ["padding", fixDecoderSize(getBytesDecoder(), 7)],
+    ["clientOrderId", getU64Decoder()],
   ]);
 }
 
-export function getCancelOrderByClientIdInstructionDataCodec(): FixedSizeCodec<
-  CancelOrderByClientIdInstructionDataArgs,
-  CancelOrderByClientIdInstructionData
+export function getInitializeFillsLogInstructionDataCodec(): FixedSizeCodec<
+  InitializeFillsLogInstructionDataArgs,
+  InitializeFillsLogInstructionData
 > {
   return combineCodec(
-    getCancelOrderByClientIdInstructionDataEncoder(),
-    getCancelOrderByClientIdInstructionDataDecoder(),
+    getInitializeFillsLogInstructionDataEncoder(),
+    getInitializeFillsLogInstructionDataDecoder(),
   );
 }
 
-export type CancelOrderByClientIdInput<
+export type InitializeFillsLogInput<
   TAccountSigner extends string = string,
-  TAccountOpenOrdersAccount extends string = string,
+  TAccountFillsLog extends string = string,
   TAccountMarket extends string = string,
-  TAccountBids extends string = string,
-  TAccountAsks extends string = string,
+  TAccountSystemProgram extends string = string,
 > = {
-  /** Order owner */
+  /** Taker */
   signer: TransactionSigner<TAccountSigner>;
-  /** OO account */
-  openOrdersAccount: Address<TAccountOpenOrdersAccount>;
+  /** FillsLog PDA */
+  fillsLog: Address<TAccountFillsLog>;
   /** Market state */
   market: Address<TAccountMarket>;
-  /** Bids BookSide */
-  bids: Address<TAccountBids>;
-  /** Asks BookSide */
-  asks: Address<TAccountAsks>;
-  clientId: CancelOrderByClientIdInstructionDataArgs["clientId"];
+  /** System program */
+  systemProgram?: Address<TAccountSystemProgram>;
+  bump: InitializeFillsLogInstructionDataArgs["bump"];
+  padding: InitializeFillsLogInstructionDataArgs["padding"];
+  clientOrderId: InitializeFillsLogInstructionDataArgs["clientOrderId"];
 };
 
-export function getCancelOrderByClientIdInstruction<
+export function getInitializeFillsLogInstruction<
   TAccountSigner extends string,
-  TAccountOpenOrdersAccount extends string,
+  TAccountFillsLog extends string,
   TAccountMarket extends string,
-  TAccountBids extends string,
-  TAccountAsks extends string,
+  TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof ORDERBOOK_PROGRAM_ADDRESS,
 >(
-  input: CancelOrderByClientIdInput<
+  input: InitializeFillsLogInput<
     TAccountSigner,
-    TAccountOpenOrdersAccount,
+    TAccountFillsLog,
     TAccountMarket,
-    TAccountBids,
-    TAccountAsks
+    TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
-): CancelOrderByClientIdInstruction<
+): InitializeFillsLogInstruction<
   TProgramAddress,
   TAccountSigner,
-  TAccountOpenOrdersAccount,
+  TAccountFillsLog,
   TAccountMarket,
-  TAccountBids,
-  TAccountAsks
+  TAccountSystemProgram
 > {
   // Program address.
   const programAddress = config?.programAddress ?? ORDERBOOK_PROGRAM_ADDRESS;
 
   // Original accounts.
   const originalAccounts = {
-    signer: { value: input.signer ?? null, isWritable: false },
-    openOrdersAccount: {
-      value: input.openOrdersAccount ?? null,
-      isWritable: true,
-    },
+    signer: { value: input.signer ?? null, isWritable: true },
+    fillsLog: { value: input.fillsLog ?? null, isWritable: true },
     market: { value: input.market ?? null, isWritable: false },
-    bids: { value: input.bids ?? null, isWritable: true },
-    asks: { value: input.asks ?? null, isWritable: true },
+    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -181,63 +182,65 @@ export function getCancelOrderByClientIdInstruction<
   // Original args.
   const args = { ...input };
 
+  // Resolve default values.
+  if (!accounts.systemProgram.value) {
+    accounts.systemProgram.value =
+      "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
+  }
+
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
       getAccountMeta("signer", accounts.signer),
-      getAccountMeta("openOrdersAccount", accounts.openOrdersAccount),
+      getAccountMeta("fillsLog", accounts.fillsLog),
       getAccountMeta("market", accounts.market),
-      getAccountMeta("bids", accounts.bids),
-      getAccountMeta("asks", accounts.asks),
+      getAccountMeta("systemProgram", accounts.systemProgram),
     ],
-    data: getCancelOrderByClientIdInstructionDataEncoder().encode(
-      args as CancelOrderByClientIdInstructionDataArgs,
+    data: getInitializeFillsLogInstructionDataEncoder().encode(
+      args as InitializeFillsLogInstructionDataArgs,
     ),
     programAddress,
-  } as CancelOrderByClientIdInstruction<
+  } as InitializeFillsLogInstruction<
     TProgramAddress,
     TAccountSigner,
-    TAccountOpenOrdersAccount,
+    TAccountFillsLog,
     TAccountMarket,
-    TAccountBids,
-    TAccountAsks
+    TAccountSystemProgram
   >);
 }
 
-export type ParsedCancelOrderByClientIdInstruction<
+export type ParsedInitializeFillsLogInstruction<
   TProgram extends string = typeof ORDERBOOK_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    /** Order owner */
+    /** Taker */
     signer: TAccountMetas[0];
-    /** OO account */
-    openOrdersAccount: TAccountMetas[1];
+    /** FillsLog PDA */
+    fillsLog: TAccountMetas[1];
     /** Market state */
     market: TAccountMetas[2];
-    /** Bids BookSide */
-    bids: TAccountMetas[3];
-    /** Asks BookSide */
-    asks: TAccountMetas[4];
+    /** System program */
+    systemProgram: TAccountMetas[3];
   };
-  data: CancelOrderByClientIdInstructionData;
+  data: InitializeFillsLogInstructionData;
 };
 
-export function parseCancelOrderByClientIdInstruction<
+export function parseInitializeFillsLogInstruction<
   TProgram extends string,
   TAccountMetas extends readonly AccountMeta[],
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
-): ParsedCancelOrderByClientIdInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 5) {
+): ParsedInitializeFillsLogInstruction<TProgram, TAccountMetas> {
+  if (instruction.accounts.length < 4) {
     throw new SolanaError(
       SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
       {
         actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 5,
+        expectedAccountMetas: 4,
       },
     );
   }
@@ -251,12 +254,11 @@ export function parseCancelOrderByClientIdInstruction<
     programAddress: instruction.programAddress,
     accounts: {
       signer: getNextAccount(),
-      openOrdersAccount: getNextAccount(),
+      fillsLog: getNextAccount(),
       market: getNextAccount(),
-      bids: getNextAccount(),
-      asks: getNextAccount(),
+      systemProgram: getNextAccount(),
     },
-    data: getCancelOrderByClientIdInstructionDataDecoder().decode(
+    data: getInitializeFillsLogInstructionDataDecoder().decode(
       instruction.data,
     ),
   };

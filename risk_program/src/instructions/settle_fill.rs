@@ -5,7 +5,9 @@ use shank::ShankType;
 use crate::{
     constants::{POSITION_SEED, USER_ACCOUNT_SEED},
     errors::RiskProgramError,
-    helper::{verify_account_owner, verify_initialized, verify_pda, verify_program_id},
+    helper::{
+        verify_account_owner, verify_initialized, verify_pda, verify_program_id, verify_writtable,
+    },
     instructions::settle_funding_internal,
     state::{FundingState, MarketConfig, Position, UserAccount},
 };
@@ -41,6 +43,9 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
     verify_program_id(system_program, &pinocchio_system::ID)?;
     verify_initialized(user_account)?;
     verify_initialized(position)?;
+    verify_writtable(user_account)?;
+    verify_writtable(position)?;
+    verify_writtable(funding_state)?;
 
     unsafe {
         verify_account_owner(market_config, &crate::ID)?;
@@ -51,6 +56,13 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
 
     let params = bytemuck::try_pod_read_unaligned::<SettleFillParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    if params.base_lots <= 0 {
+        return Err(RiskProgramError::InvalidAmount.into());
+    }
+    if params.price_lots <= 0 {
+        return Err(RiskProgramError::InvalidAmount.into());
+    }
 
     let market_config_data = market_config.try_borrow()?;
     let market_config_state =
@@ -71,8 +83,9 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
     let position_side: u8 = if params.is_taker == 1 {
         params.taker_side
     } else {
-        1 - params.taker_side
+        1u8.saturating_sub(params.taker_side)
     };
+    
     let mut funding_data = funding_state.try_borrow_mut()?;
     let funding = bytemuck::from_bytes_mut::<FundingState>(&mut funding_data[..FundingState::LEN]);
 

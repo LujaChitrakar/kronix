@@ -8,7 +8,7 @@
 use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
-pub const CANCEL_ALL_ORDERS_DISCRIMINATOR: u8 = 6;
+pub const CANCEL_ALL_ORDERS_DISCRIMINATOR: u8 = 9;
 
 /// Accounts.
 #[derive(Debug)]
@@ -89,7 +89,7 @@ impl CancelAllOrders {
 impl CancelAllOrdersInstructionData {
   pub fn new() -> Self {
     Self {
-                        discriminator: 6,
+                        discriminator: 9,
                                                                                         }
   }
 
