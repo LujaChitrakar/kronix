@@ -187,6 +187,25 @@ PDA seeds:
 
 --- CORE TRADING FLOW ---
 
+orderbook_program::initialize_fills_logs
+
+```
+Creates a FillsLog PDA account for a specific taker and client order ID. This account acts as the bridge between place_order (matching) and settle_fills (settlement). Must be called in the same transaction as place_order.
+place_order needs a writable FillsLog account to write fill data into after matching. Creating it in the same transaction as place_order guarantees it exists and is in the correct ready state before matching runs.
+
+Caller
+User (taker) — called before every place_order.
+
+Account:
+signer,
+fill_logs,
+market,
+system_program
+
+```
+
+---
+
 orderbook_program::place_order
 
 ```
@@ -240,20 +259,79 @@ Accounts:
   market_state PDA (writable)  ← seq_num incremented
   bids PDA (writable)
   asks PDA (writable)
-  taker_user_account PDA (writable)
-  taker_position PDA (writable)
-  market_config PDA
-  funding_state PDA (writable)
-  orderbook_program_self
-  risk_program
+  fills_log(writtable)
   system_program
-  remaining[i*2]   = maker_open_orders_account (writable)
-  remaining[i*2+1] = maker_position (writable)
 
 CPI depth: orderbook(1) → risk_program(2) → system_program(3)
 ```
 
 ---
+
+orderbook_program::settle_fills
+
+Reads confirmed fill data from FillsLog and settles both taker and maker positions by CPIing into risk_program::settle_fill for each fill. Updates maker OO account slots. Marks each fill as settled. When all fills are settled, resets FillsLog to the ready state.
+
+Caller
+Permissionless — called by the taker immediately after place_order confirms, or by a settlement keeper as a fallback.
+
+What It Does
+For each fill in the range [start, end):
+Skips fills already marked settled = 1
+Verifies all passed remaining accounts match the fill data in FillsLog — prevents malicious callers from passing wrong accounts
+
+Each fill requires 5 remaining accounts (taker UA, taker pos, maker OO, maker UA, maker pos) = 160 bytes per fill. Combined with fixed accounts and instruction data, a maximum of 4 fills fit within Solana's 1232-byte transaction size limit. For orders with 5-8 fills, two settle_fills transactions are sent.
+
+Accounts:
+caller
+fills_log
+market
+market_config
+funding_state
+system_program
+
+remainings:
+taker_user_acount
+taker_position
+maker_open_orders
+maker_user_acount
+maker_position
+
+---
+
+TX 1 — Matching
+ix[0]: initialize_fills_log
+→ Creates FillsLog PDA
+→ all_settled = 1 (ready)
+
+ix[1]: place_order
+→ Verifies FillsLog is ready
+→ Runs matching engine
+→ Writes N fills to FillsLog
+→ all_settled = 0 (pending)
+→ No CPIs to risk_program
+→ No remaining accounts
+
+After TX 1 confirms:
+Read FillsLog from chain — exact fill data available
+Derive all maker + taker accounts deterministically from fill data
+No race condition — fills already confirmed
+
+TX 2 — Settlement (fills 0..4)
+ix[0]: settle_fills(start=0, end=4)
+→ Verify all 5 accounts per fill match FillsLog data
+→ CPI settle_fill taker (fill 0)
+→ CPI settle_fill maker (fill 0)
+→ Update maker OO slot (fill 0)
+→ fill[0].settled = 1
+→ ... repeat for fills 1, 2, 3
+
+TX 3 — Settlement (fills 4..8, only if fill_count > 4)
+ix[0]: settle_fills(start=4, end=8)
+→ Same pattern for remaining fills
+→ all_settled = 1 after last fill settled
+→ FillsLog ready for next order
+
+    ---
 
 risk_program::settle_fill
 
@@ -1149,7 +1227,7 @@ Flow:
     → strategy_program::pause_strategy
       → verify owner
       → strategy.status = 1 (Paused)
-  
+
 Accounts:
 signer,
 strategy_account
@@ -1173,7 +1251,7 @@ Flow:
     → strategy_program::resume_strategy
       → verify owner
       → strategy.status = 0 (Active)
-      
+
 Accounts:
 signer,
 strategy_account
@@ -1200,7 +1278,7 @@ Flow:
       → verify strategy.status == Paused ← must pause first
       → validate new params
       → update fields in StrategyAccount
-      
+
 Accounts:
 signer,
 strategy_account
@@ -1228,7 +1306,7 @@ Flow:
       → transfer lamports back to signer
       → zero account data
       → account closed on-chain
-      
+
 Accounts:
 signer,
 strategy_account
