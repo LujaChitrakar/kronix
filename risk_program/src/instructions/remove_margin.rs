@@ -86,8 +86,12 @@ pub fn process_remove_margin(accounts: &[AccountView], data: &[u8]) -> ProgramRe
         .checked_sub(params.amount)
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
+    let mark_price_lots = mark_price
+        .checked_div(market_config_state.quote_lot_size)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+
     let maintenance_margin =
-        market_config_state.required_maintenance_margin(position_state.size, mark_price);
+        market_config_state.required_maintenance_margin(position_state.size, mark_price_lots);
 
     // Must keep at least maintenance margin in position
     if new_margin < maintenance_margin {

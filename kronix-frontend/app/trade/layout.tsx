@@ -1,0 +1,6 @@
+import { ReactNode } from "react";
+import { KronixWalletProvider } from "@/lib/kronix/wallet-provider";
+
+export default function TradeLayout({ children }: { children: ReactNode }) {
+  return <KronixWalletProvider>{children}</KronixWalletProvider>;
+}

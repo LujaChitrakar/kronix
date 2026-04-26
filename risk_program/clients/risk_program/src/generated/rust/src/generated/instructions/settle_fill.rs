@@ -38,6 +38,11 @@ pub struct SettleFill {
     
               
           pub system_program: solana_address::Address,
+                /// Fee payer for position creation
+
+    
+              
+          pub payer: solana_address::Address,
       }
 
 impl SettleFill {
@@ -47,7 +52,7 @@ impl SettleFill {
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
   pub fn instruction_with_remaining_accounts(&self, args: SettleFillInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
-    let mut accounts = Vec::with_capacity(5+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(6+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             self.user_account,
             false
@@ -67,6 +72,10 @@ impl SettleFill {
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.system_program,
             false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new(
+            self.payer,
+            true
           ));
                       accounts.extend_from_slice(remaining_accounts);
     let mut data = SettleFillInstructionData::new().try_to_vec().unwrap();
@@ -134,6 +143,7 @@ impl SettleFillInstructionArgs {
           ///   2. `[]` market_config
                 ///   3. `[writable]` funding_state
                 ///   4. `[optional]` system_program (default to `11111111111111111111111111111111`)
+                      ///   5. `[writable, signer]` payer
 #[derive(Clone, Debug, Default)]
 pub struct SettleFillBuilder {
             user_account: Option<solana_address::Address>,
@@ -141,6 +151,7 @@ pub struct SettleFillBuilder {
                 market_config: Option<solana_address::Address>,
                 funding_state: Option<solana_address::Address>,
                 system_program: Option<solana_address::Address>,
+                payer: Option<solana_address::Address>,
                         price_lots: Option<i64>,
                 base_lots: Option<i64>,
                 market_index: Option<u16>,
@@ -187,6 +198,12 @@ impl SettleFillBuilder {
 #[inline(always)]
     pub fn system_program(&mut self, system_program: solana_address::Address) -> &mut Self {
                         self.system_program = Some(system_program);
+                    self
+    }
+            /// Fee payer for position creation
+#[inline(always)]
+    pub fn payer(&mut self, payer: solana_address::Address) -> &mut Self {
+                        self.payer = Some(payer);
                     self
     }
                     #[inline(always)]
@@ -259,6 +276,7 @@ impl SettleFillBuilder {
                                         market_config: self.market_config.expect("market_config is not set"),
                                         funding_state: self.funding_state.expect("funding_state is not set"),
                                         system_program: self.system_program.unwrap_or(solana_address::address!("11111111111111111111111111111111")),
+                                        payer: self.payer.expect("payer is not set"),
                       };
           let args = SettleFillInstructionArgs {
                                                               price_lots: self.price_lots.clone().expect("price_lots is not set"),
@@ -304,6 +322,11 @@ impl SettleFillBuilder {
       
                     
               pub system_program: &'b solana_account_info::AccountInfo<'a>,
+                        /// Fee payer for position creation
+
+      
+                    
+              pub payer: &'b solana_account_info::AccountInfo<'a>,
             }
 
 /// `settle_fill` CPI instruction.
@@ -335,6 +358,11 @@ pub struct SettleFillCpi<'a, 'b> {
     
               
           pub system_program: &'b solana_account_info::AccountInfo<'a>,
+                /// Fee payer for position creation
+
+    
+              
+          pub payer: &'b solana_account_info::AccountInfo<'a>,
             /// The arguments for the instruction.
     pub __args: SettleFillInstructionArgs,
   }
@@ -352,6 +380,7 @@ impl<'a, 'b> SettleFillCpi<'a, 'b> {
               market_config: accounts.market_config,
               funding_state: accounts.funding_state,
               system_program: accounts.system_program,
+              payer: accounts.payer,
                     __args: args,
           }
   }
@@ -375,7 +404,7 @@ impl<'a, 'b> SettleFillCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program_error::ProgramResult {
-    let mut accounts = Vec::with_capacity(5+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(6+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             *self.user_account.key,
             false
@@ -396,6 +425,10 @@ impl<'a, 'b> SettleFillCpi<'a, 'b> {
             *self.system_program.key,
             false
           ));
+                                          accounts.push(solana_instruction::AccountMeta::new(
+            *self.payer.key,
+            true
+          ));
                       remaining_accounts.iter().for_each(|remaining_account| {
       accounts.push(solana_instruction::AccountMeta {
           pubkey: *remaining_account.0.key,
@@ -412,13 +445,14 @@ impl<'a, 'b> SettleFillCpi<'a, 'b> {
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(6 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(7 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
                   account_infos.push(self.user_account.clone());
                         account_infos.push(self.position.clone());
                         account_infos.push(self.market_config.clone());
                         account_infos.push(self.funding_state.clone());
                         account_infos.push(self.system_program.clone());
+                        account_infos.push(self.payer.clone());
               remaining_accounts.iter().for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
 
     if signers_seeds.is_empty() {
@@ -438,6 +472,7 @@ impl<'a, 'b> SettleFillCpi<'a, 'b> {
           ///   2. `[]` market_config
                 ///   3. `[writable]` funding_state
           ///   4. `[]` system_program
+                      ///   5. `[writable, signer]` payer
 #[derive(Clone, Debug)]
 pub struct SettleFillCpiBuilder<'a, 'b> {
   instruction: Box<SettleFillCpiBuilderInstruction<'a, 'b>>,
@@ -452,6 +487,7 @@ impl<'a, 'b> SettleFillCpiBuilder<'a, 'b> {
               market_config: None,
               funding_state: None,
               system_program: None,
+              payer: None,
                                             price_lots: None,
                                 base_lots: None,
                                 market_index: None,
@@ -494,6 +530,12 @@ impl<'a, 'b> SettleFillCpiBuilder<'a, 'b> {
 #[inline(always)]
     pub fn system_program(&mut self, system_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
                         self.instruction.system_program = Some(system_program);
+                    self
+    }
+      /// Fee payer for position creation
+#[inline(always)]
+    pub fn payer(&mut self, payer: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.payer = Some(payer);
                     self
     }
                     #[inline(always)]
@@ -592,6 +634,8 @@ impl<'a, 'b> SettleFillCpiBuilder<'a, 'b> {
           funding_state: self.instruction.funding_state.expect("funding_state is not set"),
                   
           system_program: self.instruction.system_program.expect("system_program is not set"),
+                  
+          payer: self.instruction.payer.expect("payer is not set"),
                           __args: args,
             };
     instruction.invoke_signed_with_remaining_accounts(signers_seeds, &self.instruction.__remaining_accounts)
@@ -606,6 +650,7 @@ struct SettleFillCpiBuilderInstruction<'a, 'b> {
                 market_config: Option<&'b solana_account_info::AccountInfo<'a>>,
                 funding_state: Option<&'b solana_account_info::AccountInfo<'a>>,
                 system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
+                payer: Option<&'b solana_account_info::AccountInfo<'a>>,
                         price_lots: Option<i64>,
                 base_lots: Option<i64>,
                 market_index: Option<u16>,

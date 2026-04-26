@@ -397,7 +397,7 @@ export type RiskProgramPluginInstructions = {
     input: RemoveMarginInput,
   ) => ReturnType<typeof getRemoveMarginInstruction> & SelfPlanAndSendFunctions;
   settleFill: (
-    input: SettleFillInput,
+    input: MakeOptional<SettleFillInput, "payer">,
   ) => ReturnType<typeof getSettleFillInstruction> & SelfPlanAndSendFunctions;
   settleFunding: (
     input: SettleFundingInput,
@@ -483,7 +483,10 @@ export function riskProgramProgram() {
           settleFill: (input) =>
             addSelfPlanAndSendFunctions(
               client,
-              getSettleFillInstruction(input),
+              getSettleFillInstruction({
+                ...input,
+                payer: input.payer ?? client.payer,
+              }),
             ),
           settleFunding: (input) =>
             addSelfPlanAndSendFunctions(

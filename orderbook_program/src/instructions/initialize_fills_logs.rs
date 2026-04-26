@@ -33,7 +33,7 @@ pub fn process_initialize_fills_logs(accounts: &[AccountView], data: &[u8]) -> P
     verify_initialized(market)?;
     verify_program_id(system_program, &pinocchio_system::ID)?;
 
-    let params = bytemuck::try_from_bytes::<InitializeFillsLogParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<InitializeFillsLogParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     let signer_key = signer.address().as_array();

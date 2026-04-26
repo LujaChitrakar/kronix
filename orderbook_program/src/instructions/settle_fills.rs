@@ -50,7 +50,7 @@ pub fn process_settle_fills(accounts: &[AccountView], data: &[u8]) -> ProgramRes
     }
     verify_writtable(fills_log)?;
 
-    let params = bytemuck::try_from_bytes::<SettleFillsParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<SettleFillsParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     if params.start >= params.end {
@@ -179,6 +179,7 @@ pub fn process_settle_fills(accounts: &[AccountView], data: &[u8]) -> ProgramRes
             market_config,
             funding_state,
             system_program,
+            caller,
             fill,
             fill.market_index,
             true, // is_taker
@@ -192,6 +193,7 @@ pub fn process_settle_fills(accounts: &[AccountView], data: &[u8]) -> ProgramRes
             market_config,
             funding_state,
             system_program,
+            caller,
             fill,
             fill.market_index,
             false, // is_taker

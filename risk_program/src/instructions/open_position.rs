@@ -69,7 +69,10 @@ pub fn process_open_position(accounts: &[AccountView], data: &[u8]) -> ProgramRe
         return Err(RiskProgramError::InvalidMarketIndex.into());
     }
 
-    let mark_price = validate_pyth_price(oracle, clock.unix_timestamp)?;
+    let mark_price_native = validate_pyth_price(oracle, clock.unix_timestamp)?;
+    let mark_price = mark_price_native
+        .checked_div(market_config_state.quote_lot_size)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
 
     // calculate required margin
     let required_margin = market_config_state.required_initial_margin(params.size_lots, mark_price);

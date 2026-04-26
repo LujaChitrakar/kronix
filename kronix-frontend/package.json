@@ -6,12 +6,22 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "keeper": "tsx --env-file=.env.local keeper-bots/main.ts"
   },
   "dependencies": {
+    "@solana/kit": "^6.8.0",
+    "@solana/program-client-core": "^6.8.0",
+    "@solana/spl-token": "^0.4.14",
+    "@solana/wallet-adapter-base": "^0.9.27",
+    "@solana/wallet-adapter-react": "^0.15.39",
+    "@solana/wallet-adapter-react-ui": "^0.9.39",
+    "@solana/wallet-adapter-wallets": "^0.19.38",
+    "@solana/web3.js": "^1.98.4",
     "@supabase/supabase-js": "^2.102.1",
     "@vercel/analytics": "^2.0.1",
     "axios": "^1.13.6",
+    "bs58": "^6.0.0",
     "next": "16.2.3",
     "react": "19.2.3",
     "react-dom": "19.2.3"
@@ -24,6 +34,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

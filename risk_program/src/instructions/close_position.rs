@@ -57,9 +57,10 @@ pub fn process_close_position(accounts: &[AccountView], data: &[u8]) -> ProgramR
         return Err(ProgramError::InvalidInstructionData);
     }
     // uncomment later on first testing without oracle
-    let mark_price = validate_pyth_price(oracle, clock.unix_timestamp)?;
-    // let mark_price = validated.price;
-    // let mark_price: i64 = 10;
+    let mark_price_native = validate_pyth_price(oracle, clock.unix_timestamp)?;
+    let mark_price = mark_price_native
+        .checked_div(market_config_state.quote_lot_size)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
 
     let mut position_data = position.try_borrow_mut()?;
     let position_state = bytemuck::from_bytes_mut::<Position>(&mut position_data[..Position::LEN]);

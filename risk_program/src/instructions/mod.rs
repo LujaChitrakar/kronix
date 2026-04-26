@@ -103,6 +103,7 @@ pub enum RiskInstruction {
     #[account(2, name = "market_config", desc = "MarketConfig")]
     #[account(3, name = "funding_state", desc = "FundingState", writable)]
     #[account(4, name = "system_program", desc = "System program")]
+    #[account(5, name = "payer", desc = "Fee payer for position creation", signer, writable)]
     SettleFill(SettleFillParams),
 
     #[account(0, name = "signer", desc = "Trader", signer)]

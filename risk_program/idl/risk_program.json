@@ -573,6 +573,14 @@
           "docs": [
             "System program"
           ]
+        },
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Fee payer for position creation"
+          ]
         }
       ],
       "args": [

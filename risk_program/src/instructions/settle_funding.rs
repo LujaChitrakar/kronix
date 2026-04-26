@@ -38,16 +38,19 @@ pub fn process_settle_funding(accounts: &[AccountView], _data: &[u8]) -> Program
         verify_account_owner(position, &crate::ID)?;
     }
 
+    // Permissionless crank: anyone can settle funding for any position. The
+    // settle_funding_internal call only mutates collateral by the funding
+    // delta and bumps entry_funding_index — no value transfer to caller, so
+    // there is no incentive for a malicious settler. Required so a keeper
+    // bot can sweep all positions on the 8-hour cadence.
     let mut user_account_data = user_account.try_borrow_mut()?;
     let user_account_state =
         bytemuck::from_bytes_mut::<UserAccount>(&mut user_account_data[..UserAccount::LEN]);
-    if user_account_state.owner != *signer.address().as_array() {
-        return Err(RiskProgramError::InvalidOwner.into());
-    }
 
     let mut position_data = position.try_borrow_mut()?;
     let position_state = bytemuck::from_bytes_mut::<Position>(&mut position_data[..Position::LEN]);
-    if position_state.owner != *signer.address().as_array() {
+
+    if position_state.owner != user_account_state.owner {
         return Err(RiskProgramError::InvalidOwner.into());
     }
 

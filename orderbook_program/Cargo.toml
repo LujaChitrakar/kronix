@@ -22,6 +22,9 @@ num_enum = "0.5.1"
 shank = "0.4.8"
 risk_program_cpi = { path = "../crates/risk_program_cpi" }
 
+[features]
+devnet = []
+
 [dev-dependencies]
 rand = { version = "0.8", features = ["small_rng"] }
 litesvm = "0.9.1"

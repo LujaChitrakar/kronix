@@ -1,5 +1,11 @@
 use bytemuck::{Pod, Zeroable};
-use pinocchio::{error::ProgramError, AccountView, ProgramResult};
+use pinocchio::{
+    cpi::{Seed, Signer},
+    error::ProgramError,
+    sysvars::{rent::Rent, Sysvar},
+    AccountView, Address, ProgramResult,
+};
+use pinocchio_system::instructions::CreateAccount;
 use shank::ShankType;
 
 use crate::{
@@ -34,6 +40,7 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
         market_config,
         funding_state,
         system_program,
+        payer,             // fee payer for creating position if needed
         _remaining @ ..,
     ] = accounts
     else {
@@ -42,7 +49,7 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
 
     verify_program_id(system_program, &pinocchio_system::ID)?;
     verify_initialized(user_account)?;
-    verify_initialized(position)?;
+    // position may be uninitialized — will be created below if needed
     verify_writtable(user_account)?;
     verify_writtable(position)?;
     verify_writtable(funding_state)?;
@@ -51,7 +58,9 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
         verify_account_owner(market_config, &crate::ID)?;
         verify_account_owner(funding_state, &crate::ID)?;
         verify_account_owner(user_account, &crate::ID)?;
-        verify_account_owner(position, &crate::ID)?;
+        if !position.is_data_empty() {
+            verify_account_owner(position, &crate::ID)?;
+        }
     }
 
     let params = bytemuck::try_pod_read_unaligned::<SettleFillParams>(data)
@@ -85,7 +94,7 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
     } else {
         1u8.saturating_sub(params.taker_side)
     };
-    
+
     let mut funding_data = funding_state.try_borrow_mut()?;
     let funding = bytemuck::from_bytes_mut::<FundingState>(&mut funding_data[..FundingState::LEN]);
 
@@ -109,15 +118,68 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
         &crate::ID,
     )?;
 
+    if user_account.is_data_empty() {
+        let ua_seeds = [
+            Seed::from(USER_ACCOUNT_SEED),
+            Seed::from(trader_pubkey.as_ref()),
+            Seed::from(bump_user_bytes.as_ref()),
+        ];
+        CreateAccount {
+            from: payer,
+            to: user_account,
+            lamports: Rent::get()?.try_minimum_balance(UserAccount::LEN)?,
+            space: UserAccount::LEN as u64,
+            owner: &Address::from(crate::ID),
+        }
+        .invoke_signed(&[Signer::from(&ua_seeds)])?;
+
+        let mut ua_data = user_account.try_borrow_mut()?;
+        let ua = bytemuck::from_bytes_mut::<UserAccount>(&mut ua_data[..UserAccount::LEN]);
+        *ua = UserAccount {
+            collateral: 0,
+            margin_used: 0,
+            bump: params.bump_user,
+            position_count: 0,
+            padding: [0; 6],
+            owner: *trader_pubkey,
+            reserved: [0; 32],
+        };
+    }
+
+    // Create position PDA on-the-fly if it doesn't exist yet
+    if position.is_data_empty() {
+        let position_seeds = [
+            Seed::from(POSITION_SEED),
+            Seed::from(trader_pubkey.as_ref()),
+            Seed::from(market_index_bytes.as_ref()),
+            Seed::from(bump_pos_bytes.as_ref()),
+        ];
+
+        CreateAccount {
+            from: payer,
+            to: position,
+            space: Position::LEN as u64,
+            lamports: Rent::get()?.try_minimum_balance(Position::LEN)?,
+            owner: &Address::from(crate::ID),
+        }
+        .invoke_signed(&[Signer::from(&position_seeds)])?;
+
+        let mut pos_data = position.try_borrow_mut()?;
+        let pos = bytemuck::from_bytes_mut::<Position>(&mut pos_data[..Position::LEN]);
+        pos.size = 0;
+    }
+
+    let position_is_new = {
+        let pos_data = position.try_borrow()?;
+        let pos = bytemuck::from_bytes::<Position>(&pos_data[..Position::LEN]);
+        pos.size == 0
+    };
+
     let mut user_account_data = user_account.try_borrow_mut()?;
     let user_account_state =
         bytemuck::from_bytes_mut::<UserAccount>(&mut user_account_data[..UserAccount::LEN]);
 
-    if {
-        let existing_data = position.try_borrow()?;
-        let existing_position = bytemuck::from_bytes::<Position>(&existing_data[..Position::LEN]);
-        existing_position.size == 0
-    } {
+    if position_is_new {
         let required_margin =
             market_config_state.required_initial_margin(params.base_lots, params.price_lots);
 

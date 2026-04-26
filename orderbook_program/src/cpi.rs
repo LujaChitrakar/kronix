@@ -11,6 +11,7 @@ pub fn settle_fill_cpi(
     market_config: &AccountView,
     funding_state: &AccountView,
     system_program: &AccountView,
+    payer: &AccountView,
     fill: &FillEntry,
     market_index: u16,
     is_taker: bool,
@@ -42,6 +43,7 @@ pub fn settle_fill_cpi(
         InstructionAccount::new(market_config.address(), false, false),
         InstructionAccount::new(funding_state.address(), true, false),
         InstructionAccount::new(system_program.address(), false, false),
+        InstructionAccount::new(payer.address(), true, true),
     ];
 
     let account_infos = [
@@ -50,6 +52,7 @@ pub fn settle_fill_cpi(
         market_config,
         funding_state,
         system_program,
+        payer,
     ];
 
     let ix = InstructionView {
@@ -58,7 +61,7 @@ pub fn settle_fill_cpi(
         data: &ix_data,
     };
 
-    invoke::<5>(&ix, &account_infos)?;
+    invoke::<6>(&ix, &account_infos)?;
 
     Ok(())
 }

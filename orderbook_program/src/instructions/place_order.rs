@@ -79,12 +79,6 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
         &mut oo_account_data[..OpenOrdersAccount::LEN],
     );
 
-    let log_data = fills_log.try_borrow()?;
-    let log = bytemuck::from_bytes::<FillsLog>(&log_data[..FillsLog::LEN]);
-    if !log.is_ready(now_slot) {
-        return Err(OrderBookError::PreviousFillsNotSettled.into());
-    }
-
     // validations
     {
         let market_bump = [market_state.bump];
