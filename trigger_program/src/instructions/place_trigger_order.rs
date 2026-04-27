@@ -6,9 +6,11 @@ use pinocchio::{
     AccountView, Address, ProgramResult,
 };
 use pinocchio_system::instructions::CreateAccount;
+use shank::ShankType;
 
 use crate::{
-    constants::TRIGGER_ORDER_SEED,
+    constants::{TRIGGER_AUTHORITY_SEED, TRIGGER_ORDER_SEED},
+    cpi::{initialize_fills_log_cpi, set_delegate_cpi},
     errors::TriggerProgramError,
     helpers::{
         verify_initialized, verify_pda, verify_program_id, verify_signer, verify_uninitialized,
@@ -16,7 +18,10 @@ use crate::{
     states::TriggerOrder,
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+// OpenOrdersAccount.delegate offset (owner @0, market @32, delegate @64)
+const OO_DELEGATE_OFFSET: usize = 64;
+
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct PlaceTriggerOrderParams {
     pub client_order_id: u64,
@@ -26,12 +31,15 @@ pub struct PlaceTriggerOrderParams {
     pub market_index: u16,
     pub trigger_type: u8, // 0=StopLoss, 1=TakeProfit
     pub side: u8,         // 0=Buy, 1=Sell
-    pub bump: u8,
-    pub padding: [u8; 3],
+    pub bump: u8,         // trigger_order PDA bump
+    pub bump_authority: u8,
+    pub bump_fills_log: u8,
+    pub padding: [u8; 1],
 }
 
 pub fn process_place_trigger_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [signer, trigger_order, open_orders_account, system_program, _remaining @ ..] = accounts
+    let [signer, trigger_order, open_orders_account, trigger_authority, fills_log, market, orderbook_program, system_program, _remaining @ ..] =
+        accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
@@ -41,7 +49,7 @@ pub fn process_place_trigger_order(accounts: &[AccountView], data: &[u8]) -> Pro
     verify_program_id(system_program, &pinocchio_system::ID)?;
     verify_initialized(open_orders_account)?;
 
-    let params = bytemuck::try_from_bytes::<PlaceTriggerOrderParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<PlaceTriggerOrderParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     if params.size_lots <= 0 {
@@ -59,18 +67,28 @@ pub fn process_place_trigger_order(accounts: &[AccountView], data: &[u8]) -> Pro
     let bump_bytes = [params.bump];
     let client_id_bytes = params.client_order_id.to_le_bytes();
 
-    {
-        verify_pda(
-            trigger_order,
-            &[
-                TRIGGER_ORDER_SEED,
-                signer_key.as_ref(),
-                client_id_bytes.as_ref(),
-                &bump_bytes,
-            ],
-            &crate::ID,
-        )?;
-    }
+    verify_pda(
+        trigger_order,
+        &[
+            TRIGGER_ORDER_SEED,
+            signer_key.as_ref(),
+            client_id_bytes.as_ref(),
+            &bump_bytes,
+        ],
+        &crate::ID,
+    )?;
+
+    let authority_bump_bytes = [params.bump_authority];
+    verify_pda(
+        trigger_authority,
+        &[
+            TRIGGER_AUTHORITY_SEED,
+            signer_key.as_ref(),
+            &authority_bump_bytes,
+        ],
+        &crate::ID,
+    )?;
+
     let seeds = [
         Seed::from(TRIGGER_ORDER_SEED),
         Seed::from(signer_key.as_ref()),
@@ -106,6 +124,32 @@ pub fn process_place_trigger_order(accounts: &[AccountView], data: &[u8]) -> Pro
             open_orders_account: *open_orders_account.address().as_array(),
             reserved: [0; 32],
         };
+    }
+
+    initialize_fills_log_cpi(
+        orderbook_program,
+        system_program,
+        signer,
+        trigger_authority,
+        fills_log,
+        market,
+        params.client_order_id,
+        params.bump_fills_log,
+    )?;
+
+    let trigger_authority_key: [u8; 32] = *trigger_authority.address().as_array();
+    let needs_delegate_set = {
+        let oo_data = open_orders_account.try_borrow()?;
+        let current = &oo_data[OO_DELEGATE_OFFSET..OO_DELEGATE_OFFSET + 32];
+        current != trigger_authority_key.as_ref()
+    };
+    if needs_delegate_set {
+        set_delegate_cpi(
+            orderbook_program,
+            signer,
+            open_orders_account,
+            trigger_authority_key,
+        )?;
     }
 
     Ok(())

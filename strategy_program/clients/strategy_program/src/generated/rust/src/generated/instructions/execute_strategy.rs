@@ -54,31 +54,11 @@ pub struct ExecuteStrategy {
     
               
           pub asks: solana_address::Address,
-                /// Market Config PDA
+                /// Fills log PDA
 
     
               
-          pub market_config: solana_address::Address,
-                /// Funding State PDA
-
-    
-              
-          pub funding_state: solana_address::Address,
-                /// User Account PDA
-
-    
-              
-          pub user_account: solana_address::Address,
-                /// Position PDA
-
-    
-              
-          pub position: solana_address::Address,
-                /// Risk Program
-
-    
-              
-          pub risk_program: solana_address::Address,
+          pub fills_log: solana_address::Address,
                 /// Orderbook Program
 
     
@@ -98,7 +78,7 @@ impl ExecuteStrategy {
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
   pub fn instruction_with_remaining_accounts(&self, args: ExecuteStrategyInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
-    let mut accounts = Vec::with_capacity(15+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(11+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             self.keeper,
             true
@@ -132,23 +112,7 @@ impl ExecuteStrategy {
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            self.market_config,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            self.funding_state,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            self.user_account,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            self.position,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
-            self.risk_program,
+            self.fills_log,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -219,13 +183,9 @@ impl ExecuteStrategyInstructionArgs {
                 ///   5. `[writable]` market
                 ///   6. `[writable]` bids
                 ///   7. `[writable]` asks
-                ///   8. `[writable]` market_config
-                ///   9. `[writable]` funding_state
-                ///   10. `[writable]` user_account
-                ///   11. `[writable]` position
-          ///   12. `[]` risk_program
-          ///   13. `[]` orderbook_program
-                ///   14. `[optional]` system_program (default to `11111111111111111111111111111111`)
+                ///   8. `[writable]` fills_log
+          ///   9. `[]` orderbook_program
+                ///   10. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct ExecuteStrategyBuilder {
             keeper: Option<solana_address::Address>,
@@ -236,11 +196,7 @@ pub struct ExecuteStrategyBuilder {
                 market: Option<solana_address::Address>,
                 bids: Option<solana_address::Address>,
                 asks: Option<solana_address::Address>,
-                market_config: Option<solana_address::Address>,
-                funding_state: Option<solana_address::Address>,
-                user_account: Option<solana_address::Address>,
-                position: Option<solana_address::Address>,
-                risk_program: Option<solana_address::Address>,
+                fills_log: Option<solana_address::Address>,
                 orderbook_program: Option<solana_address::Address>,
                 system_program: Option<solana_address::Address>,
                         execute_strategy_params: Option<ExecuteStrategyParams>,
@@ -299,34 +255,10 @@ impl ExecuteStrategyBuilder {
                         self.asks = Some(asks);
                     self
     }
-            /// Market Config PDA
+            /// Fills log PDA
 #[inline(always)]
-    pub fn market_config(&mut self, market_config: solana_address::Address) -> &mut Self {
-                        self.market_config = Some(market_config);
-                    self
-    }
-            /// Funding State PDA
-#[inline(always)]
-    pub fn funding_state(&mut self, funding_state: solana_address::Address) -> &mut Self {
-                        self.funding_state = Some(funding_state);
-                    self
-    }
-            /// User Account PDA
-#[inline(always)]
-    pub fn user_account(&mut self, user_account: solana_address::Address) -> &mut Self {
-                        self.user_account = Some(user_account);
-                    self
-    }
-            /// Position PDA
-#[inline(always)]
-    pub fn position(&mut self, position: solana_address::Address) -> &mut Self {
-                        self.position = Some(position);
-                    self
-    }
-            /// Risk Program
-#[inline(always)]
-    pub fn risk_program(&mut self, risk_program: solana_address::Address) -> &mut Self {
-                        self.risk_program = Some(risk_program);
+    pub fn fills_log(&mut self, fills_log: solana_address::Address) -> &mut Self {
+                        self.fills_log = Some(fills_log);
                     self
     }
             /// Orderbook Program
@@ -370,11 +302,7 @@ impl ExecuteStrategyBuilder {
                                         market: self.market.expect("market is not set"),
                                         bids: self.bids.expect("bids is not set"),
                                         asks: self.asks.expect("asks is not set"),
-                                        market_config: self.market_config.expect("market_config is not set"),
-                                        funding_state: self.funding_state.expect("funding_state is not set"),
-                                        user_account: self.user_account.expect("user_account is not set"),
-                                        position: self.position.expect("position is not set"),
-                                        risk_program: self.risk_program.expect("risk_program is not set"),
+                                        fills_log: self.fills_log.expect("fills_log is not set"),
                                         orderbook_program: self.orderbook_program.expect("orderbook_program is not set"),
                                         system_program: self.system_program.unwrap_or(solana_address::address!("11111111111111111111111111111111")),
                       };
@@ -428,31 +356,11 @@ impl ExecuteStrategyBuilder {
       
                     
               pub asks: &'b solana_account_info::AccountInfo<'a>,
-                        /// Market Config PDA
+                        /// Fills log PDA
 
       
                     
-              pub market_config: &'b solana_account_info::AccountInfo<'a>,
-                        /// Funding State PDA
-
-      
-                    
-              pub funding_state: &'b solana_account_info::AccountInfo<'a>,
-                        /// User Account PDA
-
-      
-                    
-              pub user_account: &'b solana_account_info::AccountInfo<'a>,
-                        /// Position PDA
-
-      
-                    
-              pub position: &'b solana_account_info::AccountInfo<'a>,
-                        /// Risk Program
-
-      
-                    
-              pub risk_program: &'b solana_account_info::AccountInfo<'a>,
+              pub fills_log: &'b solana_account_info::AccountInfo<'a>,
                         /// Orderbook Program
 
       
@@ -509,31 +417,11 @@ pub struct ExecuteStrategyCpi<'a, 'b> {
     
               
           pub asks: &'b solana_account_info::AccountInfo<'a>,
-                /// Market Config PDA
+                /// Fills log PDA
 
     
               
-          pub market_config: &'b solana_account_info::AccountInfo<'a>,
-                /// Funding State PDA
-
-    
-              
-          pub funding_state: &'b solana_account_info::AccountInfo<'a>,
-                /// User Account PDA
-
-    
-              
-          pub user_account: &'b solana_account_info::AccountInfo<'a>,
-                /// Position PDA
-
-    
-              
-          pub position: &'b solana_account_info::AccountInfo<'a>,
-                /// Risk Program
-
-    
-              
-          pub risk_program: &'b solana_account_info::AccountInfo<'a>,
+          pub fills_log: &'b solana_account_info::AccountInfo<'a>,
                 /// Orderbook Program
 
     
@@ -564,11 +452,7 @@ impl<'a, 'b> ExecuteStrategyCpi<'a, 'b> {
               market: accounts.market,
               bids: accounts.bids,
               asks: accounts.asks,
-              market_config: accounts.market_config,
-              funding_state: accounts.funding_state,
-              user_account: accounts.user_account,
-              position: accounts.position,
-              risk_program: accounts.risk_program,
+              fills_log: accounts.fills_log,
               orderbook_program: accounts.orderbook_program,
               system_program: accounts.system_program,
                     __args: args,
@@ -594,7 +478,7 @@ impl<'a, 'b> ExecuteStrategyCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program_error::ProgramResult {
-    let mut accounts = Vec::with_capacity(15+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(11+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             *self.keeper.key,
             true
@@ -628,23 +512,7 @@ impl<'a, 'b> ExecuteStrategyCpi<'a, 'b> {
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            *self.market_config.key,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            *self.funding_state.key,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            *self.user_account.key,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            *self.position.key,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
-            *self.risk_program.key,
+            *self.fills_log.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -671,7 +539,7 @@ impl<'a, 'b> ExecuteStrategyCpi<'a, 'b> {
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(16 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(12 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
                   account_infos.push(self.keeper.clone());
                         account_infos.push(self.strategy_authority.clone());
@@ -681,11 +549,7 @@ impl<'a, 'b> ExecuteStrategyCpi<'a, 'b> {
                         account_infos.push(self.market.clone());
                         account_infos.push(self.bids.clone());
                         account_infos.push(self.asks.clone());
-                        account_infos.push(self.market_config.clone());
-                        account_infos.push(self.funding_state.clone());
-                        account_infos.push(self.user_account.clone());
-                        account_infos.push(self.position.clone());
-                        account_infos.push(self.risk_program.clone());
+                        account_infos.push(self.fills_log.clone());
                         account_infos.push(self.orderbook_program.clone());
                         account_infos.push(self.system_program.clone());
               remaining_accounts.iter().for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
@@ -710,13 +574,9 @@ impl<'a, 'b> ExecuteStrategyCpi<'a, 'b> {
                 ///   5. `[writable]` market
                 ///   6. `[writable]` bids
                 ///   7. `[writable]` asks
-                ///   8. `[writable]` market_config
-                ///   9. `[writable]` funding_state
-                ///   10. `[writable]` user_account
-                ///   11. `[writable]` position
-          ///   12. `[]` risk_program
-          ///   13. `[]` orderbook_program
-          ///   14. `[]` system_program
+                ///   8. `[writable]` fills_log
+          ///   9. `[]` orderbook_program
+          ///   10. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct ExecuteStrategyCpiBuilder<'a, 'b> {
   instruction: Box<ExecuteStrategyCpiBuilderInstruction<'a, 'b>>,
@@ -734,11 +594,7 @@ impl<'a, 'b> ExecuteStrategyCpiBuilder<'a, 'b> {
               market: None,
               bids: None,
               asks: None,
-              market_config: None,
-              funding_state: None,
-              user_account: None,
-              position: None,
-              risk_program: None,
+              fills_log: None,
               orderbook_program: None,
               system_program: None,
                                             execute_strategy_params: None,
@@ -794,34 +650,10 @@ impl<'a, 'b> ExecuteStrategyCpiBuilder<'a, 'b> {
                         self.instruction.asks = Some(asks);
                     self
     }
-      /// Market Config PDA
+      /// Fills log PDA
 #[inline(always)]
-    pub fn market_config(&mut self, market_config: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.market_config = Some(market_config);
-                    self
-    }
-      /// Funding State PDA
-#[inline(always)]
-    pub fn funding_state(&mut self, funding_state: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.funding_state = Some(funding_state);
-                    self
-    }
-      /// User Account PDA
-#[inline(always)]
-    pub fn user_account(&mut self, user_account: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.user_account = Some(user_account);
-                    self
-    }
-      /// Position PDA
-#[inline(always)]
-    pub fn position(&mut self, position: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.position = Some(position);
-                    self
-    }
-      /// Risk Program
-#[inline(always)]
-    pub fn risk_program(&mut self, risk_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.risk_program = Some(risk_program);
+    pub fn fills_log(&mut self, fills_log: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.fills_log = Some(fills_log);
                     self
     }
       /// Orderbook Program
@@ -885,15 +717,7 @@ impl<'a, 'b> ExecuteStrategyCpiBuilder<'a, 'b> {
                   
           asks: self.instruction.asks.expect("asks is not set"),
                   
-          market_config: self.instruction.market_config.expect("market_config is not set"),
-                  
-          funding_state: self.instruction.funding_state.expect("funding_state is not set"),
-                  
-          user_account: self.instruction.user_account.expect("user_account is not set"),
-                  
-          position: self.instruction.position.expect("position is not set"),
-                  
-          risk_program: self.instruction.risk_program.expect("risk_program is not set"),
+          fills_log: self.instruction.fills_log.expect("fills_log is not set"),
                   
           orderbook_program: self.instruction.orderbook_program.expect("orderbook_program is not set"),
                   
@@ -915,11 +739,7 @@ struct ExecuteStrategyCpiBuilderInstruction<'a, 'b> {
                 market: Option<&'b solana_account_info::AccountInfo<'a>>,
                 bids: Option<&'b solana_account_info::AccountInfo<'a>>,
                 asks: Option<&'b solana_account_info::AccountInfo<'a>>,
-                market_config: Option<&'b solana_account_info::AccountInfo<'a>>,
-                funding_state: Option<&'b solana_account_info::AccountInfo<'a>>,
-                user_account: Option<&'b solana_account_info::AccountInfo<'a>>,
-                position: Option<&'b solana_account_info::AccountInfo<'a>>,
-                risk_program: Option<&'b solana_account_info::AccountInfo<'a>>,
+                fills_log: Option<&'b solana_account_info::AccountInfo<'a>>,
                 orderbook_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                 system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                         execute_strategy_params: Option<ExecuteStrategyParams>,

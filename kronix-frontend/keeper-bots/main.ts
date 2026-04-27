@@ -48,9 +48,12 @@ import { getPruneOrdersInstruction } from "../lib/orderbook-sdk";
 import {
   ORDERBOOK_PROGRAM_ID,
   RISK_PROGRAM_ID,
+  TRIGGER_PROGRAM_ID,
   USDC_MINT,
   MARKET_INDEX,
   TOKEN_PROGRAM_ID,
+  SYSTEM_PROGRAM_ID,
+  TriggerStatus,
 } from "../lib/kronix/config";
 import {
   findUserAccountPda,
@@ -63,8 +66,12 @@ import {
   findInsuranceFundPda,
   findVaultPda,
   findVaultAuthorityPda,
+  findTriggerAuthorityPda,
+  findFillsLogPda,
+  findOpenOrdersPda,
 } from "../lib/kronix/pdas";
 import { toLegacyIx, fakeSigner } from "../lib/kronix/ix-bridge";
+import { getTriggerOrderDecoder } from "../lib/trigger-sdk";
 
 // ── Config ───────────────────────────────────────────────────────────────
 
@@ -76,6 +83,10 @@ const KEYPAIR_PATH =
 
 const POSITION_SIZE = 104;
 const USER_ACCOUNT_SIZE = 88;
+const TRIGGER_ORDER_SIZE = 144;
+const PRUNE_BATCH = 16;
+const EXECUTE_TRIGGER_DISC = 2;
+const PRUNE_EXPIRED_TRIGGER_DISC = 4;
 
 const PADDING_5 = new Uint8Array(5);
 const PADDING_6 = new Uint8Array(6);
@@ -111,8 +122,10 @@ async function send(ixs: TransactionInstruction[], label: string): Promise<strin
     return sig;
   } catch (e) {
     const msg = (e as Error).message ?? String(e);
-    if (msg.includes("0xd")) return null; 
-    console.log(`[${label}] ✗ ${msg.slice(0, 240)}`);
+    if (msg.includes("0xd")) return null;
+    const logs = (e as { logs?: string[] }).logs;
+    const tail = logs ? "\n" + logs.slice(-12).join("\n") : "";
+    console.log(`[${label}] ✗ ${msg}${tail}`);
     return null;
   }
 }
@@ -403,6 +416,182 @@ async function runCoverBadDebt(): Promise<void> {
   }
 }
 
+// ── Trigger keeper ───────────────────────────────────────────────────────
+
+type TriggerRow = {
+  pubkey: PublicKey;
+  clientId: bigint;
+  triggerPrice: bigint;
+  expiry: bigint;
+  marketIndex: number;
+  triggerType: number;
+  side: number;
+  status: number;
+  owner: PublicKey;
+};
+
+async function scanTriggerOrders(): Promise<TriggerRow[]> {
+  const accs = await conn.getProgramAccounts(TRIGGER_PROGRAM_ID, {
+    commitment: "confirmed",
+    filters: [{ dataSize: TRIGGER_ORDER_SIZE }],
+  });
+  const decoder = getTriggerOrderDecoder();
+  const out: TriggerRow[] = [];
+  for (const { pubkey, account } of accs) {
+    try {
+      const t = decoder.decode(new Uint8Array(account.data));
+      out.push({
+        pubkey,
+        clientId: t.clientOrderId,
+        triggerPrice: t.triggerPrice,
+        expiry: t.expiry,
+        marketIndex: t.marketIndex,
+        triggerType: t.triggerType,
+        side: t.side,
+        status: t.status,
+        owner: new PublicKey(t.owner),
+      });
+    } catch {
+      continue;
+    }
+  }
+  return out;
+}
+
+function shouldTrigger(
+  triggerType: number,
+  side: number,
+  triggerPrice: bigint,
+  markPrice: bigint,
+): boolean {
+  // Mirror TriggerOrder::should_trigger in trigger_program/src/states/trigger_order.rs
+  if (triggerType === 0 && side === 1) return markPrice <= triggerPrice; // SL Sell (Long SL)
+  if (triggerType === 1 && side === 1) return markPrice >= triggerPrice; // TP Sell (Long TP)
+  if (triggerType === 0 && side === 0) return markPrice >= triggerPrice; // SL Buy (Short SL)
+  if (triggerType === 1 && side === 0) return markPrice <= triggerPrice; // TP Buy (Short TP)
+  return false;
+}
+
+function buildExecuteTriggerIx(args: {
+  keeper: PublicKey;
+  triggerAuthority: PublicKey;
+  triggerOrderOwner: PublicKey;
+  triggerOrder: PublicKey;
+  market: PublicKey;
+  openOrdersAccount: PublicKey;
+  bids: PublicKey;
+  asks: PublicKey;
+  fillsLog: PublicKey;
+  oracle: PublicKey;
+  marketIndex: number;
+  bumpFillsLog: number;
+  bumpAuthority: number;
+}): TransactionInstruction {
+  // ix data: [disc u8, market_index u16le, bump_fills_log u8, bump_authority u8, padding [u8;4]]
+  const data = Buffer.alloc(9);
+  data.writeUInt8(EXECUTE_TRIGGER_DISC, 0);
+  data.writeUInt16LE(args.marketIndex & 0xffff, 1);
+  data.writeUInt8(args.bumpFillsLog, 3);
+  data.writeUInt8(args.bumpAuthority, 4);
+  // bytes 5..9 already zero
+  return new TransactionInstruction({
+    programId: TRIGGER_PROGRAM_ID,
+    keys: [
+      { pubkey: args.keeper, isSigner: true, isWritable: true },
+      { pubkey: args.triggerAuthority, isSigner: false, isWritable: true },
+      { pubkey: args.triggerOrderOwner, isSigner: false, isWritable: true },
+      { pubkey: args.triggerOrder, isSigner: false, isWritable: true },
+      { pubkey: args.market, isSigner: false, isWritable: true },
+      { pubkey: args.openOrdersAccount, isSigner: false, isWritable: true },
+      { pubkey: args.bids, isSigner: false, isWritable: true },
+      { pubkey: args.asks, isSigner: false, isWritable: true },
+      { pubkey: args.fillsLog, isSigner: false, isWritable: true },
+      { pubkey: args.oracle, isSigner: false, isWritable: false },
+      { pubkey: ORDERBOOK_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+    ],
+    data,
+  });
+}
+
+async function runExecuteTriggers(): Promise<void> {
+  const markets = await loadMarkets();
+  const triggers = await scanTriggerOrders();
+  const now = BigInt(Math.floor(Date.now() / 1000));
+
+  for (const t of triggers) {
+    if (t.status !== TriggerStatus.Active) continue;
+    if (t.expiry !== 0n && now >= t.expiry) continue; // prune handles
+    const m = markets.find((x) => x.marketIndex === t.marketIndex);
+    if (!m) continue;
+    const markNative = await fetchMarkPriceNative(m.oracle);
+    if (markNative === null) continue;
+    if (!shouldTrigger(t.triggerType, t.side, t.triggerPrice, markNative)) {
+      continue;
+    }
+
+    const [triggerAuthority, bumpAuthority] = findTriggerAuthorityPda(t.owner);
+    const [market] = findMarketPda(t.marketIndex);
+    const [bids] = findBidsPda(t.marketIndex);
+    const [asks] = findAsksPda(t.marketIndex);
+    const [openOrdersAccount] = findOpenOrdersPda(t.owner, market);
+    const [fillsLog, bumpFillsLog] = findFillsLogPda(
+      triggerAuthority,
+      t.clientId,
+    );
+
+    const ix = buildExecuteTriggerIx({
+      keeper: keeper.publicKey,
+      triggerAuthority,
+      triggerOrderOwner: t.owner,
+      triggerOrder: t.pubkey,
+      market,
+      openOrdersAccount,
+      bids,
+      asks,
+      fillsLog,
+      oracle: m.oracle,
+      marketIndex: t.marketIndex,
+      bumpFillsLog,
+      bumpAuthority,
+    });
+    await send(
+      [...priorityFeeIxs(), ix],
+      `execute-trigger ${t.owner.toBase58().slice(0, 6)}/${t.clientId}`,
+    );
+  }
+}
+
+async function runPruneExpiredTriggers(): Promise<void> {
+  const triggers = await scanTriggerOrders();
+  const now = BigInt(Math.floor(Date.now() / 1000));
+  const expired = triggers.filter(
+    (t) => t.status === TriggerStatus.Active && t.expiry !== 0n && now >= t.expiry,
+  );
+  if (expired.length === 0) return;
+
+  for (let i = 0; i < expired.length; i += PRUNE_BATCH) {
+    const slice = expired.slice(i, i + PRUNE_BATCH);
+    const keys = [
+      { pubkey: keeper.publicKey, isSigner: true, isWritable: true },
+      ...slice.map((t) => ({
+        pubkey: t.pubkey,
+        isSigner: false,
+        isWritable: true,
+      })),
+    ];
+    const ix = new TransactionInstruction({
+      programId: TRIGGER_PROGRAM_ID,
+      keys,
+      data: Buffer.from([PRUNE_EXPIRED_TRIGGER_DISC]),
+    });
+    await send(
+      [...priorityFeeIxs(200_000), ix],
+      `prune-triggers ${slice.length}`,
+    );
+  }
+}
+
 async function runPruneOrders(): Promise<void> {
   const [market] = findMarketPda(MARKET_INDEX);
   const [bids] = findBidsPda(MARKET_INDEX);
@@ -443,6 +632,8 @@ const jobs: Job[] = [
   { name: "cover-bad-debt", intervalMs: 60_000, run: runCoverBadDebt, running: false },
   { name: "prune-orders", intervalMs: 60_000, run: runPruneOrders, running: false },
   { name: "settle-funding", intervalMs: 8 * 3_600_000, run: runSettleFunding, running: false },
+  { name: "execute-triggers", intervalMs: 10_000, run: runExecuteTriggers, running: false },
+  { name: "prune-expired-triggers", intervalMs: 60_000, run: runPruneExpiredTriggers, running: false },
 ];
 
 async function tick(j: Job): Promise<void> {

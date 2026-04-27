@@ -1,5 +1,6 @@
 use bytemuck::{Pod, Zeroable};
-use pinocchio::{AccountView, ProgramResult, error::ProgramError};
+use pinocchio::{error::ProgramError, AccountView, ProgramResult};
+use shank::ShankType;
 
 use crate::{
     errors::StrategyProgramError,
@@ -7,7 +8,7 @@ use crate::{
     states::StrategyAccount,
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct EditStrategyParams {
     // Pricing — 0 = no change
@@ -18,12 +19,12 @@ pub struct EditStrategyParams {
 
     // Risk params — 0 = no change
     pub new_cooldown_secs: u64,
-    pub new_max_executions_per_day: u32,
+    pub new_max_executions_per_day: u64,
 
     // Status control
     pub new_status: u8, // 255 = no change, 0 = active, 1 = paused
 
-    pub padding: [u8; 3],
+    pub padding: [u8; 7],
 }
 
 pub fn process_edit_strategy(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
@@ -38,7 +39,7 @@ pub fn process_edit_strategy(accounts: &[AccountView], data: &[u8]) -> ProgramRe
     }
     verify_writtable(strategy_account)?;
 
-    let params = bytemuck::try_from_bytes::<EditStrategyParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<EditStrategyParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     let mut strat_data = strategy_account.try_borrow_mut()?;

@@ -4,6 +4,7 @@ use pinocchio::{
     sysvars::{clock::Clock, Sysvar},
     AccountView, ProgramResult,
 };
+use shank::ShankType;
 use std::i64;
 
 use crate::{
@@ -18,7 +19,7 @@ use crate::{
     states::TriggerOrder,
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct ExecuteTriggerParams {
     pub market_index: u16,
@@ -53,7 +54,7 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
     verify_writtable(trigger_order)?;
     verify_program_id(system_program, &pinocchio_system::ID)?;
 
-    let params = bytemuck::try_from_bytes::<ExecuteTriggerParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<ExecuteTriggerParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
     let clock = Clock::get()?;
 

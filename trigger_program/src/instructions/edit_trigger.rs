@@ -4,6 +4,7 @@ use pinocchio::{
     sysvars::{clock::Clock, Sysvar},
     AccountView, ProgramResult,
 };
+use shank::ShankType;
 
 use crate::{
     errors::TriggerProgramError,
@@ -11,7 +12,7 @@ use crate::{
     states::TriggerOrder,
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct EditTriggerParams {
     pub new_trigger_price: i64, // 0 = no change
@@ -31,7 +32,7 @@ pub fn process_edit_trigger(accounts: &[AccountView], data: &[u8]) -> ProgramRes
     }
     verify_writtable(trigger_order)?;
 
-    let params = bytemuck::try_from_bytes::<EditTriggerParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<EditTriggerParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     let clock = Clock::get()?;

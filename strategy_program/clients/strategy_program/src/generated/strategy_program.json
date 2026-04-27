@@ -144,43 +144,11 @@
           ]
         },
         {
-          "name": "marketConfig",
+          "name": "fillsLog",
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "Market Config PDA"
-          ]
-        },
-        {
-          "name": "fundingState",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Funding State PDA"
-          ]
-        },
-        {
-          "name": "userAccount",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "User Account PDA"
-          ]
-        },
-        {
-          "name": "position",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Position PDA"
-          ]
-        },
-        {
-          "name": "riskProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Risk Program"
+            "Fills log PDA"
           ]
         },
         {

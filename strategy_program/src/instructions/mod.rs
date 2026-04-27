@@ -43,13 +43,9 @@ pub enum StrategyInstruction {
     #[account(5, name = "market", desc = "Market PDA", writable)]
     #[account(6, name = "bids", desc = "Bids PDA", writable)]
     #[account(7, name = "asks", desc = "Asks PDA", writable)]
-    #[account(8, name = "market_config", desc = "Market Config PDA", writable)]
-    #[account(9, name = "funding_state", desc = "Funding State PDA", writable)]
-    #[account(10, name = "user_account", desc = "User Account PDA", writable)]
-    #[account(11, name = "position", desc = "Position PDA", writable)]
-    #[account(12, name = "risk_program", desc = "Risk Program")]
-    #[account(13, name = "orderbook_program", desc = "Orderbook Program")]
-    #[account(14, name = "system_program", desc = "System program")]
+    #[account(8, name = "fills_log", desc = "Fills log PDA", writable)]
+    #[account(9, name = "orderbook_program", desc = "Orderbook Program")]
+    #[account(10, name = "system_program", desc = "System program")]
     ExecuteStrategy(ExecuteStrategyParams),
 
     #[account(0, name = "signer", desc = "Fee payer", signer, writable)]

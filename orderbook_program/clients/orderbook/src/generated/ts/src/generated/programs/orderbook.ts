@@ -326,7 +326,7 @@ export type OrderbookPluginInstructions = {
   ) => ReturnType<typeof getCreateOpenOrdersAccountInstruction> &
     SelfPlanAndSendFunctions;
   initializeFillsLog: (
-    input: InitializeFillsLogInput,
+    input: MakeOptional<InitializeFillsLogInput, "feePayer">,
   ) => ReturnType<typeof getInitializeFillsLogInstruction> &
     SelfPlanAndSendFunctions;
   placeOrder: (
@@ -401,7 +401,10 @@ export function orderbookProgram() {
           initializeFillsLog: (input) =>
             addSelfPlanAndSendFunctions(
               client,
-              getInitializeFillsLogInstruction(input),
+              getInitializeFillsLogInstruction({
+                ...input,
+                feePayer: input.feePayer ?? client.payer,
+              }),
             ),
           placeOrder: (input) =>
             addSelfPlanAndSendFunctions(

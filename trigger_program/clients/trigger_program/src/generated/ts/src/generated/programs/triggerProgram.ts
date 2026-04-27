@@ -14,41 +14,63 @@ import {
   SOLANA_ERROR__PROGRAM_CLIENTS__UNRECOGNIZED_INSTRUCTION_TYPE,
   SolanaError,
   type Address,
+  type ClientWithRpc,
   type ClientWithTransactionPlanning,
   type ClientWithTransactionSending,
+  type GetAccountInfoApi,
+  type GetMultipleAccountsApi,
   type Instruction,
   type InstructionWithData,
   type ReadonlyUint8Array,
 } from "@solana/kit";
 import {
+  addSelfFetchFunctions,
   addSelfPlanAndSendFunctions,
+  type SelfFetchFunctions,
   type SelfPlanAndSendFunctions,
 } from "@solana/program-client-core";
+import {
+  getTriggerOrderCodec,
+  type TriggerOrder,
+  type TriggerOrderArgs,
+} from "../accounts";
 import {
   getCancelTriggerOrderInstruction,
   getEditTriggerInstruction,
   getExecuteTriggerInstruction,
+  getPauseTriggerInstruction,
   getPlaceTriggerOrderInstruction,
   getPruneExpiredTriggerInstruction,
+  getResumeTriggerInstruction,
   parseCancelTriggerOrderInstruction,
   parseEditTriggerInstruction,
   parseExecuteTriggerInstruction,
+  parsePauseTriggerInstruction,
   parsePlaceTriggerOrderInstruction,
   parsePruneExpiredTriggerInstruction,
+  parseResumeTriggerInstruction,
   type CancelTriggerOrderInput,
   type EditTriggerInput,
   type ExecuteTriggerInput,
   type ParsedCancelTriggerOrderInstruction,
   type ParsedEditTriggerInstruction,
   type ParsedExecuteTriggerInstruction,
+  type ParsedPauseTriggerInstruction,
   type ParsedPlaceTriggerOrderInstruction,
   type ParsedPruneExpiredTriggerInstruction,
+  type ParsedResumeTriggerInstruction,
+  type PauseTriggerInput,
   type PlaceTriggerOrderInput,
   type PruneExpiredTriggerInput,
+  type ResumeTriggerInput,
 } from "../instructions";
 
 export const TRIGGER_PROGRAM_PROGRAM_ADDRESS =
   "FBux8UY7koXsvDp3GThjvtiMo4GagsDdkPDbU4VbQzV2" as Address<"FBux8UY7koXsvDp3GThjvtiMo4GagsDdkPDbU4VbQzV2">;
+
+export enum TriggerProgramAccount {
+  TriggerOrder,
+}
 
 export enum TriggerProgramInstruction {
   PlaceTriggerOrder,
@@ -56,6 +78,8 @@ export enum TriggerProgramInstruction {
   ExecuteTrigger,
   CancelTriggerOrder,
   PruneExpiredTrigger,
+  PauseTrigger,
+  ResumeTrigger,
 }
 
 export function identifyTriggerProgramInstruction(
@@ -76,6 +100,12 @@ export function identifyTriggerProgramInstruction(
   }
   if (containsBytes(data, getU8Encoder().encode(4), 0)) {
     return TriggerProgramInstruction.PruneExpiredTrigger;
+  }
+  if (containsBytes(data, getU8Encoder().encode(5), 0)) {
+    return TriggerProgramInstruction.PauseTrigger;
+  }
+  if (containsBytes(data, getU8Encoder().encode(6), 0)) {
+    return TriggerProgramInstruction.ResumeTrigger;
   }
   throw new SolanaError(
     SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_INSTRUCTION,
@@ -100,7 +130,13 @@ export type ParsedTriggerProgramInstruction<
     } & ParsedCancelTriggerOrderInstruction<TProgram>)
   | ({
       instructionType: TriggerProgramInstruction.PruneExpiredTrigger;
-    } & ParsedPruneExpiredTriggerInstruction<TProgram>);
+    } & ParsedPruneExpiredTriggerInstruction<TProgram>)
+  | ({
+      instructionType: TriggerProgramInstruction.PauseTrigger;
+    } & ParsedPauseTriggerInstruction<TProgram>)
+  | ({
+      instructionType: TriggerProgramInstruction.ResumeTrigger;
+    } & ParsedResumeTriggerInstruction<TProgram>);
 
 export function parseTriggerProgramInstruction<TProgram extends string>(
   instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
@@ -142,6 +178,20 @@ export function parseTriggerProgramInstruction<TProgram extends string>(
         ...parsePruneExpiredTriggerInstruction(instruction),
       };
     }
+    case TriggerProgramInstruction.PauseTrigger: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: TriggerProgramInstruction.PauseTrigger,
+        ...parsePauseTriggerInstruction(instruction),
+      };
+    }
+    case TriggerProgramInstruction.ResumeTrigger: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: TriggerProgramInstruction.ResumeTrigger,
+        ...parseResumeTriggerInstruction(instruction),
+      };
+    }
     default:
       throw new SolanaError(
         SOLANA_ERROR__PROGRAM_CLIENTS__UNRECOGNIZED_INSTRUCTION_TYPE,
@@ -154,7 +204,13 @@ export function parseTriggerProgramInstruction<TProgram extends string>(
 }
 
 export type TriggerProgramPlugin = {
+  accounts: TriggerProgramPluginAccounts;
   instructions: TriggerProgramPluginInstructions;
+};
+
+export type TriggerProgramPluginAccounts = {
+  triggerOrder: ReturnType<typeof getTriggerOrderCodec> &
+    SelfFetchFunctions<TriggerOrderArgs, TriggerOrder>;
 };
 
 export type TriggerProgramPluginInstructions = {
@@ -177,9 +233,19 @@ export type TriggerProgramPluginInstructions = {
     input: PruneExpiredTriggerInput,
   ) => ReturnType<typeof getPruneExpiredTriggerInstruction> &
     SelfPlanAndSendFunctions;
+  pauseTrigger: (
+    input: PauseTriggerInput,
+  ) => ReturnType<typeof getPauseTriggerInstruction> & SelfPlanAndSendFunctions;
+  resumeTrigger: (
+    input: ResumeTriggerInput,
+  ) => ReturnType<typeof getResumeTriggerInstruction> &
+    SelfPlanAndSendFunctions;
 };
 
-export type TriggerProgramPluginRequirements = ClientWithTransactionPlanning &
+export type TriggerProgramPluginRequirements = ClientWithRpc<
+  GetAccountInfoApi & GetMultipleAccountsApi
+> &
+  ClientWithTransactionPlanning &
   ClientWithTransactionSending;
 
 export function triggerProgramProgram() {
@@ -187,6 +253,9 @@ export function triggerProgramProgram() {
     return {
       ...client,
       triggerProgram: <TriggerProgramPlugin>{
+        accounts: {
+          triggerOrder: addSelfFetchFunctions(client, getTriggerOrderCodec()),
+        },
         instructions: {
           placeTriggerOrder: (input) =>
             addSelfPlanAndSendFunctions(
@@ -212,6 +281,16 @@ export function triggerProgramProgram() {
             addSelfPlanAndSendFunctions(
               client,
               getPruneExpiredTriggerInstruction(input),
+            ),
+          pauseTrigger: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getPauseTriggerInstruction(input),
+            ),
+          resumeTrigger: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getResumeTriggerInstruction(input),
             ),
         },
       },

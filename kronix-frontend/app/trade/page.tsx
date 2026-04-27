@@ -1,6 +1,8 @@
 import { TradeNav } from "@/components/trade/TradeNav";
 import { Orderbook } from "@/components/trade/Orderbook";
 import { OrderForm } from "@/components/trade/OrderForm";
+import { TriggerForm } from "@/components/trade/TriggerForm";
+import { TriggerOrders } from "@/components/trade/TriggerOrders";
 import { AccountPanel } from "@/components/trade/AccountPanel";
 import { PositionPanel } from "@/components/trade/PositionPanel";
 import { OpenOrders } from "@/components/trade/OpenOrders";
@@ -21,10 +23,12 @@ export default function TradePage() {
         <section className="lg:col-span-5 flex flex-col gap-4">
           <Orderbook />
           <OpenOrders />
+          <TriggerOrders />
         </section>
 
         <section className="lg:col-span-3 flex flex-col gap-4">
           <OrderForm />
+          <TriggerForm />
         </section>
       </main>
     </div>

@@ -8,6 +8,23 @@ export const RISK_PROGRAM_ID = new PublicKey(
   "C8kAYt7vpmFxhguEJxbg6hMZY3LLNYACrU8mKveZ8eMu",
 );
 
+export const TRIGGER_PROGRAM_ID = new PublicKey(
+  process.env.NEXT_PUBLIC_TRIGGER_PROGRAM_ID ??
+    "FBux8UY7koXsvDp3GThjvtiMo4GagsDdkPDbU4VbQzV2",
+);
+
+export enum TriggerType {
+  StopLoss = 0,
+  TakeProfit = 1,
+}
+
+export enum TriggerStatus {
+  Active = 0,
+  Triggered = 1,
+  Canceled = 2,
+  Paused = 3,
+}
+
 export const TOKEN_PROGRAM_ID = new PublicKey(
   "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
 );

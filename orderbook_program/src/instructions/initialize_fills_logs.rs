@@ -25,10 +25,10 @@ pub struct InitializeFillsLogParams {
 }
 
 pub fn process_initialize_fills_logs(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [signer, fills_log, market, system_program, _remaining @ ..] = accounts else {
+    let [fee_payer, taker, fills_log, market, system_program, _remaining @ ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
-    verify_signer(signer)?;
+    verify_signer(fee_payer)?;
     verify_uninitialized(fills_log)?;
     verify_initialized(market)?;
     verify_program_id(system_program, &pinocchio_system::ID)?;
@@ -36,7 +36,7 @@ pub fn process_initialize_fills_logs(accounts: &[AccountView], data: &[u8]) -> P
     let params = bytemuck::try_pod_read_unaligned::<InitializeFillsLogParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
-    let signer_key = signer.address().as_array();
+    let taker_key = taker.address().as_array();
     let market_key = market.address().as_array();
     let client_id_bytes = params.client_order_id.to_le_bytes();
     let bump_bytes = [params.bump];
@@ -45,7 +45,7 @@ pub fn process_initialize_fills_logs(accounts: &[AccountView], data: &[u8]) -> P
         fills_log,
         &[
             FILLS_LOG_SEED,
-            signer_key.as_ref(),
+            taker_key.as_ref(),
             client_id_bytes.as_ref(),
             &bump_bytes,
         ],
@@ -54,13 +54,13 @@ pub fn process_initialize_fills_logs(accounts: &[AccountView], data: &[u8]) -> P
 
     let seeds = [
         Seed::from(FILLS_LOG_SEED),
-        Seed::from(signer_key.as_ref()),
+        Seed::from(taker_key.as_ref()),
         Seed::from(client_id_bytes.as_ref()),
         Seed::from(bump_bytes.as_ref()),
     ];
 
     CreateAccount {
-        from: signer,
+        from: fee_payer,
         to: fills_log,
         lamports: Rent::get()?.try_minimum_balance(FillsLog::LEN)?,
         space: FillsLog::LEN as u64,
@@ -73,7 +73,7 @@ pub fn process_initialize_fills_logs(accounts: &[AccountView], data: &[u8]) -> P
         let log = bytemuck::from_bytes_mut::<FillsLog>(&mut log_data[..FillsLog::LEN]);
         *log = FillsLog {
             market: *market_key,
-            taker: *signer_key,
+            taker: *taker_key,
             client_order_id: params.client_order_id,
             created_slot: 0,
             fill_count: 0,

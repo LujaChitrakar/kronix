@@ -44,10 +44,11 @@ pub enum OrderbookInstruction {
     #[account(3, name = "system_program", desc = "System program")]
     CreateOpenOrdersAccount(CreateOpenOrdersAccountParams),
 
-    #[account(0, name = "signer", desc = "Taker", signer, writable)]
-    #[account(1, name = "fills_log", desc = "FillsLog PDA", writable)]
-    #[account(2, name = "market", desc = "Market state")]
-    #[account(3, name = "system_program", desc = "System program")]
+    #[account(0, name = "fee_payer", desc = "Fee payer", signer, writable)]
+    #[account(1, name = "taker", desc = "Taker pubkey (used as PDA seed)")]
+    #[account(2, name = "fills_log", desc = "FillsLog PDA", writable)]
+    #[account(3, name = "market", desc = "Market state")]
+    #[account(4, name = "system_program", desc = "System program")]
     InitializeFillsLog(InitializeFillsLogParams),
 
     #[account(0, name = "signer", desc = "Order placer", signer, writable)]

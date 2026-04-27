@@ -4,6 +4,7 @@ use pinocchio::{
     sysvars::{clock::Clock, Sysvar},
     AccountView, ProgramResult,
 };
+use shank::ShankType;
 use std::i64;
 
 use crate::{
@@ -14,7 +15,7 @@ use crate::{
     states::StrategyAccount,
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct ExecuteStrategyParams {
     pub signal: u8, // 0=Buy, 1=Sell
@@ -53,7 +54,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
     }
     verify_writtable(strategy_account)?;
 
-    let params = bytemuck::try_from_bytes::<ExecuteStrategyParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<ExecuteStrategyParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     let clock = Clock::get()?;

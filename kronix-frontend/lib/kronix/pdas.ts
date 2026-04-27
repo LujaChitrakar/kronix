@@ -2,6 +2,7 @@ import { PublicKey } from "@solana/web3.js";
 import {
   ORDERBOOK_PROGRAM_ID,
   RISK_PROGRAM_ID,
+  TRIGGER_PROGRAM_ID,
 } from "./config";
 
 // Browser Buffer polyfill lacks writeBigUInt64LE — use DataView and copy
@@ -113,5 +114,24 @@ export function findVaultAuthorityPda(): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("vault_authority")],
     RISK_PROGRAM_ID,
+  );
+}
+
+export function findTriggerOrderPda(
+  owner: PublicKey,
+  clientOrderId: bigint,
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("trigger_order"), owner.toBuffer(), u64Le(clientOrderId)],
+    TRIGGER_PROGRAM_ID,
+  );
+}
+
+export function findTriggerAuthorityPda(
+  owner: PublicKey,
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("trigger_authority"), owner.toBuffer()],
+    TRIGGER_PROGRAM_ID,
   );
 }

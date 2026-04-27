@@ -5,7 +5,6 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use crate::generated::types::ExecuteTriggerParams;
 use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
@@ -54,26 +53,11 @@ pub struct ExecuteTrigger {
     
               
           pub asks: solana_address::Address,
-                /// Market Config PDA
+                /// Fills log PDA
 
     
               
-          pub market_config: solana_address::Address,
-                /// Funding State PDA
-
-    
-              
-          pub funding_state: solana_address::Address,
-                /// User Account PDA
-
-    
-              
-          pub user_account: solana_address::Address,
-                /// Position PDA
-
-    
-              
-          pub position: solana_address::Address,
+          pub fills_log: solana_address::Address,
                 /// Oracle PDA
 
     
@@ -84,11 +68,6 @@ pub struct ExecuteTrigger {
     
               
           pub orderbook_program: solana_address::Address,
-                /// Risk Program
-
-    
-              
-          pub risk_program: solana_address::Address,
                 /// System program
 
     
@@ -103,7 +82,7 @@ impl ExecuteTrigger {
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
   pub fn instruction_with_remaining_accounts(&self, args: ExecuteTriggerInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
-    let mut accounts = Vec::with_capacity(16+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(12+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             self.keeper,
             true
@@ -112,7 +91,7 @@ impl ExecuteTrigger {
             self.trigger_authority,
             false
           ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+                                          accounts.push(solana_instruction::AccountMeta::new(
             self.trigger_order_owner,
             false
           ));
@@ -137,19 +116,7 @@ impl ExecuteTrigger {
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            self.market_config,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            self.funding_state,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            self.user_account,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            self.position,
+            self.fills_log,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
@@ -158,10 +125,6 @@ impl ExecuteTrigger {
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.orderbook_program,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
-            self.risk_program,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -184,13 +147,13 @@ impl ExecuteTrigger {
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
  pub struct ExecuteTriggerInstructionData {
             discriminator: u8,
-            }
+                              }
 
 impl ExecuteTriggerInstructionData {
   pub fn new() -> Self {
     Self {
                         discriminator: 2,
-                                }
+                                                                          }
   }
 
     pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
@@ -206,7 +169,10 @@ impl Default for ExecuteTriggerInstructionData {
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
  pub struct ExecuteTriggerInstructionArgs {
-                  pub execute_trigger_params: ExecuteTriggerParams,
+                  pub market_index: u16,
+                pub bump_fills_log: u8,
+                pub bump_authority: u8,
+                pub padding: [u8; 4],
       }
 
 impl ExecuteTriggerInstructionArgs {
@@ -222,20 +188,16 @@ impl ExecuteTriggerInstructionArgs {
 ///
                       ///   0. `[writable, signer]` keeper
                 ///   1. `[writable]` trigger_authority
-          ///   2. `[]` trigger_order_owner
+                ///   2. `[writable]` trigger_order_owner
                 ///   3. `[writable]` trigger_order
                 ///   4. `[writable]` market
                 ///   5. `[writable]` open_orders_account
                 ///   6. `[writable]` bids
                 ///   7. `[writable]` asks
-                ///   8. `[writable]` market_config
-                ///   9. `[writable]` funding_state
-                ///   10. `[writable]` user_account
-                ///   11. `[writable]` position
-                ///   12. `[writable]` oracle
-          ///   13. `[]` orderbook_program
-          ///   14. `[]` risk_program
-                ///   15. `[optional]` system_program (default to `11111111111111111111111111111111`)
+                ///   8. `[writable]` fills_log
+                ///   9. `[writable]` oracle
+          ///   10. `[]` orderbook_program
+                ///   11. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct ExecuteTriggerBuilder {
             keeper: Option<solana_address::Address>,
@@ -246,15 +208,14 @@ pub struct ExecuteTriggerBuilder {
                 open_orders_account: Option<solana_address::Address>,
                 bids: Option<solana_address::Address>,
                 asks: Option<solana_address::Address>,
-                market_config: Option<solana_address::Address>,
-                funding_state: Option<solana_address::Address>,
-                user_account: Option<solana_address::Address>,
-                position: Option<solana_address::Address>,
+                fills_log: Option<solana_address::Address>,
                 oracle: Option<solana_address::Address>,
                 orderbook_program: Option<solana_address::Address>,
-                risk_program: Option<solana_address::Address>,
                 system_program: Option<solana_address::Address>,
-                        execute_trigger_params: Option<ExecuteTriggerParams>,
+                        market_index: Option<u16>,
+                bump_fills_log: Option<u8>,
+                bump_authority: Option<u8>,
+                padding: Option<[u8; 4]>,
         __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
@@ -310,28 +271,10 @@ impl ExecuteTriggerBuilder {
                         self.asks = Some(asks);
                     self
     }
-            /// Market Config PDA
+            /// Fills log PDA
 #[inline(always)]
-    pub fn market_config(&mut self, market_config: solana_address::Address) -> &mut Self {
-                        self.market_config = Some(market_config);
-                    self
-    }
-            /// Funding State PDA
-#[inline(always)]
-    pub fn funding_state(&mut self, funding_state: solana_address::Address) -> &mut Self {
-                        self.funding_state = Some(funding_state);
-                    self
-    }
-            /// User Account PDA
-#[inline(always)]
-    pub fn user_account(&mut self, user_account: solana_address::Address) -> &mut Self {
-                        self.user_account = Some(user_account);
-                    self
-    }
-            /// Position PDA
-#[inline(always)]
-    pub fn position(&mut self, position: solana_address::Address) -> &mut Self {
-                        self.position = Some(position);
+    pub fn fills_log(&mut self, fills_log: solana_address::Address) -> &mut Self {
+                        self.fills_log = Some(fills_log);
                     self
     }
             /// Oracle PDA
@@ -346,12 +289,6 @@ impl ExecuteTriggerBuilder {
                         self.orderbook_program = Some(orderbook_program);
                     self
     }
-            /// Risk Program
-#[inline(always)]
-    pub fn risk_program(&mut self, risk_program: solana_address::Address) -> &mut Self {
-                        self.risk_program = Some(risk_program);
-                    self
-    }
             /// `[optional account, default to '11111111111111111111111111111111']`
 /// System program
 #[inline(always)]
@@ -360,8 +297,23 @@ impl ExecuteTriggerBuilder {
                     self
     }
                     #[inline(always)]
-      pub fn execute_trigger_params(&mut self, execute_trigger_params: ExecuteTriggerParams) -> &mut Self {
-        self.execute_trigger_params = Some(execute_trigger_params);
+      pub fn market_index(&mut self, market_index: u16) -> &mut Self {
+        self.market_index = Some(market_index);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_fills_log(&mut self, bump_fills_log: u8) -> &mut Self {
+        self.bump_fills_log = Some(bump_fills_log);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_authority(&mut self, bump_authority: u8) -> &mut Self {
+        self.bump_authority = Some(bump_authority);
+        self
+      }
+                #[inline(always)]
+      pub fn padding(&mut self, padding: [u8; 4]) -> &mut Self {
+        self.padding = Some(padding);
         self
       }
         /// Add an additional account to the instruction.
@@ -387,17 +339,16 @@ impl ExecuteTriggerBuilder {
                                         open_orders_account: self.open_orders_account.expect("open_orders_account is not set"),
                                         bids: self.bids.expect("bids is not set"),
                                         asks: self.asks.expect("asks is not set"),
-                                        market_config: self.market_config.expect("market_config is not set"),
-                                        funding_state: self.funding_state.expect("funding_state is not set"),
-                                        user_account: self.user_account.expect("user_account is not set"),
-                                        position: self.position.expect("position is not set"),
+                                        fills_log: self.fills_log.expect("fills_log is not set"),
                                         oracle: self.oracle.expect("oracle is not set"),
                                         orderbook_program: self.orderbook_program.expect("orderbook_program is not set"),
-                                        risk_program: self.risk_program.expect("risk_program is not set"),
                                         system_program: self.system_program.unwrap_or(solana_address::address!("11111111111111111111111111111111")),
                       };
           let args = ExecuteTriggerInstructionArgs {
-                                                              execute_trigger_params: self.execute_trigger_params.clone().expect("execute_trigger_params is not set"),
+                                                              market_index: self.market_index.clone().expect("market_index is not set"),
+                                                                  bump_fills_log: self.bump_fills_log.clone().expect("bump_fills_log is not set"),
+                                                                  bump_authority: self.bump_authority.clone().expect("bump_authority is not set"),
+                                                                  padding: self.padding.clone().expect("padding is not set"),
                                     };
     
     accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
@@ -446,26 +397,11 @@ impl ExecuteTriggerBuilder {
       
                     
               pub asks: &'b solana_account_info::AccountInfo<'a>,
-                        /// Market Config PDA
+                        /// Fills log PDA
 
       
                     
-              pub market_config: &'b solana_account_info::AccountInfo<'a>,
-                        /// Funding State PDA
-
-      
-                    
-              pub funding_state: &'b solana_account_info::AccountInfo<'a>,
-                        /// User Account PDA
-
-      
-                    
-              pub user_account: &'b solana_account_info::AccountInfo<'a>,
-                        /// Position PDA
-
-      
-                    
-              pub position: &'b solana_account_info::AccountInfo<'a>,
+              pub fills_log: &'b solana_account_info::AccountInfo<'a>,
                         /// Oracle PDA
 
       
@@ -476,11 +412,6 @@ impl ExecuteTriggerBuilder {
       
                     
               pub orderbook_program: &'b solana_account_info::AccountInfo<'a>,
-                        /// Risk Program
-
-      
-                    
-              pub risk_program: &'b solana_account_info::AccountInfo<'a>,
                         /// System program
 
       
@@ -532,26 +463,11 @@ pub struct ExecuteTriggerCpi<'a, 'b> {
     
               
           pub asks: &'b solana_account_info::AccountInfo<'a>,
-                /// Market Config PDA
+                /// Fills log PDA
 
     
               
-          pub market_config: &'b solana_account_info::AccountInfo<'a>,
-                /// Funding State PDA
-
-    
-              
-          pub funding_state: &'b solana_account_info::AccountInfo<'a>,
-                /// User Account PDA
-
-    
-              
-          pub user_account: &'b solana_account_info::AccountInfo<'a>,
-                /// Position PDA
-
-    
-              
-          pub position: &'b solana_account_info::AccountInfo<'a>,
+          pub fills_log: &'b solana_account_info::AccountInfo<'a>,
                 /// Oracle PDA
 
     
@@ -562,11 +478,6 @@ pub struct ExecuteTriggerCpi<'a, 'b> {
     
               
           pub orderbook_program: &'b solana_account_info::AccountInfo<'a>,
-                /// Risk Program
-
-    
-              
-          pub risk_program: &'b solana_account_info::AccountInfo<'a>,
                 /// System program
 
     
@@ -592,13 +503,9 @@ impl<'a, 'b> ExecuteTriggerCpi<'a, 'b> {
               open_orders_account: accounts.open_orders_account,
               bids: accounts.bids,
               asks: accounts.asks,
-              market_config: accounts.market_config,
-              funding_state: accounts.funding_state,
-              user_account: accounts.user_account,
-              position: accounts.position,
+              fills_log: accounts.fills_log,
               oracle: accounts.oracle,
               orderbook_program: accounts.orderbook_program,
-              risk_program: accounts.risk_program,
               system_program: accounts.system_program,
                     __args: args,
           }
@@ -623,7 +530,7 @@ impl<'a, 'b> ExecuteTriggerCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program_error::ProgramResult {
-    let mut accounts = Vec::with_capacity(16+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(12+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             *self.keeper.key,
             true
@@ -632,7 +539,7 @@ impl<'a, 'b> ExecuteTriggerCpi<'a, 'b> {
             *self.trigger_authority.key,
             false
           ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+                                          accounts.push(solana_instruction::AccountMeta::new(
             *self.trigger_order_owner.key,
             false
           ));
@@ -657,19 +564,7 @@ impl<'a, 'b> ExecuteTriggerCpi<'a, 'b> {
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            *self.market_config.key,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            *self.funding_state.key,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            *self.user_account.key,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            *self.position.key,
+            *self.fills_log.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
@@ -678,10 +573,6 @@ impl<'a, 'b> ExecuteTriggerCpi<'a, 'b> {
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.orderbook_program.key,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
-            *self.risk_program.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -704,7 +595,7 @@ impl<'a, 'b> ExecuteTriggerCpi<'a, 'b> {
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(17 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(13 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
                   account_infos.push(self.keeper.clone());
                         account_infos.push(self.trigger_authority.clone());
@@ -714,13 +605,9 @@ impl<'a, 'b> ExecuteTriggerCpi<'a, 'b> {
                         account_infos.push(self.open_orders_account.clone());
                         account_infos.push(self.bids.clone());
                         account_infos.push(self.asks.clone());
-                        account_infos.push(self.market_config.clone());
-                        account_infos.push(self.funding_state.clone());
-                        account_infos.push(self.user_account.clone());
-                        account_infos.push(self.position.clone());
+                        account_infos.push(self.fills_log.clone());
                         account_infos.push(self.oracle.clone());
                         account_infos.push(self.orderbook_program.clone());
-                        account_infos.push(self.risk_program.clone());
                         account_infos.push(self.system_program.clone());
               remaining_accounts.iter().for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
 
@@ -738,20 +625,16 @@ impl<'a, 'b> ExecuteTriggerCpi<'a, 'b> {
 ///
                       ///   0. `[writable, signer]` keeper
                 ///   1. `[writable]` trigger_authority
-          ///   2. `[]` trigger_order_owner
+                ///   2. `[writable]` trigger_order_owner
                 ///   3. `[writable]` trigger_order
                 ///   4. `[writable]` market
                 ///   5. `[writable]` open_orders_account
                 ///   6. `[writable]` bids
                 ///   7. `[writable]` asks
-                ///   8. `[writable]` market_config
-                ///   9. `[writable]` funding_state
-                ///   10. `[writable]` user_account
-                ///   11. `[writable]` position
-                ///   12. `[writable]` oracle
-          ///   13. `[]` orderbook_program
-          ///   14. `[]` risk_program
-          ///   15. `[]` system_program
+                ///   8. `[writable]` fills_log
+                ///   9. `[writable]` oracle
+          ///   10. `[]` orderbook_program
+          ///   11. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct ExecuteTriggerCpiBuilder<'a, 'b> {
   instruction: Box<ExecuteTriggerCpiBuilderInstruction<'a, 'b>>,
@@ -769,15 +652,14 @@ impl<'a, 'b> ExecuteTriggerCpiBuilder<'a, 'b> {
               open_orders_account: None,
               bids: None,
               asks: None,
-              market_config: None,
-              funding_state: None,
-              user_account: None,
-              position: None,
+              fills_log: None,
               oracle: None,
               orderbook_program: None,
-              risk_program: None,
               system_program: None,
-                                            execute_trigger_params: None,
+                                            market_index: None,
+                                bump_fills_log: None,
+                                bump_authority: None,
+                                padding: None,
                     __remaining_accounts: Vec::new(),
     });
     Self { instruction }
@@ -830,28 +712,10 @@ impl<'a, 'b> ExecuteTriggerCpiBuilder<'a, 'b> {
                         self.instruction.asks = Some(asks);
                     self
     }
-      /// Market Config PDA
+      /// Fills log PDA
 #[inline(always)]
-    pub fn market_config(&mut self, market_config: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.market_config = Some(market_config);
-                    self
-    }
-      /// Funding State PDA
-#[inline(always)]
-    pub fn funding_state(&mut self, funding_state: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.funding_state = Some(funding_state);
-                    self
-    }
-      /// User Account PDA
-#[inline(always)]
-    pub fn user_account(&mut self, user_account: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.user_account = Some(user_account);
-                    self
-    }
-      /// Position PDA
-#[inline(always)]
-    pub fn position(&mut self, position: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.position = Some(position);
+    pub fn fills_log(&mut self, fills_log: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.fills_log = Some(fills_log);
                     self
     }
       /// Oracle PDA
@@ -866,12 +730,6 @@ impl<'a, 'b> ExecuteTriggerCpiBuilder<'a, 'b> {
                         self.instruction.orderbook_program = Some(orderbook_program);
                     self
     }
-      /// Risk Program
-#[inline(always)]
-    pub fn risk_program(&mut self, risk_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.risk_program = Some(risk_program);
-                    self
-    }
       /// System program
 #[inline(always)]
     pub fn system_program(&mut self, system_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
@@ -879,8 +737,23 @@ impl<'a, 'b> ExecuteTriggerCpiBuilder<'a, 'b> {
                     self
     }
                     #[inline(always)]
-      pub fn execute_trigger_params(&mut self, execute_trigger_params: ExecuteTriggerParams) -> &mut Self {
-        self.instruction.execute_trigger_params = Some(execute_trigger_params);
+      pub fn market_index(&mut self, market_index: u16) -> &mut Self {
+        self.instruction.market_index = Some(market_index);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_fills_log(&mut self, bump_fills_log: u8) -> &mut Self {
+        self.instruction.bump_fills_log = Some(bump_fills_log);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_authority(&mut self, bump_authority: u8) -> &mut Self {
+        self.instruction.bump_authority = Some(bump_authority);
+        self
+      }
+                #[inline(always)]
+      pub fn padding(&mut self, padding: [u8; 4]) -> &mut Self {
+        self.instruction.padding = Some(padding);
         self
       }
         /// Add an additional account to the instruction.
@@ -906,7 +779,10 @@ impl<'a, 'b> ExecuteTriggerCpiBuilder<'a, 'b> {
   #[allow(clippy::vec_init_then_push)]
   pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
           let args = ExecuteTriggerInstructionArgs {
-                                                              execute_trigger_params: self.instruction.execute_trigger_params.clone().expect("execute_trigger_params is not set"),
+                                                              market_index: self.instruction.market_index.clone().expect("market_index is not set"),
+                                                                  bump_fills_log: self.instruction.bump_fills_log.clone().expect("bump_fills_log is not set"),
+                                                                  bump_authority: self.instruction.bump_authority.clone().expect("bump_authority is not set"),
+                                                                  padding: self.instruction.padding.clone().expect("padding is not set"),
                                     };
         let instruction = ExecuteTriggerCpi {
         __program: self.instruction.__program,
@@ -927,19 +803,11 @@ impl<'a, 'b> ExecuteTriggerCpiBuilder<'a, 'b> {
                   
           asks: self.instruction.asks.expect("asks is not set"),
                   
-          market_config: self.instruction.market_config.expect("market_config is not set"),
-                  
-          funding_state: self.instruction.funding_state.expect("funding_state is not set"),
-                  
-          user_account: self.instruction.user_account.expect("user_account is not set"),
-                  
-          position: self.instruction.position.expect("position is not set"),
+          fills_log: self.instruction.fills_log.expect("fills_log is not set"),
                   
           oracle: self.instruction.oracle.expect("oracle is not set"),
                   
           orderbook_program: self.instruction.orderbook_program.expect("orderbook_program is not set"),
-                  
-          risk_program: self.instruction.risk_program.expect("risk_program is not set"),
                   
           system_program: self.instruction.system_program.expect("system_program is not set"),
                           __args: args,
@@ -959,15 +827,14 @@ struct ExecuteTriggerCpiBuilderInstruction<'a, 'b> {
                 open_orders_account: Option<&'b solana_account_info::AccountInfo<'a>>,
                 bids: Option<&'b solana_account_info::AccountInfo<'a>>,
                 asks: Option<&'b solana_account_info::AccountInfo<'a>>,
-                market_config: Option<&'b solana_account_info::AccountInfo<'a>>,
-                funding_state: Option<&'b solana_account_info::AccountInfo<'a>>,
-                user_account: Option<&'b solana_account_info::AccountInfo<'a>>,
-                position: Option<&'b solana_account_info::AccountInfo<'a>>,
+                fills_log: Option<&'b solana_account_info::AccountInfo<'a>>,
                 oracle: Option<&'b solana_account_info::AccountInfo<'a>>,
                 orderbook_program: Option<&'b solana_account_info::AccountInfo<'a>>,
-                risk_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                 system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
-                        execute_trigger_params: Option<ExecuteTriggerParams>,
+                        market_index: Option<u16>,
+                bump_fills_log: Option<u8>,
+                bump_authority: Option<u8>,
+                padding: Option<[u8; 4]>,
         /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
   __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }

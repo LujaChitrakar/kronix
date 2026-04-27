@@ -13,6 +13,7 @@ pub enum TriggerProgramError {
     InvalidOOAccount = 7,
     EditTriggerFailed = 8,
     InvalidExpiry = 9,
+    TriggerNotPaused = 10,
 }
 
 impl From<TriggerProgramError> for ProgramError {

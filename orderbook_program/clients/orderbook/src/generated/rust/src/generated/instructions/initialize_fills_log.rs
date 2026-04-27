@@ -13,11 +13,16 @@ pub const INITIALIZE_FILLS_LOG_DISCRIMINATOR: u8 = 2;
 /// Accounts.
 #[derive(Debug)]
 pub struct InitializeFillsLog {
-            /// Taker
+            /// Fee payer
 
     
               
-          pub signer: solana_address::Address,
+          pub fee_payer: solana_address::Address,
+                /// Taker pubkey (used as PDA seed)
+
+    
+              
+          pub taker: solana_address::Address,
                 /// FillsLog PDA
 
     
@@ -42,10 +47,14 @@ impl InitializeFillsLog {
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
   pub fn instruction_with_remaining_accounts(&self, args: InitializeFillsLogInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
-    let mut accounts = Vec::with_capacity(4+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(5+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
-            self.signer,
+            self.fee_payer,
             true
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.taker,
+            false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
             self.fills_log,
@@ -113,13 +122,15 @@ impl InitializeFillsLogInstructionArgs {
 ///
 /// ### Accounts:
 ///
-                      ///   0. `[writable, signer]` signer
-                ///   1. `[writable]` fills_log
-          ///   2. `[]` market
-                ///   3. `[optional]` system_program (default to `11111111111111111111111111111111`)
+                      ///   0. `[writable, signer]` fee_payer
+          ///   1. `[]` taker
+                ///   2. `[writable]` fills_log
+          ///   3. `[]` market
+                ///   4. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct InitializeFillsLogBuilder {
-            signer: Option<solana_address::Address>,
+            fee_payer: Option<solana_address::Address>,
+                taker: Option<solana_address::Address>,
                 fills_log: Option<solana_address::Address>,
                 market: Option<solana_address::Address>,
                 system_program: Option<solana_address::Address>,
@@ -133,10 +144,16 @@ impl InitializeFillsLogBuilder {
   pub fn new() -> Self {
     Self::default()
   }
-            /// Taker
+            /// Fee payer
 #[inline(always)]
-    pub fn signer(&mut self, signer: solana_address::Address) -> &mut Self {
-                        self.signer = Some(signer);
+    pub fn fee_payer(&mut self, fee_payer: solana_address::Address) -> &mut Self {
+                        self.fee_payer = Some(fee_payer);
+                    self
+    }
+            /// Taker pubkey (used as PDA seed)
+#[inline(always)]
+    pub fn taker(&mut self, taker: solana_address::Address) -> &mut Self {
+                        self.taker = Some(taker);
                     self
     }
             /// FillsLog PDA
@@ -188,7 +205,8 @@ impl InitializeFillsLogBuilder {
   #[allow(clippy::clone_on_copy)]
   pub fn instruction(&self) -> solana_instruction::Instruction {
     let accounts = InitializeFillsLog {
-                              signer: self.signer.expect("signer is not set"),
+                              fee_payer: self.fee_payer.expect("fee_payer is not set"),
+                                        taker: self.taker.expect("taker is not set"),
                                         fills_log: self.fills_log.expect("fills_log is not set"),
                                         market: self.market.expect("market is not set"),
                                         system_program: self.system_program.unwrap_or(solana_address::address!("11111111111111111111111111111111")),
@@ -205,11 +223,16 @@ impl InitializeFillsLogBuilder {
 
   /// `initialize_fills_log` CPI accounts.
   pub struct InitializeFillsLogCpiAccounts<'a, 'b> {
-                  /// Taker
+                  /// Fee payer
 
       
                     
-              pub signer: &'b solana_account_info::AccountInfo<'a>,
+              pub fee_payer: &'b solana_account_info::AccountInfo<'a>,
+                        /// Taker pubkey (used as PDA seed)
+
+      
+                    
+              pub taker: &'b solana_account_info::AccountInfo<'a>,
                         /// FillsLog PDA
 
       
@@ -231,11 +254,16 @@ impl InitializeFillsLogBuilder {
 pub struct InitializeFillsLogCpi<'a, 'b> {
   /// The program to invoke.
   pub __program: &'b solana_account_info::AccountInfo<'a>,
-            /// Taker
+            /// Fee payer
 
     
               
-          pub signer: &'b solana_account_info::AccountInfo<'a>,
+          pub fee_payer: &'b solana_account_info::AccountInfo<'a>,
+                /// Taker pubkey (used as PDA seed)
+
+    
+              
+          pub taker: &'b solana_account_info::AccountInfo<'a>,
                 /// FillsLog PDA
 
     
@@ -263,7 +291,8 @@ impl<'a, 'b> InitializeFillsLogCpi<'a, 'b> {
       ) -> Self {
     Self {
       __program: program,
-              signer: accounts.signer,
+              fee_payer: accounts.fee_payer,
+              taker: accounts.taker,
               fills_log: accounts.fills_log,
               market: accounts.market,
               system_program: accounts.system_program,
@@ -290,10 +319,14 @@ impl<'a, 'b> InitializeFillsLogCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program_error::ProgramResult {
-    let mut accounts = Vec::with_capacity(4+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(5+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
-            *self.signer.key,
+            *self.fee_payer.key,
             true
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.taker.key,
+            false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
             *self.fills_log.key,
@@ -323,9 +356,10 @@ impl<'a, 'b> InitializeFillsLogCpi<'a, 'b> {
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(5 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(6 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
-                  account_infos.push(self.signer.clone());
+                  account_infos.push(self.fee_payer.clone());
+                        account_infos.push(self.taker.clone());
                         account_infos.push(self.fills_log.clone());
                         account_infos.push(self.market.clone());
                         account_infos.push(self.system_program.clone());
@@ -343,10 +377,11 @@ impl<'a, 'b> InitializeFillsLogCpi<'a, 'b> {
 ///
 /// ### Accounts:
 ///
-                      ///   0. `[writable, signer]` signer
-                ///   1. `[writable]` fills_log
-          ///   2. `[]` market
-          ///   3. `[]` system_program
+                      ///   0. `[writable, signer]` fee_payer
+          ///   1. `[]` taker
+                ///   2. `[writable]` fills_log
+          ///   3. `[]` market
+          ///   4. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct InitializeFillsLogCpiBuilder<'a, 'b> {
   instruction: Box<InitializeFillsLogCpiBuilderInstruction<'a, 'b>>,
@@ -356,7 +391,8 @@ impl<'a, 'b> InitializeFillsLogCpiBuilder<'a, 'b> {
   pub fn new(program: &'b solana_account_info::AccountInfo<'a>) -> Self {
     let instruction = Box::new(InitializeFillsLogCpiBuilderInstruction {
       __program: program,
-              signer: None,
+              fee_payer: None,
+              taker: None,
               fills_log: None,
               market: None,
               system_program: None,
@@ -367,10 +403,16 @@ impl<'a, 'b> InitializeFillsLogCpiBuilder<'a, 'b> {
     });
     Self { instruction }
   }
-      /// Taker
+      /// Fee payer
 #[inline(always)]
-    pub fn signer(&mut self, signer: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.signer = Some(signer);
+    pub fn fee_payer(&mut self, fee_payer: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.fee_payer = Some(fee_payer);
+                    self
+    }
+      /// Taker pubkey (used as PDA seed)
+#[inline(always)]
+    pub fn taker(&mut self, taker: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.taker = Some(taker);
                     self
     }
       /// FillsLog PDA
@@ -436,7 +478,9 @@ impl<'a, 'b> InitializeFillsLogCpiBuilder<'a, 'b> {
         let instruction = InitializeFillsLogCpi {
         __program: self.instruction.__program,
                   
-          signer: self.instruction.signer.expect("signer is not set"),
+          fee_payer: self.instruction.fee_payer.expect("fee_payer is not set"),
+                  
+          taker: self.instruction.taker.expect("taker is not set"),
                   
           fills_log: self.instruction.fills_log.expect("fills_log is not set"),
                   
@@ -452,7 +496,8 @@ impl<'a, 'b> InitializeFillsLogCpiBuilder<'a, 'b> {
 #[derive(Clone, Debug)]
 struct InitializeFillsLogCpiBuilderInstruction<'a, 'b> {
   __program: &'b solana_account_info::AccountInfo<'a>,
-            signer: Option<&'b solana_account_info::AccountInfo<'a>>,
+            fee_payer: Option<&'b solana_account_info::AccountInfo<'a>>,
+                taker: Option<&'b solana_account_info::AccountInfo<'a>>,
                 fills_log: Option<&'b solana_account_info::AccountInfo<'a>>,
                 market: Option<&'b solana_account_info::AccountInfo<'a>>,
                 system_program: Option<&'b solana_account_info::AccountInfo<'a>>,

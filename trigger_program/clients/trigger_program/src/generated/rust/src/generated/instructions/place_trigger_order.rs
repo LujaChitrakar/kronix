@@ -5,7 +5,6 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use crate::generated::types::PlaceTriggerOrderParams;
 use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
@@ -29,6 +28,26 @@ pub struct PlaceTriggerOrder {
     
               
           pub open_orders_account: solana_address::Address,
+                /// Trigger authority PDA (taker for fills_log + OO delegate)
+
+    
+              
+          pub trigger_authority: solana_address::Address,
+                /// FillsLog PDA (initialized via CPI)
+
+    
+              
+          pub fills_log: solana_address::Address,
+                /// Market state PDA
+
+    
+              
+          pub market: solana_address::Address,
+                /// Orderbook program (CPI)
+
+    
+              
+          pub orderbook_program: solana_address::Address,
                 /// System program
 
     
@@ -43,7 +62,7 @@ impl PlaceTriggerOrder {
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
   pub fn instruction_with_remaining_accounts(&self, args: PlaceTriggerOrderInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
-    let mut accounts = Vec::with_capacity(4+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(8+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             self.signer,
             true
@@ -52,8 +71,24 @@ impl PlaceTriggerOrder {
             self.trigger_order,
             false
           ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+                                          accounts.push(solana_instruction::AccountMeta::new(
             self.open_orders_account,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.trigger_authority,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new(
+            self.fills_log,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.market,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.orderbook_program,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -76,13 +111,13 @@ impl PlaceTriggerOrder {
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
  pub struct PlaceTriggerOrderInstructionData {
             discriminator: u8,
-            }
+                                                                        }
 
 impl PlaceTriggerOrderInstructionData {
   pub fn new() -> Self {
     Self {
                         discriminator: 0,
-                                }
+                                                                                                                                                                            }
   }
 
     pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
@@ -98,7 +133,17 @@ impl Default for PlaceTriggerOrderInstructionData {
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
  pub struct PlaceTriggerOrderInstructionArgs {
-                  pub place_trigger_order_params: PlaceTriggerOrderParams,
+                  pub client_order_id: u64,
+                pub trigger_price: i64,
+                pub size_lots: i64,
+                pub expiry: i64,
+                pub market_index: u16,
+                pub trigger_type: u8,
+                pub side: u8,
+                pub bump: u8,
+                pub bump_authority: u8,
+                pub bump_fills_log: u8,
+                pub padding: [u8; 1],
       }
 
 impl PlaceTriggerOrderInstructionArgs {
@@ -114,15 +159,33 @@ impl PlaceTriggerOrderInstructionArgs {
 ///
                       ///   0. `[writable, signer]` signer
                 ///   1. `[writable]` trigger_order
-          ///   2. `[]` open_orders_account
-                ///   3. `[optional]` system_program (default to `11111111111111111111111111111111`)
+                ///   2. `[writable]` open_orders_account
+          ///   3. `[]` trigger_authority
+                ///   4. `[writable]` fills_log
+          ///   5. `[]` market
+          ///   6. `[]` orderbook_program
+                ///   7. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct PlaceTriggerOrderBuilder {
             signer: Option<solana_address::Address>,
                 trigger_order: Option<solana_address::Address>,
                 open_orders_account: Option<solana_address::Address>,
+                trigger_authority: Option<solana_address::Address>,
+                fills_log: Option<solana_address::Address>,
+                market: Option<solana_address::Address>,
+                orderbook_program: Option<solana_address::Address>,
                 system_program: Option<solana_address::Address>,
-                        place_trigger_order_params: Option<PlaceTriggerOrderParams>,
+                        client_order_id: Option<u64>,
+                trigger_price: Option<i64>,
+                size_lots: Option<i64>,
+                expiry: Option<i64>,
+                market_index: Option<u16>,
+                trigger_type: Option<u8>,
+                side: Option<u8>,
+                bump: Option<u8>,
+                bump_authority: Option<u8>,
+                bump_fills_log: Option<u8>,
+                padding: Option<[u8; 1]>,
         __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
@@ -148,6 +211,30 @@ impl PlaceTriggerOrderBuilder {
                         self.open_orders_account = Some(open_orders_account);
                     self
     }
+            /// Trigger authority PDA (taker for fills_log + OO delegate)
+#[inline(always)]
+    pub fn trigger_authority(&mut self, trigger_authority: solana_address::Address) -> &mut Self {
+                        self.trigger_authority = Some(trigger_authority);
+                    self
+    }
+            /// FillsLog PDA (initialized via CPI)
+#[inline(always)]
+    pub fn fills_log(&mut self, fills_log: solana_address::Address) -> &mut Self {
+                        self.fills_log = Some(fills_log);
+                    self
+    }
+            /// Market state PDA
+#[inline(always)]
+    pub fn market(&mut self, market: solana_address::Address) -> &mut Self {
+                        self.market = Some(market);
+                    self
+    }
+            /// Orderbook program (CPI)
+#[inline(always)]
+    pub fn orderbook_program(&mut self, orderbook_program: solana_address::Address) -> &mut Self {
+                        self.orderbook_program = Some(orderbook_program);
+                    self
+    }
             /// `[optional account, default to '11111111111111111111111111111111']`
 /// System program
 #[inline(always)]
@@ -156,8 +243,58 @@ impl PlaceTriggerOrderBuilder {
                     self
     }
                     #[inline(always)]
-      pub fn place_trigger_order_params(&mut self, place_trigger_order_params: PlaceTriggerOrderParams) -> &mut Self {
-        self.place_trigger_order_params = Some(place_trigger_order_params);
+      pub fn client_order_id(&mut self, client_order_id: u64) -> &mut Self {
+        self.client_order_id = Some(client_order_id);
+        self
+      }
+                #[inline(always)]
+      pub fn trigger_price(&mut self, trigger_price: i64) -> &mut Self {
+        self.trigger_price = Some(trigger_price);
+        self
+      }
+                #[inline(always)]
+      pub fn size_lots(&mut self, size_lots: i64) -> &mut Self {
+        self.size_lots = Some(size_lots);
+        self
+      }
+                #[inline(always)]
+      pub fn expiry(&mut self, expiry: i64) -> &mut Self {
+        self.expiry = Some(expiry);
+        self
+      }
+                #[inline(always)]
+      pub fn market_index(&mut self, market_index: u16) -> &mut Self {
+        self.market_index = Some(market_index);
+        self
+      }
+                #[inline(always)]
+      pub fn trigger_type(&mut self, trigger_type: u8) -> &mut Self {
+        self.trigger_type = Some(trigger_type);
+        self
+      }
+                #[inline(always)]
+      pub fn side(&mut self, side: u8) -> &mut Self {
+        self.side = Some(side);
+        self
+      }
+                #[inline(always)]
+      pub fn bump(&mut self, bump: u8) -> &mut Self {
+        self.bump = Some(bump);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_authority(&mut self, bump_authority: u8) -> &mut Self {
+        self.bump_authority = Some(bump_authority);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_fills_log(&mut self, bump_fills_log: u8) -> &mut Self {
+        self.bump_fills_log = Some(bump_fills_log);
+        self
+      }
+                #[inline(always)]
+      pub fn padding(&mut self, padding: [u8; 1]) -> &mut Self {
+        self.padding = Some(padding);
         self
       }
         /// Add an additional account to the instruction.
@@ -178,10 +315,24 @@ impl PlaceTriggerOrderBuilder {
                               signer: self.signer.expect("signer is not set"),
                                         trigger_order: self.trigger_order.expect("trigger_order is not set"),
                                         open_orders_account: self.open_orders_account.expect("open_orders_account is not set"),
+                                        trigger_authority: self.trigger_authority.expect("trigger_authority is not set"),
+                                        fills_log: self.fills_log.expect("fills_log is not set"),
+                                        market: self.market.expect("market is not set"),
+                                        orderbook_program: self.orderbook_program.expect("orderbook_program is not set"),
                                         system_program: self.system_program.unwrap_or(solana_address::address!("11111111111111111111111111111111")),
                       };
           let args = PlaceTriggerOrderInstructionArgs {
-                                                              place_trigger_order_params: self.place_trigger_order_params.clone().expect("place_trigger_order_params is not set"),
+                                                              client_order_id: self.client_order_id.clone().expect("client_order_id is not set"),
+                                                                  trigger_price: self.trigger_price.clone().expect("trigger_price is not set"),
+                                                                  size_lots: self.size_lots.clone().expect("size_lots is not set"),
+                                                                  expiry: self.expiry.clone().expect("expiry is not set"),
+                                                                  market_index: self.market_index.clone().expect("market_index is not set"),
+                                                                  trigger_type: self.trigger_type.clone().expect("trigger_type is not set"),
+                                                                  side: self.side.clone().expect("side is not set"),
+                                                                  bump: self.bump.clone().expect("bump is not set"),
+                                                                  bump_authority: self.bump_authority.clone().expect("bump_authority is not set"),
+                                                                  bump_fills_log: self.bump_fills_log.clone().expect("bump_fills_log is not set"),
+                                                                  padding: self.padding.clone().expect("padding is not set"),
                                     };
     
     accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
@@ -205,6 +356,26 @@ impl PlaceTriggerOrderBuilder {
       
                     
               pub open_orders_account: &'b solana_account_info::AccountInfo<'a>,
+                        /// Trigger authority PDA (taker for fills_log + OO delegate)
+
+      
+                    
+              pub trigger_authority: &'b solana_account_info::AccountInfo<'a>,
+                        /// FillsLog PDA (initialized via CPI)
+
+      
+                    
+              pub fills_log: &'b solana_account_info::AccountInfo<'a>,
+                        /// Market state PDA
+
+      
+                    
+              pub market: &'b solana_account_info::AccountInfo<'a>,
+                        /// Orderbook program (CPI)
+
+      
+                    
+              pub orderbook_program: &'b solana_account_info::AccountInfo<'a>,
                         /// System program
 
       
@@ -231,6 +402,26 @@ pub struct PlaceTriggerOrderCpi<'a, 'b> {
     
               
           pub open_orders_account: &'b solana_account_info::AccountInfo<'a>,
+                /// Trigger authority PDA (taker for fills_log + OO delegate)
+
+    
+              
+          pub trigger_authority: &'b solana_account_info::AccountInfo<'a>,
+                /// FillsLog PDA (initialized via CPI)
+
+    
+              
+          pub fills_log: &'b solana_account_info::AccountInfo<'a>,
+                /// Market state PDA
+
+    
+              
+          pub market: &'b solana_account_info::AccountInfo<'a>,
+                /// Orderbook program (CPI)
+
+    
+              
+          pub orderbook_program: &'b solana_account_info::AccountInfo<'a>,
                 /// System program
 
     
@@ -251,6 +442,10 @@ impl<'a, 'b> PlaceTriggerOrderCpi<'a, 'b> {
               signer: accounts.signer,
               trigger_order: accounts.trigger_order,
               open_orders_account: accounts.open_orders_account,
+              trigger_authority: accounts.trigger_authority,
+              fills_log: accounts.fills_log,
+              market: accounts.market,
+              orderbook_program: accounts.orderbook_program,
               system_program: accounts.system_program,
                     __args: args,
           }
@@ -275,7 +470,7 @@ impl<'a, 'b> PlaceTriggerOrderCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program_error::ProgramResult {
-    let mut accounts = Vec::with_capacity(4+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(8+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             *self.signer.key,
             true
@@ -284,8 +479,24 @@ impl<'a, 'b> PlaceTriggerOrderCpi<'a, 'b> {
             *self.trigger_order.key,
             false
           ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+                                          accounts.push(solana_instruction::AccountMeta::new(
             *self.open_orders_account.key,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.trigger_authority.key,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new(
+            *self.fills_log.key,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.market.key,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.orderbook_program.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -308,11 +519,15 @@ impl<'a, 'b> PlaceTriggerOrderCpi<'a, 'b> {
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(5 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(9 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
                   account_infos.push(self.signer.clone());
                         account_infos.push(self.trigger_order.clone());
                         account_infos.push(self.open_orders_account.clone());
+                        account_infos.push(self.trigger_authority.clone());
+                        account_infos.push(self.fills_log.clone());
+                        account_infos.push(self.market.clone());
+                        account_infos.push(self.orderbook_program.clone());
                         account_infos.push(self.system_program.clone());
               remaining_accounts.iter().for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
 
@@ -330,8 +545,12 @@ impl<'a, 'b> PlaceTriggerOrderCpi<'a, 'b> {
 ///
                       ///   0. `[writable, signer]` signer
                 ///   1. `[writable]` trigger_order
-          ///   2. `[]` open_orders_account
-          ///   3. `[]` system_program
+                ///   2. `[writable]` open_orders_account
+          ///   3. `[]` trigger_authority
+                ///   4. `[writable]` fills_log
+          ///   5. `[]` market
+          ///   6. `[]` orderbook_program
+          ///   7. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct PlaceTriggerOrderCpiBuilder<'a, 'b> {
   instruction: Box<PlaceTriggerOrderCpiBuilderInstruction<'a, 'b>>,
@@ -344,8 +563,22 @@ impl<'a, 'b> PlaceTriggerOrderCpiBuilder<'a, 'b> {
               signer: None,
               trigger_order: None,
               open_orders_account: None,
+              trigger_authority: None,
+              fills_log: None,
+              market: None,
+              orderbook_program: None,
               system_program: None,
-                                            place_trigger_order_params: None,
+                                            client_order_id: None,
+                                trigger_price: None,
+                                size_lots: None,
+                                expiry: None,
+                                market_index: None,
+                                trigger_type: None,
+                                side: None,
+                                bump: None,
+                                bump_authority: None,
+                                bump_fills_log: None,
+                                padding: None,
                     __remaining_accounts: Vec::new(),
     });
     Self { instruction }
@@ -368,6 +601,30 @@ impl<'a, 'b> PlaceTriggerOrderCpiBuilder<'a, 'b> {
                         self.instruction.open_orders_account = Some(open_orders_account);
                     self
     }
+      /// Trigger authority PDA (taker for fills_log + OO delegate)
+#[inline(always)]
+    pub fn trigger_authority(&mut self, trigger_authority: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.trigger_authority = Some(trigger_authority);
+                    self
+    }
+      /// FillsLog PDA (initialized via CPI)
+#[inline(always)]
+    pub fn fills_log(&mut self, fills_log: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.fills_log = Some(fills_log);
+                    self
+    }
+      /// Market state PDA
+#[inline(always)]
+    pub fn market(&mut self, market: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.market = Some(market);
+                    self
+    }
+      /// Orderbook program (CPI)
+#[inline(always)]
+    pub fn orderbook_program(&mut self, orderbook_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.orderbook_program = Some(orderbook_program);
+                    self
+    }
       /// System program
 #[inline(always)]
     pub fn system_program(&mut self, system_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
@@ -375,8 +632,58 @@ impl<'a, 'b> PlaceTriggerOrderCpiBuilder<'a, 'b> {
                     self
     }
                     #[inline(always)]
-      pub fn place_trigger_order_params(&mut self, place_trigger_order_params: PlaceTriggerOrderParams) -> &mut Self {
-        self.instruction.place_trigger_order_params = Some(place_trigger_order_params);
+      pub fn client_order_id(&mut self, client_order_id: u64) -> &mut Self {
+        self.instruction.client_order_id = Some(client_order_id);
+        self
+      }
+                #[inline(always)]
+      pub fn trigger_price(&mut self, trigger_price: i64) -> &mut Self {
+        self.instruction.trigger_price = Some(trigger_price);
+        self
+      }
+                #[inline(always)]
+      pub fn size_lots(&mut self, size_lots: i64) -> &mut Self {
+        self.instruction.size_lots = Some(size_lots);
+        self
+      }
+                #[inline(always)]
+      pub fn expiry(&mut self, expiry: i64) -> &mut Self {
+        self.instruction.expiry = Some(expiry);
+        self
+      }
+                #[inline(always)]
+      pub fn market_index(&mut self, market_index: u16) -> &mut Self {
+        self.instruction.market_index = Some(market_index);
+        self
+      }
+                #[inline(always)]
+      pub fn trigger_type(&mut self, trigger_type: u8) -> &mut Self {
+        self.instruction.trigger_type = Some(trigger_type);
+        self
+      }
+                #[inline(always)]
+      pub fn side(&mut self, side: u8) -> &mut Self {
+        self.instruction.side = Some(side);
+        self
+      }
+                #[inline(always)]
+      pub fn bump(&mut self, bump: u8) -> &mut Self {
+        self.instruction.bump = Some(bump);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_authority(&mut self, bump_authority: u8) -> &mut Self {
+        self.instruction.bump_authority = Some(bump_authority);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_fills_log(&mut self, bump_fills_log: u8) -> &mut Self {
+        self.instruction.bump_fills_log = Some(bump_fills_log);
+        self
+      }
+                #[inline(always)]
+      pub fn padding(&mut self, padding: [u8; 1]) -> &mut Self {
+        self.instruction.padding = Some(padding);
         self
       }
         /// Add an additional account to the instruction.
@@ -402,7 +709,17 @@ impl<'a, 'b> PlaceTriggerOrderCpiBuilder<'a, 'b> {
   #[allow(clippy::vec_init_then_push)]
   pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
           let args = PlaceTriggerOrderInstructionArgs {
-                                                              place_trigger_order_params: self.instruction.place_trigger_order_params.clone().expect("place_trigger_order_params is not set"),
+                                                              client_order_id: self.instruction.client_order_id.clone().expect("client_order_id is not set"),
+                                                                  trigger_price: self.instruction.trigger_price.clone().expect("trigger_price is not set"),
+                                                                  size_lots: self.instruction.size_lots.clone().expect("size_lots is not set"),
+                                                                  expiry: self.instruction.expiry.clone().expect("expiry is not set"),
+                                                                  market_index: self.instruction.market_index.clone().expect("market_index is not set"),
+                                                                  trigger_type: self.instruction.trigger_type.clone().expect("trigger_type is not set"),
+                                                                  side: self.instruction.side.clone().expect("side is not set"),
+                                                                  bump: self.instruction.bump.clone().expect("bump is not set"),
+                                                                  bump_authority: self.instruction.bump_authority.clone().expect("bump_authority is not set"),
+                                                                  bump_fills_log: self.instruction.bump_fills_log.clone().expect("bump_fills_log is not set"),
+                                                                  padding: self.instruction.padding.clone().expect("padding is not set"),
                                     };
         let instruction = PlaceTriggerOrderCpi {
         __program: self.instruction.__program,
@@ -412,6 +729,14 @@ impl<'a, 'b> PlaceTriggerOrderCpiBuilder<'a, 'b> {
           trigger_order: self.instruction.trigger_order.expect("trigger_order is not set"),
                   
           open_orders_account: self.instruction.open_orders_account.expect("open_orders_account is not set"),
+                  
+          trigger_authority: self.instruction.trigger_authority.expect("trigger_authority is not set"),
+                  
+          fills_log: self.instruction.fills_log.expect("fills_log is not set"),
+                  
+          market: self.instruction.market.expect("market is not set"),
+                  
+          orderbook_program: self.instruction.orderbook_program.expect("orderbook_program is not set"),
                   
           system_program: self.instruction.system_program.expect("system_program is not set"),
                           __args: args,
@@ -426,8 +751,22 @@ struct PlaceTriggerOrderCpiBuilderInstruction<'a, 'b> {
             signer: Option<&'b solana_account_info::AccountInfo<'a>>,
                 trigger_order: Option<&'b solana_account_info::AccountInfo<'a>>,
                 open_orders_account: Option<&'b solana_account_info::AccountInfo<'a>>,
+                trigger_authority: Option<&'b solana_account_info::AccountInfo<'a>>,
+                fills_log: Option<&'b solana_account_info::AccountInfo<'a>>,
+                market: Option<&'b solana_account_info::AccountInfo<'a>>,
+                orderbook_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                 system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
-                        place_trigger_order_params: Option<PlaceTriggerOrderParams>,
+                        client_order_id: Option<u64>,
+                trigger_price: Option<i64>,
+                size_lots: Option<i64>,
+                expiry: Option<i64>,
+                market_index: Option<u16>,
+                trigger_type: Option<u8>,
+                side: Option<u8>,
+                bump: Option<u8>,
+                bump_authority: Option<u8>,
+                bump_fills_log: Option<u8>,
+                padding: Option<[u8; 1]>,
         /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
   __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }

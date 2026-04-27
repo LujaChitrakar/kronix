@@ -1,7 +1,23 @@
 use bytemuck::{Pod, Zeroable};
 
+pub const INITIALIZE_FILLS_LOG_IX: u8 = 2;
 pub const PLACE_ORDER_IX: u8 = 3;
 pub const PLACE_TAKE_ORDER_IX: u8 = 4;
+pub const SET_DELEGATE_IX: u8 = 11;
+
+#[derive(Pod, Zeroable, Clone, Copy)]
+#[repr(C)]
+pub struct SetDelegateParams {
+    pub delegate: [u8; 32],
+}
+
+#[derive(Pod, Zeroable, Clone, Copy)]
+#[repr(C)]
+pub struct InitializeFillsLogParams {
+    pub bump: u8,
+    pub padding: [u8; 7],
+    pub client_order_id: u64,
+}
 
 #[derive(Pod, Zeroable, Clone, Copy)]
 #[repr(C)]

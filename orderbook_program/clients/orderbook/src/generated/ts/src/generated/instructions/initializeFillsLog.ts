@@ -50,7 +50,8 @@ export function getInitializeFillsLogDiscriminatorBytes() {
 
 export type InitializeFillsLogInstruction<
   TProgram extends string = typeof ORDERBOOK_PROGRAM_ADDRESS,
-  TAccountSigner extends string | AccountMeta<string> = string,
+  TAccountFeePayer extends string | AccountMeta<string> = string,
+  TAccountTaker extends string | AccountMeta<string> = string,
   TAccountFillsLog extends string | AccountMeta<string> = string,
   TAccountMarket extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
@@ -60,10 +61,13 @@ export type InitializeFillsLogInstruction<
   InstructionWithData<ReadonlyUint8Array> &
   InstructionWithAccounts<
     [
-      TAccountSigner extends string
-        ? WritableSignerAccount<TAccountSigner> &
-            AccountSignerMeta<TAccountSigner>
-        : TAccountSigner,
+      TAccountFeePayer extends string
+        ? WritableSignerAccount<TAccountFeePayer> &
+            AccountSignerMeta<TAccountFeePayer>
+        : TAccountFeePayer,
+      TAccountTaker extends string
+        ? ReadonlyAccount<TAccountTaker>
+        : TAccountTaker,
       TAccountFillsLog extends string
         ? WritableAccount<TAccountFillsLog>
         : TAccountFillsLog,
@@ -125,13 +129,16 @@ export function getInitializeFillsLogInstructionDataCodec(): FixedSizeCodec<
 }
 
 export type InitializeFillsLogInput<
-  TAccountSigner extends string = string,
+  TAccountFeePayer extends string = string,
+  TAccountTaker extends string = string,
   TAccountFillsLog extends string = string,
   TAccountMarket extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
-  /** Taker */
-  signer: TransactionSigner<TAccountSigner>;
+  /** Fee payer */
+  feePayer: TransactionSigner<TAccountFeePayer>;
+  /** Taker pubkey (used as PDA seed) */
+  taker: Address<TAccountTaker>;
   /** FillsLog PDA */
   fillsLog: Address<TAccountFillsLog>;
   /** Market state */
@@ -144,14 +151,16 @@ export type InitializeFillsLogInput<
 };
 
 export function getInitializeFillsLogInstruction<
-  TAccountSigner extends string,
+  TAccountFeePayer extends string,
+  TAccountTaker extends string,
   TAccountFillsLog extends string,
   TAccountMarket extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof ORDERBOOK_PROGRAM_ADDRESS,
 >(
   input: InitializeFillsLogInput<
-    TAccountSigner,
+    TAccountFeePayer,
+    TAccountTaker,
     TAccountFillsLog,
     TAccountMarket,
     TAccountSystemProgram
@@ -159,7 +168,8 @@ export function getInitializeFillsLogInstruction<
   config?: { programAddress?: TProgramAddress },
 ): InitializeFillsLogInstruction<
   TProgramAddress,
-  TAccountSigner,
+  TAccountFeePayer,
+  TAccountTaker,
   TAccountFillsLog,
   TAccountMarket,
   TAccountSystemProgram
@@ -169,7 +179,8 @@ export function getInitializeFillsLogInstruction<
 
   // Original accounts.
   const originalAccounts = {
-    signer: { value: input.signer ?? null, isWritable: true },
+    feePayer: { value: input.feePayer ?? null, isWritable: true },
+    taker: { value: input.taker ?? null, isWritable: false },
     fillsLog: { value: input.fillsLog ?? null, isWritable: true },
     market: { value: input.market ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
@@ -191,7 +202,8 @@ export function getInitializeFillsLogInstruction<
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta("signer", accounts.signer),
+      getAccountMeta("feePayer", accounts.feePayer),
+      getAccountMeta("taker", accounts.taker),
       getAccountMeta("fillsLog", accounts.fillsLog),
       getAccountMeta("market", accounts.market),
       getAccountMeta("systemProgram", accounts.systemProgram),
@@ -202,7 +214,8 @@ export function getInitializeFillsLogInstruction<
     programAddress,
   } as InitializeFillsLogInstruction<
     TProgramAddress,
-    TAccountSigner,
+    TAccountFeePayer,
+    TAccountTaker,
     TAccountFillsLog,
     TAccountMarket,
     TAccountSystemProgram
@@ -215,14 +228,16 @@ export type ParsedInitializeFillsLogInstruction<
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    /** Taker */
-    signer: TAccountMetas[0];
+    /** Fee payer */
+    feePayer: TAccountMetas[0];
+    /** Taker pubkey (used as PDA seed) */
+    taker: TAccountMetas[1];
     /** FillsLog PDA */
-    fillsLog: TAccountMetas[1];
+    fillsLog: TAccountMetas[2];
     /** Market state */
-    market: TAccountMetas[2];
+    market: TAccountMetas[3];
     /** System program */
-    systemProgram: TAccountMetas[3];
+    systemProgram: TAccountMetas[4];
   };
   data: InitializeFillsLogInstructionData;
 };
@@ -235,12 +250,12 @@ export function parseInitializeFillsLogInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedInitializeFillsLogInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 4) {
+  if (instruction.accounts.length < 5) {
     throw new SolanaError(
       SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
       {
         actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 4,
+        expectedAccountMetas: 5,
       },
     );
   }
@@ -253,7 +268,8 @@ export function parseInitializeFillsLogInstruction<
   return {
     programAddress: instruction.programAddress,
     accounts: {
-      signer: getNextAccount(),
+      feePayer: getNextAccount(),
+      taker: getNextAccount(),
       fillsLog: getNextAccount(),
       market: getNextAccount(),
       systemProgram: getNextAccount(),

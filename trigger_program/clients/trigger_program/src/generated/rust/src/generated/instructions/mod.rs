@@ -8,12 +8,16 @@
   pub(crate) mod r#cancel_trigger_order;
   pub(crate) mod r#edit_trigger;
   pub(crate) mod r#execute_trigger;
+  pub(crate) mod r#pause_trigger;
   pub(crate) mod r#place_trigger_order;
   pub(crate) mod r#prune_expired_trigger;
+  pub(crate) mod r#resume_trigger;
 
   pub use self::r#cancel_trigger_order::*;
   pub use self::r#edit_trigger::*;
   pub use self::r#execute_trigger::*;
+  pub use self::r#pause_trigger::*;
   pub use self::r#place_trigger_order::*;
   pub use self::r#prune_expired_trigger::*;
+  pub use self::r#resume_trigger::*;
 

@@ -58,11 +58,7 @@ export type ExecuteStrategyInstruction<
   TAccountMarket extends string | AccountMeta<string> = string,
   TAccountBids extends string | AccountMeta<string> = string,
   TAccountAsks extends string | AccountMeta<string> = string,
-  TAccountMarketConfig extends string | AccountMeta<string> = string,
-  TAccountFundingState extends string | AccountMeta<string> = string,
-  TAccountUserAccount extends string | AccountMeta<string> = string,
-  TAccountPosition extends string | AccountMeta<string> = string,
-  TAccountRiskProgram extends string | AccountMeta<string> = string,
+  TAccountFillsLog extends string | AccountMeta<string> = string,
   TAccountOrderbookProgram extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
@@ -97,21 +93,9 @@ export type ExecuteStrategyInstruction<
       TAccountAsks extends string
         ? WritableAccount<TAccountAsks>
         : TAccountAsks,
-      TAccountMarketConfig extends string
-        ? WritableAccount<TAccountMarketConfig>
-        : TAccountMarketConfig,
-      TAccountFundingState extends string
-        ? WritableAccount<TAccountFundingState>
-        : TAccountFundingState,
-      TAccountUserAccount extends string
-        ? WritableAccount<TAccountUserAccount>
-        : TAccountUserAccount,
-      TAccountPosition extends string
-        ? WritableAccount<TAccountPosition>
-        : TAccountPosition,
-      TAccountRiskProgram extends string
-        ? ReadonlyAccount<TAccountRiskProgram>
-        : TAccountRiskProgram,
+      TAccountFillsLog extends string
+        ? WritableAccount<TAccountFillsLog>
+        : TAccountFillsLog,
       TAccountOrderbookProgram extends string
         ? ReadonlyAccount<TAccountOrderbookProgram>
         : TAccountOrderbookProgram,
@@ -167,11 +151,7 @@ export type ExecuteStrategyInput<
   TAccountMarket extends string = string,
   TAccountBids extends string = string,
   TAccountAsks extends string = string,
-  TAccountMarketConfig extends string = string,
-  TAccountFundingState extends string = string,
-  TAccountUserAccount extends string = string,
-  TAccountPosition extends string = string,
-  TAccountRiskProgram extends string = string,
+  TAccountFillsLog extends string = string,
   TAccountOrderbookProgram extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
@@ -191,16 +171,8 @@ export type ExecuteStrategyInput<
   bids: Address<TAccountBids>;
   /** Asks PDA */
   asks: Address<TAccountAsks>;
-  /** Market Config PDA */
-  marketConfig: Address<TAccountMarketConfig>;
-  /** Funding State PDA */
-  fundingState: Address<TAccountFundingState>;
-  /** User Account PDA */
-  userAccount: Address<TAccountUserAccount>;
-  /** Position PDA */
-  position: Address<TAccountPosition>;
-  /** Risk Program */
-  riskProgram: Address<TAccountRiskProgram>;
+  /** Fills log PDA */
+  fillsLog: Address<TAccountFillsLog>;
   /** Orderbook Program */
   orderbookProgram: Address<TAccountOrderbookProgram>;
   /** System program */
@@ -217,11 +189,7 @@ export function getExecuteStrategyInstruction<
   TAccountMarket extends string,
   TAccountBids extends string,
   TAccountAsks extends string,
-  TAccountMarketConfig extends string,
-  TAccountFundingState extends string,
-  TAccountUserAccount extends string,
-  TAccountPosition extends string,
-  TAccountRiskProgram extends string,
+  TAccountFillsLog extends string,
   TAccountOrderbookProgram extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof STRATEGY_PROGRAM_PROGRAM_ADDRESS,
@@ -235,11 +203,7 @@ export function getExecuteStrategyInstruction<
     TAccountMarket,
     TAccountBids,
     TAccountAsks,
-    TAccountMarketConfig,
-    TAccountFundingState,
-    TAccountUserAccount,
-    TAccountPosition,
-    TAccountRiskProgram,
+    TAccountFillsLog,
     TAccountOrderbookProgram,
     TAccountSystemProgram
   >,
@@ -254,11 +218,7 @@ export function getExecuteStrategyInstruction<
   TAccountMarket,
   TAccountBids,
   TAccountAsks,
-  TAccountMarketConfig,
-  TAccountFundingState,
-  TAccountUserAccount,
-  TAccountPosition,
-  TAccountRiskProgram,
+  TAccountFillsLog,
   TAccountOrderbookProgram,
   TAccountSystemProgram
 > {
@@ -282,11 +242,7 @@ export function getExecuteStrategyInstruction<
     market: { value: input.market ?? null, isWritable: true },
     bids: { value: input.bids ?? null, isWritable: true },
     asks: { value: input.asks ?? null, isWritable: true },
-    marketConfig: { value: input.marketConfig ?? null, isWritable: true },
-    fundingState: { value: input.fundingState ?? null, isWritable: true },
-    userAccount: { value: input.userAccount ?? null, isWritable: true },
-    position: { value: input.position ?? null, isWritable: true },
-    riskProgram: { value: input.riskProgram ?? null, isWritable: false },
+    fillsLog: { value: input.fillsLog ?? null, isWritable: true },
     orderbookProgram: {
       value: input.orderbookProgram ?? null,
       isWritable: false,
@@ -318,11 +274,7 @@ export function getExecuteStrategyInstruction<
       getAccountMeta("market", accounts.market),
       getAccountMeta("bids", accounts.bids),
       getAccountMeta("asks", accounts.asks),
-      getAccountMeta("marketConfig", accounts.marketConfig),
-      getAccountMeta("fundingState", accounts.fundingState),
-      getAccountMeta("userAccount", accounts.userAccount),
-      getAccountMeta("position", accounts.position),
-      getAccountMeta("riskProgram", accounts.riskProgram),
+      getAccountMeta("fillsLog", accounts.fillsLog),
       getAccountMeta("orderbookProgram", accounts.orderbookProgram),
       getAccountMeta("systemProgram", accounts.systemProgram),
     ],
@@ -340,11 +292,7 @@ export function getExecuteStrategyInstruction<
     TAccountMarket,
     TAccountBids,
     TAccountAsks,
-    TAccountMarketConfig,
-    TAccountFundingState,
-    TAccountUserAccount,
-    TAccountPosition,
-    TAccountRiskProgram,
+    TAccountFillsLog,
     TAccountOrderbookProgram,
     TAccountSystemProgram
   >);
@@ -372,20 +320,12 @@ export type ParsedExecuteStrategyInstruction<
     bids: TAccountMetas[6];
     /** Asks PDA */
     asks: TAccountMetas[7];
-    /** Market Config PDA */
-    marketConfig: TAccountMetas[8];
-    /** Funding State PDA */
-    fundingState: TAccountMetas[9];
-    /** User Account PDA */
-    userAccount: TAccountMetas[10];
-    /** Position PDA */
-    position: TAccountMetas[11];
-    /** Risk Program */
-    riskProgram: TAccountMetas[12];
+    /** Fills log PDA */
+    fillsLog: TAccountMetas[8];
     /** Orderbook Program */
-    orderbookProgram: TAccountMetas[13];
+    orderbookProgram: TAccountMetas[9];
     /** System program */
-    systemProgram: TAccountMetas[14];
+    systemProgram: TAccountMetas[10];
   };
   data: ExecuteStrategyInstructionData;
 };
@@ -398,12 +338,12 @@ export function parseExecuteStrategyInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedExecuteStrategyInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 15) {
+  if (instruction.accounts.length < 11) {
     throw new SolanaError(
       SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
       {
         actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 15,
+        expectedAccountMetas: 11,
       },
     );
   }
@@ -424,11 +364,7 @@ export function parseExecuteStrategyInstruction<
       market: getNextAccount(),
       bids: getNextAccount(),
       asks: getNextAccount(),
-      marketConfig: getNextAccount(),
-      fundingState: getNextAccount(),
-      userAccount: getNextAccount(),
-      position: getNextAccount(),
-      riskProgram: getNextAccount(),
+      fillsLog: getNextAccount(),
       orderbookProgram: getNextAccount(),
       systemProgram: getNextAccount(),
     },

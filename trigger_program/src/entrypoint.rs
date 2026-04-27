@@ -5,7 +5,8 @@ use pinocchio::{
 
 use crate::instructions::{
     process_cancel_trigger_order, process_edit_trigger, process_execute_trigger,
-    process_place_trigger_order, process_prune_expired_triggers, TriggerProgramInstruction,
+    process_pause_trigger, process_place_trigger_order, process_prune_expired_triggers,
+    process_resume_trigger, TriggerProgramInstruction,
 };
 
 program_entrypoint!(process_instruction);
@@ -32,6 +33,8 @@ pub fn process_instruction(
         TriggerProgramInstruction::PruneExpiredTrigger => {
             process_prune_expired_triggers(accounts, data)?
         }
+        TriggerProgramInstruction::PauseTrigger => process_pause_trigger(accounts, data)?,
+        TriggerProgramInstruction::ResumeTrigger => process_resume_trigger(accounts, data)?,
     }
     Ok(())
 }

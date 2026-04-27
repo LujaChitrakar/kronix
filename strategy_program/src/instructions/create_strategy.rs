@@ -1,11 +1,12 @@
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{
-    AccountView, Address, ProgramResult,
     cpi::{Seed, Signer},
     error::ProgramError,
-    sysvars::{Sysvar, clock::Clock, rent::Rent},
+    sysvars::{clock::Clock, rent::Rent, Sysvar},
+    AccountView, Address, ProgramResult,
 };
 use pinocchio_system::instructions::CreateAccount;
+use shank::ShankType;
 
 use crate::{
     constants::STRATEGY_SEED,
@@ -14,7 +15,7 @@ use crate::{
     states::{StrategyAccount, StrategyParams},
 };
 
-#[derive(Pod, Zeroable, Clone, Copy)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct CreateStrategyParams {
     pub client_order_id: u64,
@@ -23,13 +24,12 @@ pub struct CreateStrategyParams {
     pub take_profit_price: i64,
     pub stop_loss_price: i64,
     pub cooldown_secs: u64,
-    pub bump: u8,
-    pub padding: [u8; 3],
-    pub max_executions_per_day: u32,
+    pub max_executions_per_day: u64,
     pub market_index: u16,
+    pub bump: u8,
     pub strategy_type: u8,
     pub side: u8,
-    pub padding2: [u8; 4],
+    pub padding: [u8; 3],
     pub params: StrategyParams,
 }
 
@@ -42,7 +42,7 @@ pub fn process_create_strategy(accounts: &[AccountView], data: &[u8]) -> Program
     verify_uninitialized(strategy_account)?;
     verify_program_id(system_program, &pinocchio_system::ID)?;
 
-    let params = bytemuck::try_from_bytes::<CreateStrategyParams>(data)
+    let params = bytemuck::try_pod_read_unaligned::<CreateStrategyParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     if params.size_lots <= 0 {

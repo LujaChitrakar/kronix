@@ -1,10 +1,10 @@
 use bytemuck::{Pod, Zeroable};
 use core::mem::size_of;
-use shank::ShankType;
+use shank::ShankAccount;
 
 pub const MAX_SR_LEVELS: usize = 8; // support/resistance price levels
 
-#[derive(Pod, Zeroable, Copy, Clone, ShankType)]
+#[derive(Pod, Zeroable, Copy, Clone, ShankAccount)]
 #[repr(C)]
 pub struct StrategyAccount {
     pub client_order_id: u64,
@@ -19,6 +19,8 @@ pub struct StrategyAccount {
     pub day_start_ts: i64,
     pub last_executed_ts: i64,
     pub cooldown_secs: u64,
+    pub max_executions_per_day: u64,
+    pub executions_today: u64,
 
     pub strategy_type: u8, // 0=RSI, 1=EMA, 2=RangeDCA, 3=SR, 4=SmartMoney
     pub status: u8,        // 0=Active, 1=Paused, 2=Completed
@@ -26,8 +28,6 @@ pub struct StrategyAccount {
     pub side: u8, // 0=Buy, 1=Sell (for directional strategies)
 
     // Execution limits
-    pub max_executions_per_day: u32,
-    pub executions_today: u32,
     pub market_index: u16,
     pub padding: [u8; 2],
 

@@ -112,11 +112,19 @@
       "name": "InitializeFillsLog",
       "accounts": [
         {
-          "name": "signer",
+          "name": "feePayer",
           "isMut": true,
           "isSigner": true,
           "docs": [
-            "Taker"
+            "Fee payer"
+          ]
+        },
+        {
+          "name": "taker",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Taker pubkey (used as PDA seed)"
           ]
         },
         {

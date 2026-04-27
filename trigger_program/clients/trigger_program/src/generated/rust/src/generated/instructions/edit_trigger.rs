@@ -5,7 +5,6 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use crate::generated::types::EditTriggerParams;
 use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
@@ -58,13 +57,13 @@ impl EditTrigger {
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
  pub struct EditTriggerInstructionData {
             discriminator: u8,
-            }
+                              }
 
 impl EditTriggerInstructionData {
   pub fn new() -> Self {
     Self {
                         discriminator: 1,
-                                }
+                                                                          }
   }
 
     pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
@@ -80,7 +79,10 @@ impl Default for EditTriggerInstructionData {
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
  pub struct EditTriggerInstructionArgs {
-                  pub edit_trigger_params: EditTriggerParams,
+                  pub new_trigger_price: i64,
+                pub new_size_lots: i64,
+                pub new_expiry: i64,
+                pub padding: [u8; 8],
       }
 
 impl EditTriggerInstructionArgs {
@@ -100,7 +102,10 @@ impl EditTriggerInstructionArgs {
 pub struct EditTriggerBuilder {
             signer: Option<solana_address::Address>,
                 trigger_order: Option<solana_address::Address>,
-                        edit_trigger_params: Option<EditTriggerParams>,
+                        new_trigger_price: Option<i64>,
+                new_size_lots: Option<i64>,
+                new_expiry: Option<i64>,
+                padding: Option<[u8; 8]>,
         __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
@@ -121,8 +126,23 @@ impl EditTriggerBuilder {
                     self
     }
                     #[inline(always)]
-      pub fn edit_trigger_params(&mut self, edit_trigger_params: EditTriggerParams) -> &mut Self {
-        self.edit_trigger_params = Some(edit_trigger_params);
+      pub fn new_trigger_price(&mut self, new_trigger_price: i64) -> &mut Self {
+        self.new_trigger_price = Some(new_trigger_price);
+        self
+      }
+                #[inline(always)]
+      pub fn new_size_lots(&mut self, new_size_lots: i64) -> &mut Self {
+        self.new_size_lots = Some(new_size_lots);
+        self
+      }
+                #[inline(always)]
+      pub fn new_expiry(&mut self, new_expiry: i64) -> &mut Self {
+        self.new_expiry = Some(new_expiry);
+        self
+      }
+                #[inline(always)]
+      pub fn padding(&mut self, padding: [u8; 8]) -> &mut Self {
+        self.padding = Some(padding);
         self
       }
         /// Add an additional account to the instruction.
@@ -144,7 +164,10 @@ impl EditTriggerBuilder {
                                         trigger_order: self.trigger_order.expect("trigger_order is not set"),
                       };
           let args = EditTriggerInstructionArgs {
-                                                              edit_trigger_params: self.edit_trigger_params.clone().expect("edit_trigger_params is not set"),
+                                                              new_trigger_price: self.new_trigger_price.clone().expect("new_trigger_price is not set"),
+                                                                  new_size_lots: self.new_size_lots.clone().expect("new_size_lots is not set"),
+                                                                  new_expiry: self.new_expiry.clone().expect("new_expiry is not set"),
+                                                                  padding: self.padding.clone().expect("padding is not set"),
                                     };
     
     accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
@@ -272,7 +295,10 @@ impl<'a, 'b> EditTriggerCpiBuilder<'a, 'b> {
       __program: program,
               signer: None,
               trigger_order: None,
-                                            edit_trigger_params: None,
+                                            new_trigger_price: None,
+                                new_size_lots: None,
+                                new_expiry: None,
+                                padding: None,
                     __remaining_accounts: Vec::new(),
     });
     Self { instruction }
@@ -290,8 +316,23 @@ impl<'a, 'b> EditTriggerCpiBuilder<'a, 'b> {
                     self
     }
                     #[inline(always)]
-      pub fn edit_trigger_params(&mut self, edit_trigger_params: EditTriggerParams) -> &mut Self {
-        self.instruction.edit_trigger_params = Some(edit_trigger_params);
+      pub fn new_trigger_price(&mut self, new_trigger_price: i64) -> &mut Self {
+        self.instruction.new_trigger_price = Some(new_trigger_price);
+        self
+      }
+                #[inline(always)]
+      pub fn new_size_lots(&mut self, new_size_lots: i64) -> &mut Self {
+        self.instruction.new_size_lots = Some(new_size_lots);
+        self
+      }
+                #[inline(always)]
+      pub fn new_expiry(&mut self, new_expiry: i64) -> &mut Self {
+        self.instruction.new_expiry = Some(new_expiry);
+        self
+      }
+                #[inline(always)]
+      pub fn padding(&mut self, padding: [u8; 8]) -> &mut Self {
+        self.instruction.padding = Some(padding);
         self
       }
         /// Add an additional account to the instruction.
@@ -317,7 +358,10 @@ impl<'a, 'b> EditTriggerCpiBuilder<'a, 'b> {
   #[allow(clippy::vec_init_then_push)]
   pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
           let args = EditTriggerInstructionArgs {
-                                                              edit_trigger_params: self.instruction.edit_trigger_params.clone().expect("edit_trigger_params is not set"),
+                                                              new_trigger_price: self.instruction.new_trigger_price.clone().expect("new_trigger_price is not set"),
+                                                                  new_size_lots: self.instruction.new_size_lots.clone().expect("new_size_lots is not set"),
+                                                                  new_expiry: self.instruction.new_expiry.clone().expect("new_expiry is not set"),
+                                                                  padding: self.instruction.padding.clone().expect("padding is not set"),
                                     };
         let instruction = EditTriggerCpi {
         __program: self.instruction.__program,
@@ -336,7 +380,10 @@ struct EditTriggerCpiBuilderInstruction<'a, 'b> {
   __program: &'b solana_account_info::AccountInfo<'a>,
             signer: Option<&'b solana_account_info::AccountInfo<'a>>,
                 trigger_order: Option<&'b solana_account_info::AccountInfo<'a>>,
-                        edit_trigger_params: Option<EditTriggerParams>,
+                        new_trigger_price: Option<i64>,
+                new_size_lots: Option<i64>,
+                new_expiry: Option<i64>,
+                padding: Option<[u8; 8]>,
         /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
   __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }

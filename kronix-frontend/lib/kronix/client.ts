@@ -19,6 +19,11 @@ import {
   getCreateOrderbookMarketInstruction,
 } from "@/lib/orderbook-sdk";
 import {
+  getPlaceTriggerOrderInstruction,
+  getCancelTriggerOrderInstruction,
+  getEditTriggerInstruction,
+} from "@/lib/trigger-sdk";
+import {
   getDepositInstruction,
   getWithdrawInstruction,
   getOpenPositionInstruction,
@@ -36,6 +41,8 @@ import {
   USDC_MINT,
   TOKEN_PROGRAM_ID,
   SYSTEM_PROGRAM_ID,
+  TRIGGER_PROGRAM_ID,
+  ORDERBOOK_PROGRAM_ID,
 } from "./config";
 import {
   findMarketPda,
@@ -50,6 +57,8 @@ import {
   findVaultPda,
   findVaultAuthorityPda,
   findInsuranceFundPda,
+  findTriggerOrderPda,
+  findTriggerAuthorityPda,
 } from "./pdas";
 import { toLegacyIx, fakeSigner } from "./ix-bridge";
 import { fetchFillsLog } from "./fills-log";
@@ -312,7 +321,8 @@ export async function sendPlaceOrder(
   const [fillsLog, bumpFillsLog] = findFillsLogPda(owner, args.clientOrderId);
 
   const initFillsLog = getInitializeFillsLogInstruction({
-    signer: fakeSigner(owner),
+    feePayer: fakeSigner(owner),
+    taker: addr(owner),
     fillsLog: addr(fillsLog),
     market: addr(market),
     systemProgram: addr(SYSTEM_PROGRAM_ID),
@@ -507,7 +517,8 @@ export async function sendEditOrder(
   const [fillsLog, bumpFillsLog] = findFillsLogPda(owner, args.clientOrderId);
 
   const initFillsLog = getInitializeFillsLogInstruction({
-    signer: fakeSigner(owner),
+    feePayer: fakeSigner(owner),
+    taker: addr(owner),
     fillsLog: addr(fillsLog),
     market: addr(market),
     systemProgram: addr(SYSTEM_PROGRAM_ID),
@@ -555,6 +566,137 @@ export async function sendSetDelegate(
     signer: fakeSigner(owner),
     openOrdersAccount: addr(oo),
     delegate: delegate.toBytes(),
+  });
+  return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
+}
+
+// ───────── Trigger orders (Stop-Loss / Take-Profit) ─────────
+
+export async function sendPlaceTriggerOrder(
+  owner: PublicKey,
+  args: {
+    clientOrderId: bigint;
+    triggerPrice: bigint;
+    sizeLots: bigint;
+    expiry: bigint;
+    triggerType: number; // 0=StopLoss, 1=TakeProfit
+    side: number; // 0=Buy, 1=Sell
+  },
+  conn: Connection,
+  send: Send,
+): Promise<string> {
+  const [market] = findMarketPda(MARKET_INDEX);
+  const [oo] = findOpenOrdersPda(owner, market);
+  const [triggerOrder, bump] = findTriggerOrderPda(owner, args.clientOrderId);
+  const [triggerAuthority, bumpAuthority] = findTriggerAuthorityPda(owner);
+  const [fillsLog, bumpFillsLog] = findFillsLogPda(
+    triggerAuthority,
+    args.clientOrderId,
+  );
+
+  const ix = getPlaceTriggerOrderInstruction({
+    signer: fakeSigner(owner),
+    triggerOrder: addr(triggerOrder),
+    openOrdersAccount: addr(oo),
+    triggerAuthority: addr(triggerAuthority),
+    fillsLog: addr(fillsLog),
+    market: addr(market),
+    orderbookProgram: addr(ORDERBOOK_PROGRAM_ID),
+    systemProgram: addr(SYSTEM_PROGRAM_ID),
+    placeTriggerOrderParams: {
+      clientOrderId: args.clientOrderId,
+      triggerPrice: args.triggerPrice,
+      sizeLots: args.sizeLots,
+      expiry: args.expiry,
+      marketIndex: MARKET_INDEX,
+      triggerType: args.triggerType,
+      side: args.side,
+      bump,
+      bumpAuthority,
+      bumpFillsLog,
+      padding: new Uint8Array(1),
+    },
+  });
+  return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
+}
+
+export async function sendCancelTriggerOrder(
+  owner: PublicKey,
+  clientOrderId: bigint,
+  conn: Connection,
+  send: Send,
+): Promise<string> {
+  const [triggerOrder] = findTriggerOrderPda(owner, clientOrderId);
+  const ix = getCancelTriggerOrderInstruction({
+    signer: fakeSigner(owner),
+    triggerOrder: addr(triggerOrder),
+  });
+  return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
+}
+
+// Pause = disc 5, Resume = disc 6. Both ix layout: [signer (writable, signer), trigger_order (writable)] + 1-byte data.
+function buildSimpleTriggerIx(
+  disc: number,
+  owner: PublicKey,
+  triggerOrder: PublicKey,
+): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: TRIGGER_PROGRAM_ID,
+    keys: [
+      { pubkey: owner, isSigner: true, isWritable: true },
+      { pubkey: triggerOrder, isSigner: false, isWritable: true },
+    ],
+    data: Buffer.from([disc]),
+  });
+}
+
+export async function sendPauseTrigger(
+  owner: PublicKey,
+  clientOrderId: bigint,
+  conn: Connection,
+  send: Send,
+): Promise<string> {
+  const [triggerOrder] = findTriggerOrderPda(owner, clientOrderId);
+  return send(
+    [...priorityFeeIxs(), buildSimpleTriggerIx(5, owner, triggerOrder)],
+    conn,
+  );
+}
+
+export async function sendResumeTrigger(
+  owner: PublicKey,
+  clientOrderId: bigint,
+  conn: Connection,
+  send: Send,
+): Promise<string> {
+  const [triggerOrder] = findTriggerOrderPda(owner, clientOrderId);
+  return send(
+    [...priorityFeeIxs(), buildSimpleTriggerIx(6, owner, triggerOrder)],
+    conn,
+  );
+}
+
+export async function sendEditTrigger(
+  owner: PublicKey,
+  args: {
+    clientOrderId: bigint;
+    newTriggerPrice: bigint; // 0 = no change
+    newSizeLots: bigint; // 0 = no change
+    newExpiry: bigint; // -1 = no change, 0 = remove expiry
+  },
+  conn: Connection,
+  send: Send,
+): Promise<string> {
+  const [triggerOrder] = findTriggerOrderPda(owner, args.clientOrderId);
+  const ix = getEditTriggerInstruction({
+    signer: fakeSigner(owner),
+    triggerOrder: addr(triggerOrder),
+    editTriggerParams: {
+      newTriggerPrice: args.newTriggerPrice,
+      newSizeLots: args.newSizeLots,
+      newExpiry: args.newExpiry,
+      padding: new Uint8Array(8),
+    },
   });
   return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
 }

@@ -8,8 +8,14 @@
 
 import {
   combineCodec,
+  fixDecoderSize,
+  fixEncoderSize,
+  getBytesDecoder,
+  getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
+  getU16Decoder,
+  getU16Encoder,
   getU8Decoder,
   getU8Encoder,
   SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
@@ -18,9 +24,9 @@ import {
   type AccountMeta,
   type AccountSignerMeta,
   type Address,
-  type Codec,
-  type Decoder,
-  type Encoder,
+  type FixedSizeCodec,
+  type FixedSizeDecoder,
+  type FixedSizeEncoder,
   type Instruction,
   type InstructionWithAccounts,
   type InstructionWithData,
@@ -35,12 +41,6 @@ import {
   type ResolvedInstructionAccount,
 } from "@solana/program-client-core";
 import { TRIGGER_PROGRAM_PROGRAM_ADDRESS } from "../programs";
-import {
-  getExecuteTriggerParamsDecoder,
-  getExecuteTriggerParamsEncoder,
-  type ExecuteTriggerParams,
-  type ExecuteTriggerParamsArgs,
-} from "../types";
 
 export const EXECUTE_TRIGGER_DISCRIMINATOR = 2;
 
@@ -58,13 +58,9 @@ export type ExecuteTriggerInstruction<
   TAccountOpenOrdersAccount extends string | AccountMeta<string> = string,
   TAccountBids extends string | AccountMeta<string> = string,
   TAccountAsks extends string | AccountMeta<string> = string,
-  TAccountMarketConfig extends string | AccountMeta<string> = string,
-  TAccountFundingState extends string | AccountMeta<string> = string,
-  TAccountUserAccount extends string | AccountMeta<string> = string,
-  TAccountPosition extends string | AccountMeta<string> = string,
+  TAccountFillsLog extends string | AccountMeta<string> = string,
   TAccountOracle extends string | AccountMeta<string> = string,
   TAccountOrderbookProgram extends string | AccountMeta<string> = string,
-  TAccountRiskProgram extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -80,7 +76,7 @@ export type ExecuteTriggerInstruction<
         ? WritableAccount<TAccountTriggerAuthority>
         : TAccountTriggerAuthority,
       TAccountTriggerOrderOwner extends string
-        ? ReadonlyAccount<TAccountTriggerOrderOwner>
+        ? WritableAccount<TAccountTriggerOrderOwner>
         : TAccountTriggerOrderOwner,
       TAccountTriggerOrder extends string
         ? WritableAccount<TAccountTriggerOrder>
@@ -97,27 +93,15 @@ export type ExecuteTriggerInstruction<
       TAccountAsks extends string
         ? WritableAccount<TAccountAsks>
         : TAccountAsks,
-      TAccountMarketConfig extends string
-        ? WritableAccount<TAccountMarketConfig>
-        : TAccountMarketConfig,
-      TAccountFundingState extends string
-        ? WritableAccount<TAccountFundingState>
-        : TAccountFundingState,
-      TAccountUserAccount extends string
-        ? WritableAccount<TAccountUserAccount>
-        : TAccountUserAccount,
-      TAccountPosition extends string
-        ? WritableAccount<TAccountPosition>
-        : TAccountPosition,
+      TAccountFillsLog extends string
+        ? WritableAccount<TAccountFillsLog>
+        : TAccountFillsLog,
       TAccountOracle extends string
         ? WritableAccount<TAccountOracle>
         : TAccountOracle,
       TAccountOrderbookProgram extends string
         ? ReadonlyAccount<TAccountOrderbookProgram>
         : TAccountOrderbookProgram,
-      TAccountRiskProgram extends string
-        ? ReadonlyAccount<TAccountRiskProgram>
-        : TAccountRiskProgram,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
@@ -127,31 +111,43 @@ export type ExecuteTriggerInstruction<
 
 export type ExecuteTriggerInstructionData = {
   discriminator: number;
-  executeTriggerParams: ExecuteTriggerParams;
+  marketIndex: number;
+  bumpFillsLog: number;
+  bumpAuthority: number;
+  padding: ReadonlyUint8Array;
 };
 
 export type ExecuteTriggerInstructionDataArgs = {
-  executeTriggerParams: ExecuteTriggerParamsArgs;
+  marketIndex: number;
+  bumpFillsLog: number;
+  bumpAuthority: number;
+  padding: ReadonlyUint8Array;
 };
 
-export function getExecuteTriggerInstructionDataEncoder(): Encoder<ExecuteTriggerInstructionDataArgs> {
+export function getExecuteTriggerInstructionDataEncoder(): FixedSizeEncoder<ExecuteTriggerInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", getU8Encoder()],
-      ["executeTriggerParams", getExecuteTriggerParamsEncoder()],
+      ["marketIndex", getU16Encoder()],
+      ["bumpFillsLog", getU8Encoder()],
+      ["bumpAuthority", getU8Encoder()],
+      ["padding", fixEncoderSize(getBytesEncoder(), 4)],
     ]),
     (value) => ({ ...value, discriminator: EXECUTE_TRIGGER_DISCRIMINATOR }),
   );
 }
 
-export function getExecuteTriggerInstructionDataDecoder(): Decoder<ExecuteTriggerInstructionData> {
+export function getExecuteTriggerInstructionDataDecoder(): FixedSizeDecoder<ExecuteTriggerInstructionData> {
   return getStructDecoder([
     ["discriminator", getU8Decoder()],
-    ["executeTriggerParams", getExecuteTriggerParamsDecoder()],
+    ["marketIndex", getU16Decoder()],
+    ["bumpFillsLog", getU8Decoder()],
+    ["bumpAuthority", getU8Decoder()],
+    ["padding", fixDecoderSize(getBytesDecoder(), 4)],
   ]);
 }
 
-export function getExecuteTriggerInstructionDataCodec(): Codec<
+export function getExecuteTriggerInstructionDataCodec(): FixedSizeCodec<
   ExecuteTriggerInstructionDataArgs,
   ExecuteTriggerInstructionData
 > {
@@ -170,13 +166,9 @@ export type ExecuteTriggerInput<
   TAccountOpenOrdersAccount extends string = string,
   TAccountBids extends string = string,
   TAccountAsks extends string = string,
-  TAccountMarketConfig extends string = string,
-  TAccountFundingState extends string = string,
-  TAccountUserAccount extends string = string,
-  TAccountPosition extends string = string,
+  TAccountFillsLog extends string = string,
   TAccountOracle extends string = string,
   TAccountOrderbookProgram extends string = string,
-  TAccountRiskProgram extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   /** Fee payer */
@@ -195,23 +187,18 @@ export type ExecuteTriggerInput<
   bids: Address<TAccountBids>;
   /** Asks PDA */
   asks: Address<TAccountAsks>;
-  /** Market Config PDA */
-  marketConfig: Address<TAccountMarketConfig>;
-  /** Funding State PDA */
-  fundingState: Address<TAccountFundingState>;
-  /** User Account PDA */
-  userAccount: Address<TAccountUserAccount>;
-  /** Position PDA */
-  position: Address<TAccountPosition>;
+  /** Fills log PDA */
+  fillsLog: Address<TAccountFillsLog>;
   /** Oracle PDA */
   oracle: Address<TAccountOracle>;
   /** Orderbook Program */
   orderbookProgram: Address<TAccountOrderbookProgram>;
-  /** Risk Program */
-  riskProgram: Address<TAccountRiskProgram>;
   /** System program */
   systemProgram?: Address<TAccountSystemProgram>;
-  executeTriggerParams: ExecuteTriggerInstructionDataArgs["executeTriggerParams"];
+  marketIndex: ExecuteTriggerInstructionDataArgs["marketIndex"];
+  bumpFillsLog: ExecuteTriggerInstructionDataArgs["bumpFillsLog"];
+  bumpAuthority: ExecuteTriggerInstructionDataArgs["bumpAuthority"];
+  padding: ExecuteTriggerInstructionDataArgs["padding"];
 };
 
 export function getExecuteTriggerInstruction<
@@ -223,13 +210,9 @@ export function getExecuteTriggerInstruction<
   TAccountOpenOrdersAccount extends string,
   TAccountBids extends string,
   TAccountAsks extends string,
-  TAccountMarketConfig extends string,
-  TAccountFundingState extends string,
-  TAccountUserAccount extends string,
-  TAccountPosition extends string,
+  TAccountFillsLog extends string,
   TAccountOracle extends string,
   TAccountOrderbookProgram extends string,
-  TAccountRiskProgram extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof TRIGGER_PROGRAM_PROGRAM_ADDRESS,
 >(
@@ -242,13 +225,9 @@ export function getExecuteTriggerInstruction<
     TAccountOpenOrdersAccount,
     TAccountBids,
     TAccountAsks,
-    TAccountMarketConfig,
-    TAccountFundingState,
-    TAccountUserAccount,
-    TAccountPosition,
+    TAccountFillsLog,
     TAccountOracle,
     TAccountOrderbookProgram,
-    TAccountRiskProgram,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
@@ -262,13 +241,9 @@ export function getExecuteTriggerInstruction<
   TAccountOpenOrdersAccount,
   TAccountBids,
   TAccountAsks,
-  TAccountMarketConfig,
-  TAccountFundingState,
-  TAccountUserAccount,
-  TAccountPosition,
+  TAccountFillsLog,
   TAccountOracle,
   TAccountOrderbookProgram,
-  TAccountRiskProgram,
   TAccountSystemProgram
 > {
   // Program address.
@@ -284,7 +259,7 @@ export function getExecuteTriggerInstruction<
     },
     triggerOrderOwner: {
       value: input.triggerOrderOwner ?? null,
-      isWritable: false,
+      isWritable: true,
     },
     triggerOrder: { value: input.triggerOrder ?? null, isWritable: true },
     market: { value: input.market ?? null, isWritable: true },
@@ -294,16 +269,12 @@ export function getExecuteTriggerInstruction<
     },
     bids: { value: input.bids ?? null, isWritable: true },
     asks: { value: input.asks ?? null, isWritable: true },
-    marketConfig: { value: input.marketConfig ?? null, isWritable: true },
-    fundingState: { value: input.fundingState ?? null, isWritable: true },
-    userAccount: { value: input.userAccount ?? null, isWritable: true },
-    position: { value: input.position ?? null, isWritable: true },
+    fillsLog: { value: input.fillsLog ?? null, isWritable: true },
     oracle: { value: input.oracle ?? null, isWritable: true },
     orderbookProgram: {
       value: input.orderbookProgram ?? null,
       isWritable: false,
     },
-    riskProgram: { value: input.riskProgram ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
@@ -331,13 +302,9 @@ export function getExecuteTriggerInstruction<
       getAccountMeta("openOrdersAccount", accounts.openOrdersAccount),
       getAccountMeta("bids", accounts.bids),
       getAccountMeta("asks", accounts.asks),
-      getAccountMeta("marketConfig", accounts.marketConfig),
-      getAccountMeta("fundingState", accounts.fundingState),
-      getAccountMeta("userAccount", accounts.userAccount),
-      getAccountMeta("position", accounts.position),
+      getAccountMeta("fillsLog", accounts.fillsLog),
       getAccountMeta("oracle", accounts.oracle),
       getAccountMeta("orderbookProgram", accounts.orderbookProgram),
-      getAccountMeta("riskProgram", accounts.riskProgram),
       getAccountMeta("systemProgram", accounts.systemProgram),
     ],
     data: getExecuteTriggerInstructionDataEncoder().encode(
@@ -354,13 +321,9 @@ export function getExecuteTriggerInstruction<
     TAccountOpenOrdersAccount,
     TAccountBids,
     TAccountAsks,
-    TAccountMarketConfig,
-    TAccountFundingState,
-    TAccountUserAccount,
-    TAccountPosition,
+    TAccountFillsLog,
     TAccountOracle,
     TAccountOrderbookProgram,
-    TAccountRiskProgram,
     TAccountSystemProgram
   >);
 }
@@ -387,22 +350,14 @@ export type ParsedExecuteTriggerInstruction<
     bids: TAccountMetas[6];
     /** Asks PDA */
     asks: TAccountMetas[7];
-    /** Market Config PDA */
-    marketConfig: TAccountMetas[8];
-    /** Funding State PDA */
-    fundingState: TAccountMetas[9];
-    /** User Account PDA */
-    userAccount: TAccountMetas[10];
-    /** Position PDA */
-    position: TAccountMetas[11];
+    /** Fills log PDA */
+    fillsLog: TAccountMetas[8];
     /** Oracle PDA */
-    oracle: TAccountMetas[12];
+    oracle: TAccountMetas[9];
     /** Orderbook Program */
-    orderbookProgram: TAccountMetas[13];
-    /** Risk Program */
-    riskProgram: TAccountMetas[14];
+    orderbookProgram: TAccountMetas[10];
     /** System program */
-    systemProgram: TAccountMetas[15];
+    systemProgram: TAccountMetas[11];
   };
   data: ExecuteTriggerInstructionData;
 };
@@ -415,12 +370,12 @@ export function parseExecuteTriggerInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedExecuteTriggerInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 16) {
+  if (instruction.accounts.length < 12) {
     throw new SolanaError(
       SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
       {
         actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 16,
+        expectedAccountMetas: 12,
       },
     );
   }
@@ -441,13 +396,9 @@ export function parseExecuteTriggerInstruction<
       openOrdersAccount: getNextAccount(),
       bids: getNextAccount(),
       asks: getNextAccount(),
-      marketConfig: getNextAccount(),
-      fundingState: getNextAccount(),
-      userAccount: getNextAccount(),
-      position: getNextAccount(),
+      fillsLog: getNextAccount(),
       oracle: getNextAccount(),
       orderbookProgram: getNextAccount(),
-      riskProgram: getNextAccount(),
       systemProgram: getNextAccount(),
     },
     data: getExecuteTriggerInstructionDataDecoder().decode(instruction.data),

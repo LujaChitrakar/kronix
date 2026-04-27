@@ -9,5 +9,7 @@
 export * from "./cancelTriggerOrder";
 export * from "./editTrigger";
 export * from "./executeTrigger";
+export * from "./pauseTrigger";
 export * from "./placeTriggerOrder";
 export * from "./pruneExpiredTrigger";
+export * from "./resumeTrigger";
