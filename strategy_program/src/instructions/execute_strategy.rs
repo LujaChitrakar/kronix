@@ -60,13 +60,6 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
     let clock = Clock::get()?;
     let now_ts = clock.unix_timestamp;
 
-    let bump_bytes = [params.bump_authority];
-    verify_pda(
-        strategy_authority,
-        &[STRATEGY_AUTHORITY_SEED, &bump_bytes],
-        &crate::ID,
-    )?;
-
     let mut strat_data = strategy_account.try_borrow_mut()?;
     let strategy =
         bytemuck::from_bytes_mut::<StrategyAccount>(&mut strat_data[..StrategyAccount::LEN]);
@@ -74,6 +67,13 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
     if strategy.owner != *strategy_owner.address().as_array() {
         return Err(ProgramError::IllegalOwner);
     }
+
+    let bump_bytes = [params.bump_authority];
+    verify_pda(
+        strategy_authority,
+        &[STRATEGY_AUTHORITY_SEED, &strategy.owner, &bump_bytes],
+        &crate::ID,
+    )?;
     if strategy.status != 0 {
         return Err(StrategyProgramError::StrategyNotActive.into());
     }

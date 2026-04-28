@@ -13,6 +13,25 @@ export const TRIGGER_PROGRAM_ID = new PublicKey(
     "FBux8UY7koXsvDp3GThjvtiMo4GagsDdkPDbU4VbQzV2",
 );
 
+export const STRATEGY_PROGRAM_ID = new PublicKey(
+  process.env.NEXT_PUBLIC_STRATEGY_PROGRAM_ID ??
+    "7jUHqPKWF4ebe4gSRMwy1FfAWyuiQjpjTdzqtbMK6S9q",
+);
+
+export enum StrategyType {
+  RSI = 0,
+  EMA = 1,
+  RangeDCA = 2,
+  SR = 3,
+  SmartMoney = 4,
+}
+
+export enum StrategyStatus {
+  Active = 0,
+  Paused = 1,
+  Completed = 2,
+}
+
 export enum TriggerType {
   StopLoss = 0,
   TakeProfit = 1,

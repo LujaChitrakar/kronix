@@ -18,7 +18,12 @@ use shank::ShankInstruction;
 pub enum StrategyInstruction {
     #[account(0, name = "signer", desc = "Fee payer", signer, writable)]
     #[account(1, name = "strategy_account", desc = "Strategy account PDA", writable)]
-    #[account(2, name = "system_program", desc = "System program")]
+    #[account(2, name = "strategy_authority", desc = "Strategy authority PDA (taker for fills_log + OO delegate)")]
+    #[account(3, name = "open_orders_account", desc = "Open orders account PDA", writable)]
+    #[account(4, name = "fills_log", desc = "FillsLog PDA (initialized via CPI)", writable)]
+    #[account(5, name = "market", desc = "Market state PDA")]
+    #[account(6, name = "orderbook_program", desc = "Orderbook program (CPI)")]
+    #[account(7, name = "system_program", desc = "System program")]
     CreateStrategy(CreateStrategyParams),
 
     #[account(0, name = "signer", desc = "Fee payer", signer, writable)]

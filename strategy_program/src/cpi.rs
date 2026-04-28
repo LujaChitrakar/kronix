@@ -1,11 +1,88 @@
-use orderbook_program_cpi::PlaceOrderParams;
-use orderbook_program_cpi::{self, PLACE_ORDER_IX};
-use pinocchio::cpi::{invoke_signed, Seed, Signer};
+use orderbook_program_cpi::{
+    self, InitializeFillsLogParams, PlaceOrderParams, SetDelegateParams,
+    INITIALIZE_FILLS_LOG_IX, PLACE_ORDER_IX, SET_DELEGATE_IX,
+};
+use pinocchio::cpi::{invoke, invoke_signed, Seed, Signer};
 use pinocchio::instruction::{InstructionAccount, InstructionView};
 use pinocchio::{AccountView, ProgramResult};
 use trigger_program_cpi::{PlaceTriggerOrderParams, PLACE_TRIGGER_IX};
 
 use crate::constants::STRATEGY_AUTHORITY_SEED;
+
+pub fn initialize_fills_log_cpi(
+    orderbook_program: &AccountView,
+    system_program: &AccountView,
+    fee_payer: &AccountView,
+    strategy_authority: &AccountView,
+    fills_log: &AccountView,
+    market: &AccountView,
+    client_order_id: u64,
+    bump_fills_log: u8,
+) -> ProgramResult {
+    let params = InitializeFillsLogParams {
+        bump: bump_fills_log,
+        padding: [0; 7],
+        client_order_id,
+    };
+    let params_bytes = bytemuck::bytes_of(&params);
+    let mut ix_data = [0u8; 1 + core::mem::size_of::<InitializeFillsLogParams>()];
+    ix_data[0] = INITIALIZE_FILLS_LOG_IX;
+    ix_data[1..].copy_from_slice(params_bytes);
+
+    let account_metas = [
+        InstructionAccount::new(fee_payer.address(), true, true),
+        InstructionAccount::new(strategy_authority.address(), false, false),
+        InstructionAccount::new(fills_log.address(), true, false),
+        InstructionAccount::new(market.address(), false, false),
+        InstructionAccount::new(system_program.address(), false, false),
+    ];
+
+    let account_infos = [
+        fee_payer,
+        strategy_authority,
+        fills_log,
+        market,
+        system_program,
+    ];
+
+    let ix = InstructionView {
+        program_id: orderbook_program.address(),
+        accounts: &account_metas,
+        data: &ix_data,
+    };
+
+    invoke::<5>(&ix, &account_infos)?;
+    Ok(())
+}
+
+pub fn set_delegate_cpi(
+    orderbook_program: &AccountView,
+    signer: &AccountView,
+    open_orders_account: &AccountView,
+    delegate: [u8; 32],
+) -> ProgramResult {
+    let params = SetDelegateParams { delegate };
+    let params_bytes = bytemuck::bytes_of(&params);
+    let mut ix_data = [0u8; 1 + core::mem::size_of::<SetDelegateParams>()];
+    ix_data[0] = SET_DELEGATE_IX;
+    ix_data[1..].copy_from_slice(params_bytes);
+
+    let account_metas = [
+        InstructionAccount::new(signer.address(), false, true),
+        InstructionAccount::new(open_orders_account.address(), true, false),
+    ];
+
+    let account_infos = [signer, open_orders_account];
+
+    let ix = InstructionView {
+        program_id: orderbook_program.address(),
+        accounts: &account_metas,
+        data: &ix_data,
+    };
+
+    invoke::<2>(&ix, &account_infos)?;
+    Ok(())
+}
 
 pub fn place_order_cpi(
     orderbook_program: &AccountView,

@@ -24,6 +24,15 @@ import {
   getEditTriggerInstruction,
 } from "@/lib/trigger-sdk";
 import {
+  getCreateStrategyInstruction,
+  getEditStrategyInstruction,
+  getPauseStrategyInstruction,
+  getResumeStrategyInstruction,
+  getCloseStrategyInstruction,
+  emptyStrategyParamsArgs,
+  type StrategyParamsArgs,
+} from "@/lib/strategy-sdk";
+import {
   getDepositInstruction,
   getWithdrawInstruction,
   getOpenPositionInstruction,
@@ -43,6 +52,7 @@ import {
   SYSTEM_PROGRAM_ID,
   TRIGGER_PROGRAM_ID,
   ORDERBOOK_PROGRAM_ID,
+  STRATEGY_PROGRAM_ID,
 } from "./config";
 import {
   findMarketPda,
@@ -59,6 +69,8 @@ import {
   findInsuranceFundPda,
   findTriggerOrderPda,
   findTriggerAuthorityPda,
+  findStrategyPda,
+  findStrategyAuthorityPda,
 } from "./pdas";
 import { toLegacyIx, fakeSigner } from "./ix-bridge";
 import { fetchFillsLog } from "./fills-log";
@@ -813,6 +825,147 @@ export async function sendCreateOrderbookMarket(
     padding: PADDING_3,
     name: nameBytes,
     admin: payer.toBytes(),
+  });
+  return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
+}
+
+// ───────── Strategies ─────────
+
+export async function sendCreateStrategy(
+  owner: PublicKey,
+  args: {
+    clientOrderId: bigint;
+    strategyType: number; // 0..4
+    side: number;
+    sizeLots: bigint;
+    limitPriceLots: bigint; // 0 = market
+    takeProfitPrice: bigint; // 0 = none
+    stopLossPrice: bigint; // 0 = none
+    cooldownSecs: bigint;
+    maxExecutionsPerDay: bigint;
+    params?: StrategyParamsArgs; // strategy-specific
+  },
+  conn: Connection,
+  send: Send,
+): Promise<string> {
+  const [market] = findMarketPda(MARKET_INDEX);
+  const [oo] = findOpenOrdersPda(owner, market);
+  const [strategyAccount, bump] = findStrategyPda(
+    owner,
+    MARKET_INDEX,
+    args.strategyType,
+  );
+  const [strategyAuthority, bumpAuthority] = findStrategyAuthorityPda(owner);
+  const [fillsLog, bumpFillsLog] = findFillsLogPda(
+    strategyAuthority,
+    args.clientOrderId,
+  );
+
+  const ix = getCreateStrategyInstruction({
+    signer: fakeSigner(owner),
+    strategyAccount: addr(strategyAccount),
+    strategyAuthority: addr(strategyAuthority),
+    openOrdersAccount: addr(oo),
+    fillsLog: addr(fillsLog),
+    market: addr(market),
+    orderbookProgram: addr(ORDERBOOK_PROGRAM_ID),
+    systemProgram: addr(SYSTEM_PROGRAM_ID),
+    createStrategyParams: {
+      clientOrderId: args.clientOrderId,
+      sizeLots: args.sizeLots,
+      limitPriceLots: args.limitPriceLots,
+      takeProfitPrice: args.takeProfitPrice,
+      stopLossPrice: args.stopLossPrice,
+      cooldownSecs: args.cooldownSecs,
+      maxExecutionsPerDay: args.maxExecutionsPerDay,
+      marketIndex: MARKET_INDEX,
+      bump,
+      strategyType: args.strategyType,
+      side: args.side,
+      bumpAuthority,
+      bumpFillsLog,
+      padding: new Uint8Array(1),
+      params: args.params ?? emptyStrategyParamsArgs(),
+    },
+  });
+  return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
+}
+
+export async function sendEditStrategy(
+  owner: PublicKey,
+  args: {
+    strategyType: number;
+    newLimitPriceLots: bigint;
+    newTakeProfitPrice: bigint;
+    newStopLossPrice: bigint;
+    newSizeLots: bigint;
+    newCooldownSecs: bigint;
+    newMaxExecutionsPerDay: bigint;
+    newStatus: number; // 255 = no change
+  },
+  conn: Connection,
+  send: Send,
+): Promise<string> {
+  const [strategyAccount] = findStrategyPda(
+    owner,
+    MARKET_INDEX,
+    args.strategyType,
+  );
+  const ix = getEditStrategyInstruction({
+    signer: fakeSigner(owner),
+    strategyAccount: addr(strategyAccount),
+    editStrategyParams: {
+      newLimitPriceLots: args.newLimitPriceLots,
+      newTakeProfitPrice: args.newTakeProfitPrice,
+      newStopLossPrice: args.newStopLossPrice,
+      newSizeLots: args.newSizeLots,
+      newCooldownSecs: args.newCooldownSecs,
+      newMaxExecutionsPerDay: args.newMaxExecutionsPerDay,
+      newStatus: args.newStatus,
+      padding: new Uint8Array(7),
+    },
+  });
+  return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
+}
+
+export async function sendPauseStrategy(
+  owner: PublicKey,
+  strategyType: number,
+  conn: Connection,
+  send: Send,
+): Promise<string> {
+  const [strategyAccount] = findStrategyPda(owner, MARKET_INDEX, strategyType);
+  const ix = getPauseStrategyInstruction({
+    signer: fakeSigner(owner),
+    strategyAccount: addr(strategyAccount),
+  });
+  return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
+}
+
+export async function sendResumeStrategy(
+  owner: PublicKey,
+  strategyType: number,
+  conn: Connection,
+  send: Send,
+): Promise<string> {
+  const [strategyAccount] = findStrategyPda(owner, MARKET_INDEX, strategyType);
+  const ix = getResumeStrategyInstruction({
+    signer: fakeSigner(owner),
+    strategyAccount: addr(strategyAccount),
+  });
+  return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
+}
+
+export async function sendCloseStrategy(
+  owner: PublicKey,
+  strategyType: number,
+  conn: Connection,
+  send: Send,
+): Promise<string> {
+  const [strategyAccount] = findStrategyPda(owner, MARKET_INDEX, strategyType);
+  const ix = getCloseStrategyInstruction({
+    signer: fakeSigner(owner),
+    strategyAccount: addr(strategyAccount),
   });
   return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
 }

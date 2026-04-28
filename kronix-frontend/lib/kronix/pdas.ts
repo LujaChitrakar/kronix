@@ -3,6 +3,7 @@ import {
   ORDERBOOK_PROGRAM_ID,
   RISK_PROGRAM_ID,
   TRIGGER_PROGRAM_ID,
+  STRATEGY_PROGRAM_ID,
 } from "./config";
 
 // Browser Buffer polyfill lacks writeBigUInt64LE — use DataView and copy
@@ -135,3 +136,30 @@ export function findTriggerAuthorityPda(
     TRIGGER_PROGRAM_ID,
   );
 }
+
+export function findStrategyPda(
+  owner: PublicKey,
+  marketIndex: number,
+  strategyType: number,
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("strategy"),
+      owner.toBuffer(),
+      u16Le(marketIndex),
+      Uint8Array.from([strategyType & 0xff]),
+    ],
+    STRATEGY_PROGRAM_ID,
+  );
+}
+
+export function findStrategyAuthorityPda(
+  owner: PublicKey,
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("strategy_authority"), owner.toBuffer()],
+    STRATEGY_PROGRAM_ID,
+  );
+}
+
+export { STRATEGY_PROGRAM_ID } from "./config";
