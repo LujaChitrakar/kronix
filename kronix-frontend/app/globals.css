@@ -76,13 +76,92 @@
 .font-mono     { font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace; }
 
 /* ── HL-style surfaces + dividers ─────────────────────────────────────── */
-.bg-kx-surface      { background-color: #14181A; }
-.bg-kx-surface-hi   { background-color: #181D1F; }
-.bg-kx-surface-lo   { background-color: #10141D; }
-.bg-kx-base         { background-color: #0B0F0D; }
+.bg-kx-surface      { background-color: #0E1113; }
+.bg-kx-surface-hi   { background-color: #14181A; }
+.bg-kx-surface-lo   { background-color: #0A0D0F; }
+.bg-kx-base         { background-color: #07090B; }
 
-.kx-border          { border-color: rgba(77, 255, 180, 0.08); }
-.kx-border-strong   { border-color: rgba(77, 255, 180, 0.18); }
+.kx-border          { border-color: rgba(255, 255, 255, 0.06); }
+.kx-border-strong   { border-color: rgba(255, 255, 255, 0.12); }
+
+/* ── Hyperliquid-style tokens ─────────────────────────────────────────── */
+.bg-hl-panel        { background-color: #0E1113; }
+.bg-hl-panel-lo     { background-color: #0A0D0F; }
+.border-hl          { border-color: rgba(255, 255, 255, 0.06); }
+.text-hl-fg         { color: #E5E7EB; }
+.text-hl-muted      { color: #6B7280; }
+.text-hl-buy        { color: #4dffb4; }
+.text-hl-sell       { color: #ff6b6b; }
+
+.hl-tab-active      {
+  color: #E5E7EB;
+  background-color: rgba(255, 255, 255, 0.04);
+  border-bottom: 2px solid #4dffb4;
+}
+.hl-tab-inactive    {
+  color: #6B7280;
+  border-bottom: 2px solid transparent;
+}
+.hl-tab-inactive:hover { color: #BACBBE; }
+
+/* Chart embed: neutralize CryptoChart's 100vw/100vh root so it fills parent. */
+.kx-chart-host {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0E1113;
+}
+.kx-chart-host .cx-root {
+  width: 100% !important;
+  height: 100% !important;
+  background: #0E1113 !important;
+}
+.kx-chart-host .cx-root::before { display: none; }
+.kx-chart-host .cx-header { display: none !important; }
+.kx-chart-host .cx-accent-bar { display: none !important; }
+html, body { overflow-x: hidden; overflow-y: auto !important; }
+
+/* Subtle scrollbar inside trade panels */
+.kx-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.kx-scroll::-webkit-scrollbar-track { background: transparent; }
+.kx-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+}
+.kx-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+/* Buy / sell tonal pills */
+.kx-buy-pill {
+  background: rgba(77, 255, 180, 0.10);
+  color: #4dffb4;
+  border: 1px solid rgba(77, 255, 180, 0.25);
+}
+.kx-sell-pill {
+  background: rgba(255, 107, 107, 0.10);
+  color: #ff6b6b;
+  border: 1px solid rgba(255, 107, 107, 0.25);
+}
+.kx-input {
+  background: #0A0D0F;
+  border: 1px solid rgba(255,255,255,0.06);
+  color: #E5E7EB;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.kx-input:focus {
+  border-color: rgba(77, 255, 180, 0.4);
+}
+.kx-input:disabled {
+  opacity: 0.4;
+}
 
 .grid-bg {
   background-image:

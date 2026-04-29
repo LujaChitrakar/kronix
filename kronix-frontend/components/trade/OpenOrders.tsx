@@ -147,11 +147,8 @@ export function OpenOrders() {
   };
 
   return (
-    <div className="bg-kx-surface rounded-xl border kx-border p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="font-headline text-sm text-on-surface uppercase tracking-wider">
-          Open Orders
-        </div>
+    <div className="px-1">
+      <div className="flex items-center justify-end mb-3">
         {owner && rows.length > 0 && (
           <div className="flex gap-1">
             <button

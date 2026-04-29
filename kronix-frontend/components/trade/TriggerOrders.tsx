@@ -192,10 +192,7 @@ export function TriggerOrders() {
   };
 
   return (
-    <div className="bg-kx-surface rounded-xl border kx-border p-4">
-      <div className="font-headline text-sm text-on-surface mb-3 uppercase tracking-wider">
-        Trigger Orders
-      </div>
+    <div className="px-1">
       {!owner && (
         <div className="text-on-surface-variant text-sm">Connect wallet.</div>
       )}

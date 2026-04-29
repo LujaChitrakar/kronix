@@ -1,38 +1,39 @@
 import { TradeNav } from "@/components/trade/TradeNav";
-import { Orderbook } from "@/components/trade/Orderbook";
-import { OrderForm } from "@/components/trade/OrderForm";
-import { TriggerForm } from "@/components/trade/TriggerForm";
-import { TriggerOrders } from "@/components/trade/TriggerOrders";
-import { StrategyForm } from "@/components/trade/StrategyForm";
-import { Strategies } from "@/components/trade/Strategies";
-import { AccountPanel } from "@/components/trade/AccountPanel";
-import { PositionPanel } from "@/components/trade/PositionPanel";
-import { OpenOrders } from "@/components/trade/OpenOrders";
+import { MarketHeader } from "@/components/trade/MarketHeader";
+import CryptoChart from "@/components/CryptoChart/CryptoChart";
+import { CenterTabs } from "@/components/trade/CenterTabs";
+import { RightTabs } from "@/components/trade/RightTabs";
+import { BottomTabs } from "@/components/trade/BottomTabs";
 
 export const dynamic = "force-dynamic";
 
 export default function TradePage() {
   return (
-    <div className="min-h-screen bg-[#0B0F0D] text-on-surface">
+    <div className="min-h-screen bg-kx-base text-on-surface">
       <TradeNav />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-4">
-        <section className="lg:col-span-4 flex flex-col gap-4">
-          <AccountPanel />
-          <PositionPanel />
-        </section>
+      <main className="px-3 py-3 flex flex-col gap-2">
+        <div className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(0,1fr)_340px_300px]">
+          <section className="flex flex-col gap-2 min-w-0">
+            <MarketHeader />
+            <div className="bg-hl-panel border border-hl rounded-md overflow-hidden h-[600px]">
+              <div className="kx-chart-host">
+                <CryptoChart />
+              </div>
+            </div>
+          </section>
 
-        <section className="lg:col-span-5 flex flex-col gap-4">
-          <Orderbook />
-          <OpenOrders />
-          <TriggerOrders />
-          <Strategies />
-        </section>
+          <section className="bg-hl-panel border border-hl rounded-md min-h-[640px] flex flex-col">
+            <CenterTabs />
+          </section>
 
-        <section className="lg:col-span-3 flex flex-col gap-4">
-          <OrderForm />
-          <TriggerForm />
-          <StrategyForm />
+          <section className="bg-hl-panel border border-hl rounded-md min-h-[640px] flex flex-col">
+            <RightTabs />
+          </section>
+        </div>
+
+        <section className="bg-hl-panel border border-hl rounded-md">
+          <BottomTabs />
         </section>
       </main>
     </div>

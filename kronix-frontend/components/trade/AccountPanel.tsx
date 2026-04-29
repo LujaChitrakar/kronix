@@ -94,7 +94,7 @@ export function AccountPanel() {
 
   if (!owner) {
     return (
-      <div className="bg-kx-surface rounded-xl border kx-border p-4 text-on-surface-variant text-sm">
+      <div className="px-1 py-4 text-on-surface-variant text-sm">
         Connect wallet to view account.
       </div>
     );
@@ -111,12 +111,8 @@ export function AccountPanel() {
   })();
 
   return (
-    <div className="bg-kx-surface rounded-xl border kx-border p-4">
-      <div className="font-headline text-sm text-on-surface mb-3 uppercase tracking-wider">
-        Account
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 mb-4 text-sm font-mono">
+    <div className="px-1">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4 text-sm font-mono">
         <Stat label="Collateral" v={collateral !== null ? `$${fmtUsdc(collateral)}` : "—"} />
         <Stat label="Margin Used" v={marginUsed !== null ? `$${fmtUsdc(marginUsed)}` : "—"} />
         <Stat label="Free" v={free !== null ? `$${fmtUsdc(free)}` : "—"} />

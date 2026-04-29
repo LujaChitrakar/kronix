@@ -12,30 +12,36 @@ export function TradeNav() {
       ? "Mainnet"
       : "Custom";
   return (
-    <nav className="sticky top-0 z-30 bg-[#0B0F0D]/85 backdrop-blur-xl border-b kx-border">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-        <Link href="/" className="flex items-center text-sm font-headline font-bold uppercase tracking-tight text-on-surface">
-          <Image src="/logo.png" alt="Kronix" width={36} height={36} />
-          KRONIX
-        </Link>
-        <div className="hidden sm:flex items-center gap-3 font-mono text-xs text-on-surface-variant">
-          <span className="px-2 py-1 rounded-md bg-kx-surface-hi border kx-border">
-            {MARKET_NAME}
-          </span>
-          <span className="px-2 py-1 rounded-md bg-kx-surface-hi border kx-border text-[#4dffb4]">
+    <nav className="sticky top-0 z-30 bg-kx-base/90 backdrop-blur-xl border-b border-hl">
+      <div className="px-3 py-2.5 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="flex items-center gap-2 text-sm font-headline font-bold uppercase tracking-tight text-on-surface"
+          >
+            <Image src="/logo.png" alt="Kronix" width={28} height={28} />
+            KRONIX
+          </Link>
+          <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-mono uppercase tracking-wider bg-white/[0.04] border border-hl text-on-surface-variant">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#4dffb4] animate-pulse" />
             {cluster}
           </span>
+          <span className="hidden md:inline-flex items-center px-2 py-1 rounded text-[10px] font-mono uppercase tracking-wider bg-white/[0.04] border border-hl text-on-surface-variant">
+            {MARKET_NAME}
+          </span>
         </div>
-        <WalletMultiButton style={{
-          background: "#222F2B",
-          color: "#4DFFB4",
-          fontFamily: "Manrope, sans-serif",
-          fontWeight: 700,
-          fontSize: 13,
-          height: 38,
-          borderRadius: 8,
-          border: "1px solid rgba(77, 255, 180, 0.2)",
-        }} />
+        <WalletMultiButton
+          style={{
+            background: "rgba(77, 255, 180, 0.10)",
+            color: "#4DFFB4",
+            fontFamily: "Manrope, sans-serif",
+            fontWeight: 700,
+            fontSize: 12,
+            height: 34,
+            borderRadius: 6,
+            border: "1px solid rgba(77, 255, 180, 0.25)",
+          }}
+        />
       </div>
     </nav>
   );

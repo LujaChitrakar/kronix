@@ -191,37 +191,24 @@ export function OrderForm() {
   };
 
   return (
-    <div className="bg-kx-surface rounded-xl border kx-border p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="font-headline text-sm text-on-surface uppercase tracking-wider">
-          New Order — {MARKET_NAME}
-        </div>
-      </div>
-
-      <div className="mb-3 px-2 py-1.5 rounded-md bg-kx-surface-lo border kx-border text-[10px] font-mono text-on-surface-variant break-all">
-        Signer:{" "}
-        <span className="text-[#4dffb4]">
-          {owner ? owner.toBase58() : "(not connected)"}
-        </span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 mb-3">
+    <div className="px-1">
+      <div className="grid grid-cols-2 gap-1 mb-3 p-1 rounded-md bg-kx-surface-lo border kx-border">
         <button
           onClick={() => setSide(Side.Bid)}
-          className={`py-2 text-sm font-headline font-bold rounded-md border ${
+          className={`py-2 text-xs font-headline font-bold rounded transition ${
             side === Side.Bid
-              ? "bg-[#4dffb4]/20 text-[#4dffb4] border-[#4dffb4]/40"
-              : "bg-kx-surface-lo text-on-surface-variant kx-border"
+              ? "kx-buy-pill"
+              : "text-on-surface-variant hover:text-on-surface"
           }`}
         >
           BUY / LONG
         </button>
         <button
           onClick={() => setSide(Side.Ask)}
-          className={`py-2 text-sm font-headline font-bold rounded-md border ${
+          className={`py-2 text-xs font-headline font-bold rounded transition ${
             side === Side.Ask
-              ? "bg-[#ff6b6b]/20 text-[#ff6b6b] border-[#ff6b6b]/40"
-              : "bg-kx-surface-lo text-on-surface-variant kx-border"
+              ? "kx-sell-pill"
+              : "text-on-surface-variant hover:text-on-surface"
           }`}
         >
           SELL / SHORT
@@ -234,10 +221,10 @@ export function OrderForm() {
             <button
               key={val}
               onClick={() => setOrderType(val)}
-              className={`py-1.5 text-[11px] font-mono rounded-md border ${
+              className={`py-1.5 text-[10px] font-mono uppercase tracking-wider rounded border transition ${
                 orderType === val
-                  ? "bg-primary-container/30 text-[#4dffb4] border-[#4dffb4]/40"
-                  : "bg-kx-surface-lo text-on-surface-variant kx-border"
+                  ? "border-[#4dffb4]/40 text-[#4dffb4] bg-[#4dffb4]/10"
+                  : "border-white/5 text-on-surface-variant hover:text-on-surface"
               }`}
             >
               {label}
@@ -318,27 +305,20 @@ export function OrderForm() {
       <button
         disabled={busy || !owner}
         onClick={submit}
-        className={`w-full mt-2 py-2.5 text-sm font-headline font-bold rounded-md disabled:opacity-50 ${
+        className={`w-full mt-2 py-3 text-sm font-headline font-bold rounded-md disabled:opacity-50 transition ${
           side === Side.Bid
-            ? "bg-[#4dffb4] text-on-primary-fixed"
-            : "bg-[#ff6b6b] text-white"
+            ? "bg-[#4dffb4] text-[#002113] hover:bg-[#3ce5a0]"
+            : "bg-[#ff6b6b] text-white hover:bg-[#e85e5e]"
         }`}
       >
-        {busy ? "Placing…" : owner ? "Place Order" : "Connect Wallet"}
+        {busy ? "Placing…" : owner ? `Place ${side === Side.Bid ? "Buy" : "Sell"}` : "Connect Wallet"}
       </button>
 
       {msg && (
-        <pre className="mt-3 text-[10px] font-mono text-on-surface-variant break-all whitespace-pre-wrap max-h-64 overflow-auto bg-kx-surface-lo p-2 rounded-md border kx-border">
+        <pre className="mt-3 text-[10px] font-mono text-on-surface-variant break-all whitespace-pre-wrap max-h-40 overflow-auto kx-scroll bg-kx-surface-lo p-2 rounded-md border kx-border">
           {msg}
         </pre>
       )}
-
-      <div className="mt-3 text-[10px] text-on-surface-variant/60 leading-relaxed">
-        Self-trade rule: matching iterates from best opposing price. If any
-        of your own orders sits at the crossing price, traversal hits yours
-        first and the whole order aborts. Cancel them or use a second wallet
-        as taker.
-      </div>
     </div>
   );
 }
@@ -356,7 +336,7 @@ function Field({
 }) {
   return (
     <div className="mb-2">
-      <div className="text-[10px] text-on-surface-variant/70 uppercase mb-1">
+      <div className="text-[10px] text-on-surface-variant/70 uppercase tracking-wider mb-1">
         {label}
       </div>
       <input
@@ -364,7 +344,7 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
         inputMode="numeric"
-        className="w-full bg-kx-surface-lo border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface disabled:opacity-40"
+        className="kx-input"
       />
     </div>
   );
