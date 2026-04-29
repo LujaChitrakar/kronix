@@ -13,16 +13,20 @@ export function TradeNav() {
       : "Custom";
   return (
     <nav className="sticky top-0 z-30 bg-[#0B0F0D]/85 backdrop-blur-xl border-b kx-border">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-        <Link href="/" className="flex items-center text-sm font-headline font-bold uppercase tracking-tight text-on-surface">
-          <Image src="/logo.png" alt="Kronix" width={36} height={36} />
+      <div className="w-full px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+        <Link href="/" className="flex items-center gap-2 text-sm font-headline font-bold uppercase tracking-tight text-on-surface">
+          <Image src="/logo.png" alt="Kronix" width={32} height={32} />
           KRONIX
         </Link>
-        <div className="hidden sm:flex items-center gap-3 font-mono text-xs text-on-surface-variant">
-          <span className="px-2 py-1 rounded-md bg-kx-surface-hi border kx-border">
+        <div className="hidden sm:flex items-center gap-2 font-mono text-xs text-on-surface-variant">
+          <span className="px-2.5 py-1 rounded-md bg-kx-surface-hi border kx-border font-bold text-on-surface">
             {MARKET_NAME}
           </span>
-          <span className="px-2 py-1 rounded-md bg-kx-surface-hi border kx-border text-[#4dffb4]">
+          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-kx-surface-hi border kx-border text-[#4dffb4]">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-[#4dffb4] opacity-75 animate-ping" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#4dffb4]" />
+            </span>
             {cluster}
           </span>
         </div>
@@ -31,10 +35,10 @@ export function TradeNav() {
           color: "#4DFFB4",
           fontFamily: "Manrope, sans-serif",
           fontWeight: 700,
-          fontSize: 13,
-          height: 38,
+          fontSize: 12,
+          height: 36,
           borderRadius: 8,
-          border: "1px solid rgba(77, 255, 180, 0.2)",
+          border: "1px solid rgba(77, 255, 180, 0.25)",
         }} />
       </div>
     </nav>

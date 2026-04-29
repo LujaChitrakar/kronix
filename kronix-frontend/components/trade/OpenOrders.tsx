@@ -150,25 +150,25 @@ export function OpenOrders() {
     <div className="p-4">
       <div className="flex items-center justify-end mb-3">
         {owner && rows.length > 0 && (
-          <div className="flex gap-1">
+          <div className="flex gap-1.5">
             <button
               disabled={!!busy}
               onClick={() => cancelAll(0)}
-              className="text-[10px] px-2 py-1 rounded-md bg-[#4dffb4]/15 border border-[#4dffb4]/30 text-[#4dffb4] disabled:opacity-50"
+              className="text-[10px] font-headline font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md bg-[#4dffb4]/10 border border-[#4dffb4]/30 text-[#4dffb4] hover:bg-[#4dffb4]/20 transition-colors disabled:opacity-50"
             >
               Cancel Bids
             </button>
             <button
               disabled={!!busy}
               onClick={() => cancelAll(1)}
-              className="text-[10px] px-2 py-1 rounded-md bg-[#ff6b6b]/15 border border-[#ff6b6b]/30 text-[#ff6b6b] disabled:opacity-50"
+              className="text-[10px] font-headline font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md bg-[#ff6b6b]/10 border border-[#ff6b6b]/30 text-[#ff6b6b] hover:bg-[#ff6b6b]/20 transition-colors disabled:opacity-50"
             >
               Cancel Asks
             </button>
             <button
               disabled={!!busy}
               onClick={() => cancelAll(255)}
-              className="text-[10px] px-2 py-1 rounded-md bg-kx-surface-hi border kx-border disabled:opacity-50"
+              className="text-[10px] font-headline font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md bg-kx-surface-hi border kx-border text-on-surface-variant hover:text-on-surface hover:bg-kx-surface-hi/80 transition-colors disabled:opacity-50"
             >
               Cancel All
             </button>

@@ -112,7 +112,7 @@ export function AccountPanel() {
 
   return (
     <div className="p-4">
-      <div className="grid grid-cols-2 gap-3 mb-4 text-sm font-mono">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
         <Stat label="Collateral" v={collateral !== null ? `$${fmtUsdc(collateral)}` : "—"} />
         <Stat label="Margin Used" v={marginUsed !== null ? `$${fmtUsdc(marginUsed)}` : "—"} />
         <Stat label="Free" v={free !== null ? `$${fmtUsdc(free)}` : "—"} />
@@ -224,9 +224,11 @@ export function AccountPanel() {
 
 function Stat({ label, v }: { label: string; v: string }) {
   return (
-    <div>
-      <div className="text-[10px] text-on-surface-variant/70 uppercase">{label}</div>
-      <div className="text-on-surface">{v}</div>
+    <div className="px-3 py-2 rounded-lg bg-kx-surface-lo border kx-border">
+      <div className="text-[9px] text-on-surface-variant/60 uppercase tracking-wider mb-0.5">
+        {label}
+      </div>
+      <div className="text-on-surface font-bold text-sm font-mono">{v}</div>
     </div>
   );
 }

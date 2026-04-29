@@ -114,16 +114,17 @@ export function StrategyForm() {
   };
 
   return (
-    <div className="p-4">
-      <div className="grid grid-cols-5 gap-1 mb-3">
+    <div className="p-3 space-y-3">
+      <SectionLabel>Strategy Type</SectionLabel>
+      <div className="grid grid-cols-5 gap-1">
         {STRATEGY_TYPES.map(([label, val]) => (
           <button
             key={val}
             onClick={() => setStrategyType(val)}
-            className={`py-1.5 text-[10px] font-headline font-bold rounded-md border ${
+            className={`py-1.5 text-[10px] font-headline font-bold rounded-md border transition-colors ${
               strategyType === val
-                ? "bg-primary-container/30 text-[#4dffb4] border-[#4dffb4]/40"
-                : "bg-kx-surface-lo text-on-surface-variant kx-border"
+                ? "bg-[#4dffb4]/15 text-[#4dffb4] border-[#4dffb4]/40"
+                : "bg-kx-surface-lo text-on-surface-variant kx-border hover:text-on-surface"
             }`}
           >
             {label}
@@ -131,61 +132,62 @@ export function StrategyForm() {
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 mb-3">
+      <div className="grid grid-cols-2 gap-1.5 p-1 rounded-lg bg-kx-surface-lo border kx-border">
         <button
           onClick={() => setSide(Side.Bid)}
-          className={`py-2 text-xs font-headline font-bold rounded-md border ${
+          className={`py-2 text-xs font-headline font-bold rounded-md transition-all ${
             side === Side.Bid
-              ? "bg-[#4dffb4]/20 text-[#4dffb4] border-[#4dffb4]/40"
-              : "bg-kx-surface-lo text-on-surface-variant kx-border"
+              ? "bg-[#4dffb4] text-on-primary-fixed shadow-md shadow-[#4dffb4]/20"
+              : "text-on-surface-variant hover:text-on-surface"
           }`}
         >
           BUY
         </button>
         <button
           onClick={() => setSide(Side.Ask)}
-          className={`py-2 text-xs font-headline font-bold rounded-md border ${
+          className={`py-2 text-xs font-headline font-bold rounded-md transition-all ${
             side === Side.Ask
-              ? "bg-[#ff6b6b]/20 text-[#ff6b6b] border-[#ff6b6b]/40"
-              : "bg-kx-surface-lo text-on-surface-variant kx-border"
+              ? "bg-[#ff6b6b] text-white shadow-md shadow-[#ff6b6b]/20"
+              : "text-on-surface-variant hover:text-on-surface"
           }`}
         >
           SELL
         </button>
       </div>
 
-      <Field label="Size (base lots)" value={sizeLots} onChange={setSizeLots} />
-      <Field
-        label="Limit Price (lots, 0 = market)"
-        value={limitPriceLots}
-        onChange={setLimitPriceLots}
-      />
-
-      <div className="grid grid-cols-2 gap-2">
+      <SectionLabel>Order</SectionLabel>
+      <div className="space-y-2">
+        <Field label="Size (base lots)" value={sizeLots} onChange={setSizeLots} />
         <Field
-          label="Take Profit (0 = none)"
-          value={takeProfit}
-          onChange={setTakeProfit}
+          label="Limit Price (lots, 0 = market)"
+          value={limitPriceLots}
+          onChange={setLimitPriceLots}
         />
-        <Field
-          label="Stop Loss (0 = none)"
-          value={stopLoss}
-          onChange={setStopLoss}
-        />
+        <div className="grid grid-cols-2 gap-2">
+          <Field
+            label="Take Profit"
+            value={takeProfit}
+            onChange={setTakeProfit}
+          />
+          <Field
+            label="Stop Loss"
+            value={stopLoss}
+            onChange={setStopLoss}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Field
+            label="Cooldown (s)"
+            value={cooldownSecs}
+            onChange={setCooldownSecs}
+          />
+          <Field label="Max / Day" value={maxPerDay} onChange={setMaxPerDay} />
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <Field
-          label="Cooldown (sec)"
-          value={cooldownSecs}
-          onChange={setCooldownSecs}
-        />
-        <Field label="Max / day" value={maxPerDay} onChange={setMaxPerDay} />
-      </div>
-
-      <div className="mt-1 mb-2 px-2 py-1.5 rounded-md bg-kx-surface-lo border kx-border text-[10px] font-mono text-on-surface-variant">
-        {STRATEGY_TYPES.find(([, v]) => v === strategyType)?.[0]} params
-      </div>
+      <SectionLabel>
+        {STRATEGY_TYPES.find(([, v]) => v === strategyType)?.[0]} Params
+      </SectionLabel>
 
       {strategyType === StrategyType.RSI && (
         <div className="grid grid-cols-3 gap-2">
@@ -275,16 +277,24 @@ export function StrategyForm() {
       <button
         disabled={busy || !owner}
         onClick={submit}
-        className="mt-3 w-full py-2.5 text-sm font-headline font-bold rounded-md bg-primary-container text-on-primary-fixed disabled:opacity-50"
+        className="w-full py-3 text-sm font-headline font-bold uppercase tracking-wider rounded-lg bg-[#4dffb4] text-on-primary-fixed shadow-lg shadow-[#4dffb4]/20 transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-50"
       >
         {busy ? "Creating…" : owner ? "Create Strategy" : "Connect Wallet"}
       </button>
 
       {msg && (
-        <pre className="mt-3 text-[10px] font-mono text-on-surface-variant break-all whitespace-pre-wrap max-h-64 overflow-auto bg-kx-surface-lo p-2 rounded-md border kx-border">
+        <pre className="text-[10px] font-mono text-on-surface-variant break-all whitespace-pre-wrap max-h-48 overflow-auto bg-kx-surface-lo p-2 rounded-md border kx-border">
           {msg}
         </pre>
       )}
+    </div>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-[9px] font-headline uppercase tracking-wider text-on-surface-variant/60">
+      {children}
     </div>
   );
 }
@@ -300,14 +310,14 @@ function Field({
 }) {
   return (
     <div className="mb-2">
-      <div className="text-[10px] text-on-surface-variant/70 uppercase mb-1">
+      <div className="text-[9px] text-on-surface-variant/60 uppercase tracking-wider mb-1">
         {label}
       </div>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         inputMode="numeric"
-        className="w-full bg-kx-surface-lo border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface"
+        className="w-full bg-kx-surface-lo border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface focus:outline-none focus:border-[#4dffb4]/50 transition-colors"
       />
     </div>
   );

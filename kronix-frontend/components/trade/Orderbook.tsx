@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { findMarketPda } from "@/lib/kronix/pdas";
+import { findMarketPda, findFillsLogPda } from "@/lib/kronix/pdas";
 import { MARKET_INDEX } from "@/lib/kronix/config";
 import {
   scanBook,
@@ -24,6 +24,17 @@ type Level = {
 
 const SLOT_MS = 400;
 
+const EXPLORER_CLUSTER =
+  process.env.NEXT_PUBLIC_EXPLORER_CLUSTER ?? "devnet";
+
+function explorerAddrUrl(addr: string): string {
+  const q =
+    EXPLORER_CLUSTER === "mainnet" || EXPLORER_CLUSTER === "mainnet-beta"
+      ? ""
+      : `?cluster=${EXPLORER_CLUSTER}`;
+  return `https://explorer.solana.com/address/${addr}${q}`;
+}
+
 function aggregate(orders: BookOrder[], myKey: string | undefined): Level[] {
   const m = new Map<string, Level>();
   for (const o of orders) {
@@ -38,17 +49,6 @@ function aggregate(orders: BookOrder[], myKey: string | undefined): Level[] {
 
 function fmtBigInt(n: bigint): string {
   return n.toString();
-}
-
-function fmtAge(ms: number): string {
-  if (ms < 0) ms = 0;
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h`;
-  return `${Math.floor(h / 24)}d`;
 }
 
 export function Orderbook() {
@@ -342,10 +342,10 @@ function TradesView({
   const now = Date.now();
   return (
     <div className="px-2 py-2 h-full flex flex-col">
-      <div className="grid grid-cols-3 px-2 pb-1 text-[10px] font-mono text-on-surface-variant/60 uppercase tracking-wide shrink-0">
+      <div className="grid grid-cols-[1fr_1fr_auto] gap-2 px-2 pb-1 text-[10px] font-mono text-on-surface-variant/60 uppercase tracking-wide shrink-0">
         <div className="text-left">Price</div>
         <div className="text-right">Size</div>
-        <div className="text-right">Time</div>
+        <div className="text-right pr-1">Time</div>
       </div>
 
       {trades.length === 0 ? (
@@ -363,18 +363,18 @@ function TradesView({
               ageMs = Number(slotsAgo) * SLOT_MS;
             }
             const wallTime = now - ageMs;
-            const timeStr =
-              ageMs > 0
-                ? fmtAge(ageMs)
-                : new Date(wallTime).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                  });
+            const timeStr = new Date(wallTime).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: false,
+            });
+            const [logPda] = findFillsLogPda(t.taker, t.takerClientId);
+            const url = explorerAddrUrl(logPda.toBase58());
             return (
               <div
                 key={`${t.slot}-${t.takerClientId}-${t.makerClientId}-${i}`}
-                className="grid grid-cols-3 px-2 py-[3px] font-mono text-xs hover:bg-kx-surface-lo/50"
+                className="grid grid-cols-[1fr_1fr_auto] gap-2 px-2 py-[3px] font-mono text-xs hover:bg-kx-surface-lo/50 items-center"
               >
                 <div className={`text-left ${color}`}>
                   {priceUsdc(t.priceLots)}
@@ -382,8 +382,17 @@ function TradesView({
                 <div className="text-right text-on-surface">
                   {t.quantity.toString()}
                 </div>
-                <div className="text-right text-on-surface-variant">
-                  {timeStr}
+                <div className="flex items-center gap-1 justify-end text-on-surface-variant">
+                  <span>{timeStr}</span>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Open in Solana Explorer"
+                    className="text-on-surface-variant/60 hover:text-[#4dffb4] transition-colors"
+                  >
+                    <ExternalIcon />
+                  </a>
                 </div>
               </div>
             );
@@ -391,5 +400,24 @@ function TradesView({
         </div>
       )}
     </div>
+  );
+}
+
+function ExternalIcon() {
+  return (
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M7 17L17 7" />
+      <path d="M8 7h9v9" />
+    </svg>
   );
 }

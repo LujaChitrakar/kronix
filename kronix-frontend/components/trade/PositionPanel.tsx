@@ -283,9 +283,17 @@ export function PositionPanel() {
 
 function Stat({ label, v, accent }: { label: string; v: string; accent?: boolean }) {
   return (
-    <div>
-      <div className="text-[10px] text-on-surface-variant/70 uppercase">{label}</div>
-      <div className={accent ? "text-[#4dffb4]" : "text-on-surface"}>{v}</div>
+    <div className="px-3 py-2 rounded-lg bg-kx-surface-lo border kx-border">
+      <div className="text-[9px] text-on-surface-variant/60 uppercase tracking-wider mb-0.5">
+        {label}
+      </div>
+      <div
+        className={`font-bold text-sm font-mono ${
+          accent ? "text-[#4dffb4]" : "text-on-surface"
+        }`}
+      >
+        {v}
+      </div>
     </div>
   );
 }

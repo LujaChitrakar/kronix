@@ -191,62 +191,58 @@ export function OrderForm() {
   };
 
   return (
-    <div className="p-4">
-      <div className="mb-3 px-2 py-1.5 rounded-md bg-kx-surface-lo border kx-border text-[10px] font-mono text-on-surface-variant break-all">
-        Signer:{" "}
-        <span className="text-[#4dffb4]">
-          {owner ? owner.toBase58() : "(not connected)"}
-        </span>
-      </div>
+    <div className="p-3 space-y-3">
+      <SignerBadge owner={owner} />
 
-      <div className="grid grid-cols-2 gap-2 mb-3">
+      <div className="grid grid-cols-2 gap-1.5 p-1 rounded-lg bg-kx-surface-lo border kx-border">
         <button
           onClick={() => setSide(Side.Bid)}
-          className={`py-2 text-sm font-headline font-bold rounded-md border ${
+          className={`py-2 text-xs font-headline font-bold rounded-md transition-all ${
             side === Side.Bid
-              ? "bg-[#4dffb4]/20 text-[#4dffb4] border-[#4dffb4]/40"
-              : "bg-kx-surface-lo text-on-surface-variant kx-border"
+              ? "bg-[#4dffb4] text-on-primary-fixed shadow-md shadow-[#4dffb4]/20"
+              : "text-on-surface-variant hover:text-on-surface"
           }`}
         >
           BUY / LONG
         </button>
         <button
           onClick={() => setSide(Side.Ask)}
-          className={`py-2 text-sm font-headline font-bold rounded-md border ${
+          className={`py-2 text-xs font-headline font-bold rounded-md transition-all ${
             side === Side.Ask
-              ? "bg-[#ff6b6b]/20 text-[#ff6b6b] border-[#ff6b6b]/40"
-              : "bg-kx-surface-lo text-on-surface-variant kx-border"
+              ? "bg-[#ff6b6b] text-white shadow-md shadow-[#ff6b6b]/20"
+              : "text-on-surface-variant hover:text-on-surface"
           }`}
         >
           SELL / SHORT
         </button>
       </div>
 
-      <div className="mb-3">
-        <div className="grid grid-cols-4 gap-1">
-          {ORDER_TYPES.map(([label, val]) => (
-            <button
-              key={val}
-              onClick={() => setOrderType(val)}
-              className={`py-1.5 text-[11px] font-mono rounded-md border ${
-                orderType === val
-                  ? "bg-primary-container/30 text-[#4dffb4] border-[#4dffb4]/40"
-                  : "bg-kx-surface-lo text-on-surface-variant kx-border"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+      <SectionLabel>Order Type</SectionLabel>
+      <div className="grid grid-cols-4 gap-1">
+        {ORDER_TYPES.map(([label, val]) => (
+          <button
+            key={val}
+            onClick={() => setOrderType(val)}
+            className={`py-1.5 text-[10px] font-mono uppercase rounded-md border transition-colors ${
+              orderType === val
+                ? "bg-[#4dffb4]/15 text-[#4dffb4] border-[#4dffb4]/40"
+                : "bg-kx-surface-lo text-on-surface-variant kx-border hover:text-on-surface"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
-      <Field
-        label="Price (lots)"
-        value={price}
-        onChange={setPrice}
-        disabled={orderType === PlaceOrderType.Market}
-      />
-      <Field label="Size (base lots)" value={size} onChange={setSize} />
+      <div className="space-y-2">
+        <Field
+          label="Price (lots)"
+          value={price}
+          onChange={setPrice}
+          disabled={orderType === PlaceOrderType.Market}
+        />
+        <Field label="Size (base lots)" value={size} onChange={setSize} />
+      </div>
 
       {cfg && (() => {
         let sz = 0n;
@@ -263,22 +259,32 @@ export function OrderForm() {
           const f = (n % 1_000_000n).toString().padStart(6, "0").slice(0, 4);
           return `$${w}.${f}`;
         };
-        const tooSmall = margin < 10_000n; // < $0.01
+        const tooSmall = margin < 10_000n;
         return (
           <div
-            className={`mb-2 px-2 py-1.5 rounded-md border text-[10px] font-mono ${
+            className={`px-3 py-2 rounded-lg border text-[10px] font-mono ${
               tooSmall
                 ? "border-[#ffb86b]/40 bg-[#ffb86b]/10 text-[#ffb86b]"
-                : "kx-border bg-kx-surface-lo text-on-surface-variant"
+                : "kx-border bg-kx-surface-lo"
             }`}
           >
-            notional {fmt(notional)} ({String(notional)} native) · margin{" "}
-            {fmt(margin)} ({String(margin)} native)
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="text-[9px] uppercase tracking-wider opacity-60 mb-0.5">
+                  Notional
+                </div>
+                <div className="text-on-surface font-bold">{fmt(notional)}</div>
+              </div>
+              <div>
+                <div className="text-[9px] uppercase tracking-wider opacity-60 mb-0.5">
+                  Margin
+                </div>
+                <div className="text-on-surface font-bold">{fmt(margin)}</div>
+              </div>
+            </div>
             {tooSmall && (
-              <div className="mt-1">
-                Too small — margin under $0.01 will round to 0 in UI and may
-                trip InsufficientCollateral on close/−margin. Increase price or
-                size.
+              <div className="mt-2 pt-2 border-t border-[#ffb86b]/30">
+                Margin &lt; $0.01 — UI rounds to 0 and may trip InsufficientCollateral.
               </div>
             )}
           </div>
@@ -286,23 +292,21 @@ export function OrderForm() {
       })()}
 
       {conflicts.length > 0 && (
-        <div className="my-2 p-2 rounded-md border border-[#ffb86b]/40 bg-[#ffb86b]/10 text-[10px] font-mono text-[#ffb86b]">
-          <div className="font-bold mb-1">
-            Self-trade: {conflicts.length} of your own resting order(s) will be
-            hit first → entire order aborts.
+        <div className="p-2.5 rounded-lg border border-[#ffb86b]/40 bg-[#ffb86b]/10 text-[10px] font-mono text-[#ffb86b]">
+          <div className="font-bold mb-1.5">
+            ⚠ Self-trade: {conflicts.length} of your order(s) will be hit first
           </div>
-          <ul className="mb-2">
+          <ul className="mb-2 space-y-0.5 opacity-90">
             {conflicts.slice(0, 4).map((c) => (
               <li key={String(c.clientId)}>
-                {c.side === 0 ? "BID" : "ASK"} @ {String(c.priceLots)}{" "}
-                (clientId {String(c.clientId)})
+                {c.side === 0 ? "BID" : "ASK"} @ {String(c.priceLots)}
               </li>
             ))}
           </ul>
           <button
             disabled={busy}
             onClick={cancelConflicts}
-            className="px-2 py-1 rounded-md bg-[#ffb86b]/20 border border-[#ffb86b]/40 text-[#ffb86b] disabled:opacity-50"
+            className="w-full px-2 py-1.5 rounded-md bg-[#ffb86b]/20 border border-[#ffb86b]/40 text-[#ffb86b] hover:bg-[#ffb86b]/30 transition-colors disabled:opacity-50"
           >
             Cancel conflicting orders
           </button>
@@ -312,27 +316,46 @@ export function OrderForm() {
       <button
         disabled={busy || !owner}
         onClick={submit}
-        className={`w-full mt-2 py-2.5 text-sm font-headline font-bold rounded-md disabled:opacity-50 ${
+        className={`w-full py-3 text-sm font-headline font-bold uppercase tracking-wider rounded-lg transition-all disabled:opacity-50 hover:brightness-110 active:scale-[0.99] shadow-lg ${
           side === Side.Bid
-            ? "bg-[#4dffb4] text-on-primary-fixed"
-            : "bg-[#ff6b6b] text-white"
+            ? "bg-[#4dffb4] text-on-primary-fixed shadow-[#4dffb4]/20"
+            : "bg-[#ff6b6b] text-white shadow-[#ff6b6b]/20"
         }`}
       >
-        {busy ? "Placing…" : owner ? "Place Order" : "Connect Wallet"}
+        {busy ? "Placing…" : owner ? `Place ${side === Side.Bid ? "Buy" : "Sell"} Order` : "Connect Wallet"}
       </button>
 
       {msg && (
-        <pre className="mt-3 text-[10px] font-mono text-on-surface-variant break-all whitespace-pre-wrap max-h-64 overflow-auto bg-kx-surface-lo p-2 rounded-md border kx-border">
+        <pre className="text-[10px] font-mono text-on-surface-variant break-all whitespace-pre-wrap max-h-48 overflow-auto bg-kx-surface-lo p-2 rounded-md border kx-border">
           {msg}
         </pre>
       )}
+    </div>
+  );
+}
 
-      <div className="mt-3 text-[10px] text-on-surface-variant/60 leading-relaxed">
-        Self-trade rule: matching iterates from best opposing price. If any
-        of your own orders sits at the crossing price, traversal hits yours
-        first and the whole order aborts. Cancel them or use a second wallet
-        as taker.
-      </div>
+function SignerBadge({ owner }: { owner: PublicKey | null }) {
+  return (
+    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-kx-surface-lo border kx-border">
+      <span
+        className={`h-1.5 w-1.5 rounded-full ${
+          owner ? "bg-[#4dffb4]" : "bg-on-surface-variant/40"
+        }`}
+      />
+      <span className="text-[9px] font-mono uppercase tracking-wider text-on-surface-variant/60">
+        Signer
+      </span>
+      <span className="text-[10px] font-mono text-on-surface truncate flex-1 text-right">
+        {owner ? `${owner.toBase58().slice(0, 4)}…${owner.toBase58().slice(-4)}` : "Not connected"}
+      </span>
+    </div>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-[9px] font-headline uppercase tracking-wider text-on-surface-variant/60">
+      {children}
     </div>
   );
 }
@@ -350,7 +373,7 @@ function Field({
 }) {
   return (
     <div className="mb-2">
-      <div className="text-[10px] text-on-surface-variant/70 uppercase mb-1">
+      <div className="text-[9px] text-on-surface-variant/60 uppercase tracking-wider mb-1">
         {label}
       </div>
       <input
@@ -358,7 +381,7 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
         inputMode="numeric"
-        className="w-full bg-kx-surface-lo border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface disabled:opacity-40"
+        className="w-full bg-kx-surface-lo border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface focus:outline-none focus:border-[#4dffb4]/50 focus:bg-kx-surface-lo/80 disabled:opacity-40 transition-colors"
       />
     </div>
   );
