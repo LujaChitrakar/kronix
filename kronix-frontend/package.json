@@ -6,8 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "keeper": "tsx --env-file=.env.local keeper-bots/main.ts"
+    "lint": "eslint"
   },
   "dependencies": {
     "@solana/kit": "^6.8.0",

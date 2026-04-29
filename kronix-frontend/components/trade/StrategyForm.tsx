@@ -269,7 +269,7 @@ export function StrategyForm() {
             onChange={(v) => setSmart({ ...smart, structureLookback: v })}
           />
           <Field
-            label="OB Sensitivity"
+            label="OB Sensitivity (bps)"
             value={smart.orderBlockSensitivity}
             onChange={(v) => setSmart({ ...smart, orderBlockSensitivity: v })}
           />

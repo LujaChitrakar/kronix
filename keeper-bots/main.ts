@@ -42,8 +42,8 @@ import {
   getCoverBadDebtInstruction,
   getUpdateFundingRateInstruction,
   getSettleFundingInstruction,
-} from "../lib/risk-sdk";
-import { getPruneOrdersInstruction } from "../lib/orderbook-sdk";
+} from "../kronix-frontend/lib/risk-sdk";
+import { getPruneOrdersInstruction } from "../kronix-frontend/lib/orderbook-sdk";
 
 import {
   ORDERBOOK_PROGRAM_ID,
@@ -57,7 +57,7 @@ import {
   TriggerStatus,
   StrategyStatus,
   StrategyType,
-} from "../lib/kronix/config";
+} from "../kronix-frontend/lib/kronix/config";
 import {
   findUserAccountPda,
   findPositionPda,
@@ -74,13 +74,13 @@ import {
   findOpenOrdersPda,
   findStrategyAuthorityPda,
   findTriggerOrderPda,
-} from "../lib/kronix/pdas";
-import { toLegacyIx, fakeSigner } from "../lib/kronix/ix-bridge";
-import { getTriggerOrderDecoder } from "../lib/trigger-sdk";
+} from "../kronix-frontend/lib/kronix/pdas";
+import { toLegacyIx, fakeSigner } from "../kronix-frontend/lib/kronix/ix-bridge";
+import { getTriggerOrderDecoder } from "../kronix-frontend/lib/trigger-sdk";
 import {
   getStrategyAccountDecoder,
   STRATEGY_ACCOUNT_LEN,
-} from "../lib/strategy-sdk";
+} from "../kronix-frontend/lib/strategy-sdk";
 
 // ── Config ───────────────────────────────────────────────────────────────
 
@@ -865,7 +865,7 @@ type StrategyRow = {
   levelCount: number;
   toleranceBps: number;
   structureLookback: number;
-  orderBlockSensitivity: number; // i32, scaled (engine treated as fraction)
+  orderBlockSensitivity: number; // bps (1 = 0.01%)
 };
 
 async function scanStrategies(): Promise<StrategyRow[]> {
@@ -998,10 +998,8 @@ function computeSignal(s: StrategyRow, markLots: bigint): number | null {
     const ob = findOrderBlock(candles, structure);
     if (!ob) return null;
     const price = Number(markLots);
-    // engine stored sensitivity as Decimal fraction (e.g. 0.002). On-chain
-    // we have an i32; treat units as basis points / 1e6 (caller convention).
-    const sensitivityFrac = s.orderBlockSensitivity / 1_000_000;
-    const fuzz = price * sensitivityFrac;
+    // orderBlockSensitivity is bps (1 = 0.01%).
+    const fuzz = (price * s.orderBlockSensitivity) / 10_000;
     const inOb = price >= ob.low - fuzz && price <= ob.high + fuzz;
     if (!inOb) return null;
     return ob.isBullish ? 0 : 1;

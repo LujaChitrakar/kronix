@@ -1,0 +1,92 @@
+# Kronix keeper bots
+
+Permissionless cranks for the Kronix risk, orderbook, trigger and strategy
+programs. Single Node process runs every job at a fixed cadence.
+
+| Job                     | Interval | Program            | What it does                                                                |
+| ----------------------- | -------- | ------------------ | --------------------------------------------------------------------------- |
+| update_funding_rate     | 1h       | risk_program       | Reads Pyth, calls `update_funding_rate` so `cumulative_index` advances     |
+| liquidate               | 30s      | risk_program       | Scans all positions, liquidates any with health factor < 100                |
+| cover_bad_debt          | 60s      | risk_program       | Drains InsuranceFund into accounts with `collateral < 0`                    |
+| prune_orders            | 60s      | orderbook_program  | Drops expired TIF orders on bids and asks                                   |
+| settle_funding          | 8h       | risk_program       | Sweeps every open position, applies pending funding                         |
+| execute_triggers        | 10s      | trigger_program    | Reads mark, fires `execute_trigger` on any active trigger that crossed     |
+| prune_expired_triggers  | 60s      | trigger_program    | Closes expired trigger orders in batches                                   |
+| record_price            | 5s       | (none)             | Samples mark price into in-memory + on-disk history (RSI/EMA window feed)  |
+| execute_strategies      | 30s      | strategy_program   | Computes per-strategy signal and fires `execute_strategy` if non-Hold      |
+
+## Layout
+
+This package lives outside `kronix-frontend/`. It imports SDK files (codama
+output + helpers) from `../kronix-frontend/lib/` to avoid duplication.
+
+```
+crypto-exchange/
+├── kronix-frontend/        # Next.js app (single source of truth for SDKs)
+│   └── lib/
+│       ├── kronix/         # config, PDA helpers, ix-bridge
+│       ├── orderbook-sdk/
+│       ├── risk-sdk/
+│       ├── trigger-sdk/
+│       └── strategy-sdk/
+└── keeper-bots/            # this package
+    ├── main.ts
+    ├── package.json
+    └── tsconfig.json
+```
+
+## Setup
+
+```sh
+cd keeper-bots
+cp .env.example .env.local
+# edit .env.local — point KEEPER_KEYPAIR_PATH at a funded devnet keypair
+pnpm install
+pnpm keeper
+```
+
+Required env vars (read from `.env.local`):
+
+| Var                              | Default                              | Purpose                                          |
+| -------------------------------- | ------------------------------------ | ------------------------------------------------ |
+| `KEEPER_KEYPAIR_PATH`            | `~/.config/solana/id.json`           | JSON keypair file the keeper signs with         |
+| `NEXT_PUBLIC_RPC_URL`            | `https://api.devnet.solana.com`      | Solana RPC endpoint                              |
+| `NEXT_PUBLIC_USDC_MINT`          | devnet test mint                     | USDC mint for vault / liquidator ATA            |
+| `NEXT_PUBLIC_MARKET_INDEX`       | `12`                                 | Single-market deployment index                  |
+| `NEXT_PUBLIC_TRIGGER_PROGRAM_ID` | hardcoded                            | Override deployed trigger program               |
+| `NEXT_PUBLIC_STRATEGY_PROGRAM_ID`| hardcoded                            | Override deployed strategy program              |
+| `KEEPER_PRICE_HISTORY_PATH`      | sibling of keypair file              | JSON file persisting mark-price samples         |
+
+The frontend's `lib/kronix/config.ts` reads the same `NEXT_PUBLIC_*` env vars,
+so the same value set works for both processes (or copy
+`kronix-frontend/.env.local` here).
+
+## Strategy signal computation
+
+Mirrors logic from the off-chain `strategy_engine` reference (see
+`/strategy_engine/*.md`):
+
+- **RSI** — Wilder-smoothed RSI over `params.rsiPeriod` closes.
+- **EMA** — SMA-seeded EMA, fires on fast/slow crossover.
+- **RangeDCA** — equally-spaced grid levels with 0.1% step tolerance.
+- **SR** — multi-level support/resistance, fires within `params.toleranceBps`.
+- **SmartMoney** — synthetic OHLC bars from mark-price samples (12 ticks per
+  bar, ~1 minute), structure detection (HH/HL vs LH/LL via pivots) plus
+  order-block reversal detection. `params.orderBlockSensitivity` is in
+  basis points (1 = 0.01%) — same convention as `toleranceBps`.
+
+`record_price` keeps the last 200 samples per market in memory and
+serializes them to disk (`KEEPER_PRICE_HISTORY_PATH`) so a keeper restart
+does not throw away the warmup window.
+
+## Notes
+
+- Single-market for now (`MARKET_INDEX` env). To support multiple markets,
+  loop over a `MarketConfig` PDA scan in `loadMarkets()`.
+- Liquidator USDC ATA is created on first run (covers the liquidation fee
+  payout).
+- All jobs are skipped on a tick if the previous run hasn't finished, so
+  slow RPC won't pile up overlapping txs.
+- `execute_strategy` lazy-inits the strategy fills_log via CPI when needed
+  (after `client_order_id` rolls forward by 3) — keeper does not need to
+  pre-init.
