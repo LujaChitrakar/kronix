@@ -60,6 +60,12 @@ export type ExecuteStrategyInstruction<
   TAccountOrderbookProgram extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
+  TAccountTriggerProgram extends string | AccountMeta<string> = string,
+  TAccountTriggerAuthority extends string | AccountMeta<string> = string,
+  TAccountTpTriggerOrder extends string | AccountMeta<string> = string,
+  TAccountTpFillsLog extends string | AccountMeta<string> = string,
+  TAccountSlTriggerOrder extends string | AccountMeta<string> = string,
+  TAccountSlFillsLog extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -73,8 +79,7 @@ export type ExecuteStrategyInstruction<
         ? WritableAccount<TAccountStrategyAuthority>
         : TAccountStrategyAuthority,
       TAccountStrategyOwner extends string
-        ? WritableSignerAccount<TAccountStrategyOwner> &
-            AccountSignerMeta<TAccountStrategyOwner>
+        ? ReadonlyAccount<TAccountStrategyOwner>
         : TAccountStrategyOwner,
       TAccountStrategyAccount extends string
         ? WritableAccount<TAccountStrategyAccount>
@@ -100,6 +105,24 @@ export type ExecuteStrategyInstruction<
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
+      TAccountTriggerProgram extends string
+        ? ReadonlyAccount<TAccountTriggerProgram>
+        : TAccountTriggerProgram,
+      TAccountTriggerAuthority extends string
+        ? ReadonlyAccount<TAccountTriggerAuthority>
+        : TAccountTriggerAuthority,
+      TAccountTpTriggerOrder extends string
+        ? WritableAccount<TAccountTpTriggerOrder>
+        : TAccountTpTriggerOrder,
+      TAccountTpFillsLog extends string
+        ? WritableAccount<TAccountTpFillsLog>
+        : TAccountTpFillsLog,
+      TAccountSlTriggerOrder extends string
+        ? WritableAccount<TAccountSlTriggerOrder>
+        : TAccountSlTriggerOrder,
+      TAccountSlFillsLog extends string
+        ? WritableAccount<TAccountSlFillsLog>
+        : TAccountSlFillsLog,
       ...TRemainingAccounts,
     ]
   >;
@@ -112,6 +135,9 @@ export type ExecuteStrategyInstructionData = {
   bumpTriggerTp: number;
   bumpTriggerSl: number;
   bumpAuthority: number;
+  bumpTriggerAuthority: number;
+  bumpTpFillsLog: number;
+  bumpSlFillsLog: number;
   padding: ReadonlyUint8Array;
 };
 
@@ -122,6 +148,9 @@ export type ExecuteStrategyInstructionDataArgs = {
   bumpTriggerTp: number;
   bumpTriggerSl: number;
   bumpAuthority: number;
+  bumpTriggerAuthority: number;
+  bumpTpFillsLog: number;
+  bumpSlFillsLog: number;
   padding: ReadonlyUint8Array;
 };
 
@@ -135,7 +164,10 @@ export function getExecuteStrategyInstructionDataEncoder(): FixedSizeEncoder<Exe
       ["bumpTriggerTp", getU8Encoder()],
       ["bumpTriggerSl", getU8Encoder()],
       ["bumpAuthority", getU8Encoder()],
-      ["padding", fixEncoderSize(getBytesEncoder(), 1)],
+      ["bumpTriggerAuthority", getU8Encoder()],
+      ["bumpTpFillsLog", getU8Encoder()],
+      ["bumpSlFillsLog", getU8Encoder()],
+      ["padding", fixEncoderSize(getBytesEncoder(), 7)],
     ]),
     (value) => ({ ...value, discriminator: EXECUTE_STRATEGY_DISCRIMINATOR }),
   );
@@ -150,7 +182,10 @@ export function getExecuteStrategyInstructionDataDecoder(): FixedSizeDecoder<Exe
     ["bumpTriggerTp", getU8Decoder()],
     ["bumpTriggerSl", getU8Decoder()],
     ["bumpAuthority", getU8Decoder()],
-    ["padding", fixDecoderSize(getBytesDecoder(), 1)],
+    ["bumpTriggerAuthority", getU8Decoder()],
+    ["bumpTpFillsLog", getU8Decoder()],
+    ["bumpSlFillsLog", getU8Decoder()],
+    ["padding", fixDecoderSize(getBytesDecoder(), 7)],
   ]);
 }
 
@@ -176,13 +211,19 @@ export type ExecuteStrategyInput<
   TAccountFillsLog extends string = string,
   TAccountOrderbookProgram extends string = string,
   TAccountSystemProgram extends string = string,
+  TAccountTriggerProgram extends string = string,
+  TAccountTriggerAuthority extends string = string,
+  TAccountTpTriggerOrder extends string = string,
+  TAccountTpFillsLog extends string = string,
+  TAccountSlTriggerOrder extends string = string,
+  TAccountSlFillsLog extends string = string,
 > = {
   /** Fee payer */
   keeper: TransactionSigner<TAccountKeeper>;
   /** Strategy authority PDA */
   strategyAuthority: Address<TAccountStrategyAuthority>;
   /** Strategy owner */
-  strategyOwner: TransactionSigner<TAccountStrategyOwner>;
+  strategyOwner: Address<TAccountStrategyOwner>;
   /** Strategy account PDA */
   strategyAccount: Address<TAccountStrategyAccount>;
   /** Open orders account PDA */
@@ -193,18 +234,33 @@ export type ExecuteStrategyInput<
   bids: Address<TAccountBids>;
   /** Asks PDA */
   asks: Address<TAccountAsks>;
-  /** Fills log PDA */
+  /** Fills log PDA (lazy init) */
   fillsLog: Address<TAccountFillsLog>;
   /** Orderbook Program */
   orderbookProgram: Address<TAccountOrderbookProgram>;
   /** System program */
   systemProgram?: Address<TAccountSystemProgram>;
+  /** Trigger program (optional, when TP/SL set) */
+  triggerProgram?: Address<TAccountTriggerProgram>;
+  /** Trigger authority PDA of strategy_authority (optional) */
+  triggerAuthority?: Address<TAccountTriggerAuthority>;
+  /** TP trigger order PDA (optional) */
+  tpTriggerOrder?: Address<TAccountTpTriggerOrder>;
+  /** TP trigger fills_log PDA (optional) */
+  tpFillsLog?: Address<TAccountTpFillsLog>;
+  /** SL trigger order PDA (optional) */
+  slTriggerOrder?: Address<TAccountSlTriggerOrder>;
+  /** SL trigger fills_log PDA (optional) */
+  slFillsLog?: Address<TAccountSlFillsLog>;
   signal: ExecuteStrategyInstructionDataArgs["signal"];
   bumpOoAccount: ExecuteStrategyInstructionDataArgs["bumpOoAccount"];
   bumpFillsLog: ExecuteStrategyInstructionDataArgs["bumpFillsLog"];
   bumpTriggerTp: ExecuteStrategyInstructionDataArgs["bumpTriggerTp"];
   bumpTriggerSl: ExecuteStrategyInstructionDataArgs["bumpTriggerSl"];
   bumpAuthority: ExecuteStrategyInstructionDataArgs["bumpAuthority"];
+  bumpTriggerAuthority: ExecuteStrategyInstructionDataArgs["bumpTriggerAuthority"];
+  bumpTpFillsLog: ExecuteStrategyInstructionDataArgs["bumpTpFillsLog"];
+  bumpSlFillsLog: ExecuteStrategyInstructionDataArgs["bumpSlFillsLog"];
   padding: ExecuteStrategyInstructionDataArgs["padding"];
 };
 
@@ -220,6 +276,12 @@ export function getExecuteStrategyInstruction<
   TAccountFillsLog extends string,
   TAccountOrderbookProgram extends string,
   TAccountSystemProgram extends string,
+  TAccountTriggerProgram extends string,
+  TAccountTriggerAuthority extends string,
+  TAccountTpTriggerOrder extends string,
+  TAccountTpFillsLog extends string,
+  TAccountSlTriggerOrder extends string,
+  TAccountSlFillsLog extends string,
   TProgramAddress extends Address = typeof STRATEGY_PROGRAM_PROGRAM_ADDRESS,
 >(
   input: ExecuteStrategyInput<
@@ -233,7 +295,13 @@ export function getExecuteStrategyInstruction<
     TAccountAsks,
     TAccountFillsLog,
     TAccountOrderbookProgram,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountTriggerProgram,
+    TAccountTriggerAuthority,
+    TAccountTpTriggerOrder,
+    TAccountTpFillsLog,
+    TAccountSlTriggerOrder,
+    TAccountSlFillsLog
   >,
   config?: { programAddress?: TProgramAddress },
 ): ExecuteStrategyInstruction<
@@ -248,7 +316,13 @@ export function getExecuteStrategyInstruction<
   TAccountAsks,
   TAccountFillsLog,
   TAccountOrderbookProgram,
-  TAccountSystemProgram
+  TAccountSystemProgram,
+  TAccountTriggerProgram,
+  TAccountTriggerAuthority,
+  TAccountTpTriggerOrder,
+  TAccountTpFillsLog,
+  TAccountSlTriggerOrder,
+  TAccountSlFillsLog
 > {
   // Program address.
   const programAddress =
@@ -261,7 +335,7 @@ export function getExecuteStrategyInstruction<
       value: input.strategyAuthority ?? null,
       isWritable: true,
     },
-    strategyOwner: { value: input.strategyOwner ?? null, isWritable: true },
+    strategyOwner: { value: input.strategyOwner ?? null, isWritable: false },
     strategyAccount: { value: input.strategyAccount ?? null, isWritable: true },
     openOrdersAccount: {
       value: input.openOrdersAccount ?? null,
@@ -276,6 +350,15 @@ export function getExecuteStrategyInstruction<
       isWritable: false,
     },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+    triggerProgram: { value: input.triggerProgram ?? null, isWritable: false },
+    triggerAuthority: {
+      value: input.triggerAuthority ?? null,
+      isWritable: false,
+    },
+    tpTriggerOrder: { value: input.tpTriggerOrder ?? null, isWritable: true },
+    tpFillsLog: { value: input.tpFillsLog ?? null, isWritable: true },
+    slTriggerOrder: { value: input.slTriggerOrder ?? null, isWritable: true },
+    slFillsLog: { value: input.slFillsLog ?? null, isWritable: true },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -305,6 +388,12 @@ export function getExecuteStrategyInstruction<
       getAccountMeta("fillsLog", accounts.fillsLog),
       getAccountMeta("orderbookProgram", accounts.orderbookProgram),
       getAccountMeta("systemProgram", accounts.systemProgram),
+      getAccountMeta("triggerProgram", accounts.triggerProgram),
+      getAccountMeta("triggerAuthority", accounts.triggerAuthority),
+      getAccountMeta("tpTriggerOrder", accounts.tpTriggerOrder),
+      getAccountMeta("tpFillsLog", accounts.tpFillsLog),
+      getAccountMeta("slTriggerOrder", accounts.slTriggerOrder),
+      getAccountMeta("slFillsLog", accounts.slFillsLog),
     ],
     data: getExecuteStrategyInstructionDataEncoder().encode(
       args as ExecuteStrategyInstructionDataArgs,
@@ -322,7 +411,13 @@ export function getExecuteStrategyInstruction<
     TAccountAsks,
     TAccountFillsLog,
     TAccountOrderbookProgram,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountTriggerProgram,
+    TAccountTriggerAuthority,
+    TAccountTpTriggerOrder,
+    TAccountTpFillsLog,
+    TAccountSlTriggerOrder,
+    TAccountSlFillsLog
   >);
 }
 
@@ -348,12 +443,24 @@ export type ParsedExecuteStrategyInstruction<
     bids: TAccountMetas[6];
     /** Asks PDA */
     asks: TAccountMetas[7];
-    /** Fills log PDA */
+    /** Fills log PDA (lazy init) */
     fillsLog: TAccountMetas[8];
     /** Orderbook Program */
     orderbookProgram: TAccountMetas[9];
     /** System program */
     systemProgram: TAccountMetas[10];
+    /** Trigger program (optional, when TP/SL set) */
+    triggerProgram?: TAccountMetas[11] | undefined;
+    /** Trigger authority PDA of strategy_authority (optional) */
+    triggerAuthority?: TAccountMetas[12] | undefined;
+    /** TP trigger order PDA (optional) */
+    tpTriggerOrder?: TAccountMetas[13] | undefined;
+    /** TP trigger fills_log PDA (optional) */
+    tpFillsLog?: TAccountMetas[14] | undefined;
+    /** SL trigger order PDA (optional) */
+    slTriggerOrder?: TAccountMetas[15] | undefined;
+    /** SL trigger fills_log PDA (optional) */
+    slFillsLog?: TAccountMetas[16] | undefined;
   };
   data: ExecuteStrategyInstructionData;
 };
@@ -366,12 +473,12 @@ export function parseExecuteStrategyInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedExecuteStrategyInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 11) {
+  if (instruction.accounts.length < 17) {
     throw new SolanaError(
       SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
       {
         actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 11,
+        expectedAccountMetas: 17,
       },
     );
   }
@@ -380,6 +487,12 @@ export function parseExecuteStrategyInstruction<
     const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!;
     accountIndex += 1;
     return accountMeta;
+  };
+  const getNextOptionalAccount = () => {
+    const accountMeta = getNextAccount();
+    return accountMeta.address === STRATEGY_PROGRAM_PROGRAM_ADDRESS
+      ? undefined
+      : accountMeta;
   };
   return {
     programAddress: instruction.programAddress,
@@ -395,6 +508,12 @@ export function parseExecuteStrategyInstruction<
       fillsLog: getNextAccount(),
       orderbookProgram: getNextAccount(),
       systemProgram: getNextAccount(),
+      triggerProgram: getNextOptionalAccount(),
+      triggerAuthority: getNextOptionalAccount(),
+      tpTriggerOrder: getNextOptionalAccount(),
+      tpFillsLog: getNextOptionalAccount(),
+      slTriggerOrder: getNextOptionalAccount(),
+      slFillsLog: getNextOptionalAccount(),
     },
     data: getExecuteStrategyInstructionDataDecoder().decode(instruction.data),
   };

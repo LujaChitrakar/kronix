@@ -53,7 +53,7 @@ pub struct ExecuteStrategy {
     
               
           pub asks: solana_address::Address,
-                /// Fills log PDA
+                /// Fills log PDA (lazy init)
 
     
               
@@ -68,6 +68,36 @@ pub struct ExecuteStrategy {
     
               
           pub system_program: solana_address::Address,
+                /// Trigger program (optional, when TP/SL set)
+
+    
+              
+          pub trigger_program: Option<solana_address::Address>,
+                /// Trigger authority PDA of strategy_authority (optional)
+
+    
+              
+          pub trigger_authority: Option<solana_address::Address>,
+                /// TP trigger order PDA (optional)
+
+    
+              
+          pub tp_trigger_order: Option<solana_address::Address>,
+                /// TP trigger fills_log PDA (optional)
+
+    
+              
+          pub tp_fills_log: Option<solana_address::Address>,
+                /// SL trigger order PDA (optional)
+
+    
+              
+          pub sl_trigger_order: Option<solana_address::Address>,
+                /// SL trigger fills_log PDA (optional)
+
+    
+              
+          pub sl_fills_log: Option<solana_address::Address>,
       }
 
 impl ExecuteStrategy {
@@ -77,7 +107,7 @@ impl ExecuteStrategy {
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
   pub fn instruction_with_remaining_accounts(&self, args: ExecuteStrategyInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
-    let mut accounts = Vec::with_capacity(11+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(17+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             self.keeper,
             true
@@ -86,9 +116,9 @@ impl ExecuteStrategy {
             self.strategy_authority,
             false
           ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.strategy_owner,
-            true
+            false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
             self.strategy_account,
@@ -122,7 +152,73 @@ impl ExecuteStrategy {
             self.system_program,
             false
           ));
-                      accounts.extend_from_slice(remaining_accounts);
+                                                      if let Some(trigger_program) = self.trigger_program {
+              accounts.push(solana_instruction::AccountMeta::new_readonly(
+                trigger_program,
+                false,
+              ));
+            } else {
+              accounts.push(solana_instruction::AccountMeta::new_readonly(
+                crate::STRATEGY_PROGRAM_ID,
+                false,
+              ));
+            }
+                                                                if let Some(trigger_authority) = self.trigger_authority {
+              accounts.push(solana_instruction::AccountMeta::new_readonly(
+                trigger_authority,
+                false,
+              ));
+            } else {
+              accounts.push(solana_instruction::AccountMeta::new_readonly(
+                crate::STRATEGY_PROGRAM_ID,
+                false,
+              ));
+            }
+                                                                if let Some(tp_trigger_order) = self.tp_trigger_order {
+              accounts.push(solana_instruction::AccountMeta::new(
+                tp_trigger_order,
+                false,
+              ));
+            } else {
+              accounts.push(solana_instruction::AccountMeta::new_readonly(
+                crate::STRATEGY_PROGRAM_ID,
+                false,
+              ));
+            }
+                                                                if let Some(tp_fills_log) = self.tp_fills_log {
+              accounts.push(solana_instruction::AccountMeta::new(
+                tp_fills_log,
+                false,
+              ));
+            } else {
+              accounts.push(solana_instruction::AccountMeta::new_readonly(
+                crate::STRATEGY_PROGRAM_ID,
+                false,
+              ));
+            }
+                                                                if let Some(sl_trigger_order) = self.sl_trigger_order {
+              accounts.push(solana_instruction::AccountMeta::new(
+                sl_trigger_order,
+                false,
+              ));
+            } else {
+              accounts.push(solana_instruction::AccountMeta::new_readonly(
+                crate::STRATEGY_PROGRAM_ID,
+                false,
+              ));
+            }
+                                                                if let Some(sl_fills_log) = self.sl_fills_log {
+              accounts.push(solana_instruction::AccountMeta::new(
+                sl_fills_log,
+                false,
+              ));
+            } else {
+              accounts.push(solana_instruction::AccountMeta::new_readonly(
+                crate::STRATEGY_PROGRAM_ID,
+                false,
+              ));
+            }
+                                accounts.extend_from_slice(remaining_accounts);
     let mut data = ExecuteStrategyInstructionData::new().try_to_vec().unwrap();
           let mut args = args.try_to_vec().unwrap();
       data.append(&mut args);
@@ -138,13 +234,13 @@ impl ExecuteStrategy {
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
  pub struct ExecuteStrategyInstructionData {
             discriminator: u8,
-                                                }
+                                                                  }
 
 impl ExecuteStrategyInstructionData {
   pub fn new() -> Self {
     Self {
                         discriminator: 2,
-                                                                                                                    }
+                                                                                                                                                              }
   }
 
     pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
@@ -166,7 +262,10 @@ impl Default for ExecuteStrategyInstructionData {
                 pub bump_trigger_tp: u8,
                 pub bump_trigger_sl: u8,
                 pub bump_authority: u8,
-                pub padding: [u8; 1],
+                pub bump_trigger_authority: u8,
+                pub bump_tp_fills_log: u8,
+                pub bump_sl_fills_log: u8,
+                pub padding: [u8; 7],
       }
 
 impl ExecuteStrategyInstructionArgs {
@@ -182,7 +281,7 @@ impl ExecuteStrategyInstructionArgs {
 ///
                       ///   0. `[writable, signer]` keeper
                 ///   1. `[writable]` strategy_authority
-                      ///   2. `[writable, signer]` strategy_owner
+          ///   2. `[]` strategy_owner
                 ///   3. `[writable]` strategy_account
                 ///   4. `[writable]` open_orders_account
                 ///   5. `[writable]` market
@@ -191,6 +290,12 @@ impl ExecuteStrategyInstructionArgs {
                 ///   8. `[writable]` fills_log
           ///   9. `[]` orderbook_program
                 ///   10. `[optional]` system_program (default to `11111111111111111111111111111111`)
+                ///   11. `[optional]` trigger_program
+                ///   12. `[optional]` trigger_authority
+                      ///   13. `[writable, optional]` tp_trigger_order
+                      ///   14. `[writable, optional]` tp_fills_log
+                      ///   15. `[writable, optional]` sl_trigger_order
+                      ///   16. `[writable, optional]` sl_fills_log
 #[derive(Clone, Debug, Default)]
 pub struct ExecuteStrategyBuilder {
             keeper: Option<solana_address::Address>,
@@ -204,13 +309,22 @@ pub struct ExecuteStrategyBuilder {
                 fills_log: Option<solana_address::Address>,
                 orderbook_program: Option<solana_address::Address>,
                 system_program: Option<solana_address::Address>,
+                trigger_program: Option<solana_address::Address>,
+                trigger_authority: Option<solana_address::Address>,
+                tp_trigger_order: Option<solana_address::Address>,
+                tp_fills_log: Option<solana_address::Address>,
+                sl_trigger_order: Option<solana_address::Address>,
+                sl_fills_log: Option<solana_address::Address>,
                         signal: Option<u8>,
                 bump_oo_account: Option<u8>,
                 bump_fills_log: Option<u8>,
                 bump_trigger_tp: Option<u8>,
                 bump_trigger_sl: Option<u8>,
                 bump_authority: Option<u8>,
-                padding: Option<[u8; 1]>,
+                bump_trigger_authority: Option<u8>,
+                bump_tp_fills_log: Option<u8>,
+                bump_sl_fills_log: Option<u8>,
+                padding: Option<[u8; 7]>,
         __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
@@ -266,7 +380,7 @@ impl ExecuteStrategyBuilder {
                         self.asks = Some(asks);
                     self
     }
-            /// Fills log PDA
+            /// Fills log PDA (lazy init)
 #[inline(always)]
     pub fn fills_log(&mut self, fills_log: solana_address::Address) -> &mut Self {
                         self.fills_log = Some(fills_log);
@@ -283,6 +397,48 @@ impl ExecuteStrategyBuilder {
 #[inline(always)]
     pub fn system_program(&mut self, system_program: solana_address::Address) -> &mut Self {
                         self.system_program = Some(system_program);
+                    self
+    }
+            /// `[optional account]`
+/// Trigger program (optional, when TP/SL set)
+#[inline(always)]
+    pub fn trigger_program(&mut self, trigger_program: Option<solana_address::Address>) -> &mut Self {
+                        self.trigger_program = trigger_program;
+                    self
+    }
+            /// `[optional account]`
+/// Trigger authority PDA of strategy_authority (optional)
+#[inline(always)]
+    pub fn trigger_authority(&mut self, trigger_authority: Option<solana_address::Address>) -> &mut Self {
+                        self.trigger_authority = trigger_authority;
+                    self
+    }
+            /// `[optional account]`
+/// TP trigger order PDA (optional)
+#[inline(always)]
+    pub fn tp_trigger_order(&mut self, tp_trigger_order: Option<solana_address::Address>) -> &mut Self {
+                        self.tp_trigger_order = tp_trigger_order;
+                    self
+    }
+            /// `[optional account]`
+/// TP trigger fills_log PDA (optional)
+#[inline(always)]
+    pub fn tp_fills_log(&mut self, tp_fills_log: Option<solana_address::Address>) -> &mut Self {
+                        self.tp_fills_log = tp_fills_log;
+                    self
+    }
+            /// `[optional account]`
+/// SL trigger order PDA (optional)
+#[inline(always)]
+    pub fn sl_trigger_order(&mut self, sl_trigger_order: Option<solana_address::Address>) -> &mut Self {
+                        self.sl_trigger_order = sl_trigger_order;
+                    self
+    }
+            /// `[optional account]`
+/// SL trigger fills_log PDA (optional)
+#[inline(always)]
+    pub fn sl_fills_log(&mut self, sl_fills_log: Option<solana_address::Address>) -> &mut Self {
+                        self.sl_fills_log = sl_fills_log;
                     self
     }
                     #[inline(always)]
@@ -316,7 +472,22 @@ impl ExecuteStrategyBuilder {
         self
       }
                 #[inline(always)]
-      pub fn padding(&mut self, padding: [u8; 1]) -> &mut Self {
+      pub fn bump_trigger_authority(&mut self, bump_trigger_authority: u8) -> &mut Self {
+        self.bump_trigger_authority = Some(bump_trigger_authority);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_tp_fills_log(&mut self, bump_tp_fills_log: u8) -> &mut Self {
+        self.bump_tp_fills_log = Some(bump_tp_fills_log);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_sl_fills_log(&mut self, bump_sl_fills_log: u8) -> &mut Self {
+        self.bump_sl_fills_log = Some(bump_sl_fills_log);
+        self
+      }
+                #[inline(always)]
+      pub fn padding(&mut self, padding: [u8; 7]) -> &mut Self {
         self.padding = Some(padding);
         self
       }
@@ -346,6 +517,12 @@ impl ExecuteStrategyBuilder {
                                         fills_log: self.fills_log.expect("fills_log is not set"),
                                         orderbook_program: self.orderbook_program.expect("orderbook_program is not set"),
                                         system_program: self.system_program.unwrap_or(solana_address::address!("11111111111111111111111111111111")),
+                                        trigger_program: self.trigger_program,
+                                        trigger_authority: self.trigger_authority,
+                                        tp_trigger_order: self.tp_trigger_order,
+                                        tp_fills_log: self.tp_fills_log,
+                                        sl_trigger_order: self.sl_trigger_order,
+                                        sl_fills_log: self.sl_fills_log,
                       };
           let args = ExecuteStrategyInstructionArgs {
                                                               signal: self.signal.clone().expect("signal is not set"),
@@ -354,6 +531,9 @@ impl ExecuteStrategyBuilder {
                                                                   bump_trigger_tp: self.bump_trigger_tp.clone().expect("bump_trigger_tp is not set"),
                                                                   bump_trigger_sl: self.bump_trigger_sl.clone().expect("bump_trigger_sl is not set"),
                                                                   bump_authority: self.bump_authority.clone().expect("bump_authority is not set"),
+                                                                  bump_trigger_authority: self.bump_trigger_authority.clone().expect("bump_trigger_authority is not set"),
+                                                                  bump_tp_fills_log: self.bump_tp_fills_log.clone().expect("bump_tp_fills_log is not set"),
+                                                                  bump_sl_fills_log: self.bump_sl_fills_log.clone().expect("bump_sl_fills_log is not set"),
                                                                   padding: self.padding.clone().expect("padding is not set"),
                                     };
     
@@ -403,7 +583,7 @@ impl ExecuteStrategyBuilder {
       
                     
               pub asks: &'b solana_account_info::AccountInfo<'a>,
-                        /// Fills log PDA
+                        /// Fills log PDA (lazy init)
 
       
                     
@@ -418,6 +598,36 @@ impl ExecuteStrategyBuilder {
       
                     
               pub system_program: &'b solana_account_info::AccountInfo<'a>,
+                        /// Trigger program (optional, when TP/SL set)
+
+      
+                    
+              pub trigger_program: Option<&'b solana_account_info::AccountInfo<'a>>,
+                        /// Trigger authority PDA of strategy_authority (optional)
+
+      
+                    
+              pub trigger_authority: Option<&'b solana_account_info::AccountInfo<'a>>,
+                        /// TP trigger order PDA (optional)
+
+      
+                    
+              pub tp_trigger_order: Option<&'b solana_account_info::AccountInfo<'a>>,
+                        /// TP trigger fills_log PDA (optional)
+
+      
+                    
+              pub tp_fills_log: Option<&'b solana_account_info::AccountInfo<'a>>,
+                        /// SL trigger order PDA (optional)
+
+      
+                    
+              pub sl_trigger_order: Option<&'b solana_account_info::AccountInfo<'a>>,
+                        /// SL trigger fills_log PDA (optional)
+
+      
+                    
+              pub sl_fills_log: Option<&'b solana_account_info::AccountInfo<'a>>,
             }
 
 /// `execute_strategy` CPI instruction.
@@ -464,7 +674,7 @@ pub struct ExecuteStrategyCpi<'a, 'b> {
     
               
           pub asks: &'b solana_account_info::AccountInfo<'a>,
-                /// Fills log PDA
+                /// Fills log PDA (lazy init)
 
     
               
@@ -479,6 +689,36 @@ pub struct ExecuteStrategyCpi<'a, 'b> {
     
               
           pub system_program: &'b solana_account_info::AccountInfo<'a>,
+                /// Trigger program (optional, when TP/SL set)
+
+    
+              
+          pub trigger_program: Option<&'b solana_account_info::AccountInfo<'a>>,
+                /// Trigger authority PDA of strategy_authority (optional)
+
+    
+              
+          pub trigger_authority: Option<&'b solana_account_info::AccountInfo<'a>>,
+                /// TP trigger order PDA (optional)
+
+    
+              
+          pub tp_trigger_order: Option<&'b solana_account_info::AccountInfo<'a>>,
+                /// TP trigger fills_log PDA (optional)
+
+    
+              
+          pub tp_fills_log: Option<&'b solana_account_info::AccountInfo<'a>>,
+                /// SL trigger order PDA (optional)
+
+    
+              
+          pub sl_trigger_order: Option<&'b solana_account_info::AccountInfo<'a>>,
+                /// SL trigger fills_log PDA (optional)
+
+    
+              
+          pub sl_fills_log: Option<&'b solana_account_info::AccountInfo<'a>>,
             /// The arguments for the instruction.
     pub __args: ExecuteStrategyInstructionArgs,
   }
@@ -502,6 +742,12 @@ impl<'a, 'b> ExecuteStrategyCpi<'a, 'b> {
               fills_log: accounts.fills_log,
               orderbook_program: accounts.orderbook_program,
               system_program: accounts.system_program,
+              trigger_program: accounts.trigger_program,
+              trigger_authority: accounts.trigger_authority,
+              tp_trigger_order: accounts.tp_trigger_order,
+              tp_fills_log: accounts.tp_fills_log,
+              sl_trigger_order: accounts.sl_trigger_order,
+              sl_fills_log: accounts.sl_fills_log,
                     __args: args,
           }
   }
@@ -525,7 +771,7 @@ impl<'a, 'b> ExecuteStrategyCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program_error::ProgramResult {
-    let mut accounts = Vec::with_capacity(11+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(17+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             *self.keeper.key,
             true
@@ -534,9 +780,9 @@ impl<'a, 'b> ExecuteStrategyCpi<'a, 'b> {
             *self.strategy_authority.key,
             false
           ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.strategy_owner.key,
-            true
+            false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
             *self.strategy_account.key,
@@ -570,6 +816,72 @@ impl<'a, 'b> ExecuteStrategyCpi<'a, 'b> {
             *self.system_program.key,
             false
           ));
+                                          if let Some(trigger_program) = self.trigger_program {
+            accounts.push(solana_instruction::AccountMeta::new_readonly(
+              *trigger_program.key,
+              false,
+            ));
+          } else {
+            accounts.push(solana_instruction::AccountMeta::new_readonly(
+              crate::STRATEGY_PROGRAM_ID,
+              false,
+            ));
+          }
+                                          if let Some(trigger_authority) = self.trigger_authority {
+            accounts.push(solana_instruction::AccountMeta::new_readonly(
+              *trigger_authority.key,
+              false,
+            ));
+          } else {
+            accounts.push(solana_instruction::AccountMeta::new_readonly(
+              crate::STRATEGY_PROGRAM_ID,
+              false,
+            ));
+          }
+                                          if let Some(tp_trigger_order) = self.tp_trigger_order {
+            accounts.push(solana_instruction::AccountMeta::new(
+              *tp_trigger_order.key,
+              false,
+            ));
+          } else {
+            accounts.push(solana_instruction::AccountMeta::new_readonly(
+              crate::STRATEGY_PROGRAM_ID,
+              false,
+            ));
+          }
+                                          if let Some(tp_fills_log) = self.tp_fills_log {
+            accounts.push(solana_instruction::AccountMeta::new(
+              *tp_fills_log.key,
+              false,
+            ));
+          } else {
+            accounts.push(solana_instruction::AccountMeta::new_readonly(
+              crate::STRATEGY_PROGRAM_ID,
+              false,
+            ));
+          }
+                                          if let Some(sl_trigger_order) = self.sl_trigger_order {
+            accounts.push(solana_instruction::AccountMeta::new(
+              *sl_trigger_order.key,
+              false,
+            ));
+          } else {
+            accounts.push(solana_instruction::AccountMeta::new_readonly(
+              crate::STRATEGY_PROGRAM_ID,
+              false,
+            ));
+          }
+                                          if let Some(sl_fills_log) = self.sl_fills_log {
+            accounts.push(solana_instruction::AccountMeta::new(
+              *sl_fills_log.key,
+              false,
+            ));
+          } else {
+            accounts.push(solana_instruction::AccountMeta::new_readonly(
+              crate::STRATEGY_PROGRAM_ID,
+              false,
+            ));
+          }
                       remaining_accounts.iter().for_each(|remaining_account| {
       accounts.push(solana_instruction::AccountMeta {
           pubkey: *remaining_account.0.key,
@@ -586,7 +898,7 @@ impl<'a, 'b> ExecuteStrategyCpi<'a, 'b> {
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(12 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(18 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
                   account_infos.push(self.keeper.clone());
                         account_infos.push(self.strategy_authority.clone());
@@ -599,6 +911,24 @@ impl<'a, 'b> ExecuteStrategyCpi<'a, 'b> {
                         account_infos.push(self.fills_log.clone());
                         account_infos.push(self.orderbook_program.clone());
                         account_infos.push(self.system_program.clone());
+                        if let Some(trigger_program) = self.trigger_program {
+          account_infos.push(trigger_program.clone());
+        }
+                        if let Some(trigger_authority) = self.trigger_authority {
+          account_infos.push(trigger_authority.clone());
+        }
+                        if let Some(tp_trigger_order) = self.tp_trigger_order {
+          account_infos.push(tp_trigger_order.clone());
+        }
+                        if let Some(tp_fills_log) = self.tp_fills_log {
+          account_infos.push(tp_fills_log.clone());
+        }
+                        if let Some(sl_trigger_order) = self.sl_trigger_order {
+          account_infos.push(sl_trigger_order.clone());
+        }
+                        if let Some(sl_fills_log) = self.sl_fills_log {
+          account_infos.push(sl_fills_log.clone());
+        }
               remaining_accounts.iter().for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
 
     if signers_seeds.is_empty() {
@@ -615,7 +945,7 @@ impl<'a, 'b> ExecuteStrategyCpi<'a, 'b> {
 ///
                       ///   0. `[writable, signer]` keeper
                 ///   1. `[writable]` strategy_authority
-                      ///   2. `[writable, signer]` strategy_owner
+          ///   2. `[]` strategy_owner
                 ///   3. `[writable]` strategy_account
                 ///   4. `[writable]` open_orders_account
                 ///   5. `[writable]` market
@@ -624,6 +954,12 @@ impl<'a, 'b> ExecuteStrategyCpi<'a, 'b> {
                 ///   8. `[writable]` fills_log
           ///   9. `[]` orderbook_program
           ///   10. `[]` system_program
+                ///   11. `[optional]` trigger_program
+                ///   12. `[optional]` trigger_authority
+                      ///   13. `[writable, optional]` tp_trigger_order
+                      ///   14. `[writable, optional]` tp_fills_log
+                      ///   15. `[writable, optional]` sl_trigger_order
+                      ///   16. `[writable, optional]` sl_fills_log
 #[derive(Clone, Debug)]
 pub struct ExecuteStrategyCpiBuilder<'a, 'b> {
   instruction: Box<ExecuteStrategyCpiBuilderInstruction<'a, 'b>>,
@@ -644,12 +980,21 @@ impl<'a, 'b> ExecuteStrategyCpiBuilder<'a, 'b> {
               fills_log: None,
               orderbook_program: None,
               system_program: None,
+              trigger_program: None,
+              trigger_authority: None,
+              tp_trigger_order: None,
+              tp_fills_log: None,
+              sl_trigger_order: None,
+              sl_fills_log: None,
                                             signal: None,
                                 bump_oo_account: None,
                                 bump_fills_log: None,
                                 bump_trigger_tp: None,
                                 bump_trigger_sl: None,
                                 bump_authority: None,
+                                bump_trigger_authority: None,
+                                bump_tp_fills_log: None,
+                                bump_sl_fills_log: None,
                                 padding: None,
                     __remaining_accounts: Vec::new(),
     });
@@ -703,7 +1048,7 @@ impl<'a, 'b> ExecuteStrategyCpiBuilder<'a, 'b> {
                         self.instruction.asks = Some(asks);
                     self
     }
-      /// Fills log PDA
+      /// Fills log PDA (lazy init)
 #[inline(always)]
     pub fn fills_log(&mut self, fills_log: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
                         self.instruction.fills_log = Some(fills_log);
@@ -719,6 +1064,48 @@ impl<'a, 'b> ExecuteStrategyCpiBuilder<'a, 'b> {
 #[inline(always)]
     pub fn system_program(&mut self, system_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
                         self.instruction.system_program = Some(system_program);
+                    self
+    }
+      /// `[optional account]`
+/// Trigger program (optional, when TP/SL set)
+#[inline(always)]
+    pub fn trigger_program(&mut self, trigger_program: Option<&'b solana_account_info::AccountInfo<'a>>) -> &mut Self {
+                        self.instruction.trigger_program = trigger_program;
+                    self
+    }
+      /// `[optional account]`
+/// Trigger authority PDA of strategy_authority (optional)
+#[inline(always)]
+    pub fn trigger_authority(&mut self, trigger_authority: Option<&'b solana_account_info::AccountInfo<'a>>) -> &mut Self {
+                        self.instruction.trigger_authority = trigger_authority;
+                    self
+    }
+      /// `[optional account]`
+/// TP trigger order PDA (optional)
+#[inline(always)]
+    pub fn tp_trigger_order(&mut self, tp_trigger_order: Option<&'b solana_account_info::AccountInfo<'a>>) -> &mut Self {
+                        self.instruction.tp_trigger_order = tp_trigger_order;
+                    self
+    }
+      /// `[optional account]`
+/// TP trigger fills_log PDA (optional)
+#[inline(always)]
+    pub fn tp_fills_log(&mut self, tp_fills_log: Option<&'b solana_account_info::AccountInfo<'a>>) -> &mut Self {
+                        self.instruction.tp_fills_log = tp_fills_log;
+                    self
+    }
+      /// `[optional account]`
+/// SL trigger order PDA (optional)
+#[inline(always)]
+    pub fn sl_trigger_order(&mut self, sl_trigger_order: Option<&'b solana_account_info::AccountInfo<'a>>) -> &mut Self {
+                        self.instruction.sl_trigger_order = sl_trigger_order;
+                    self
+    }
+      /// `[optional account]`
+/// SL trigger fills_log PDA (optional)
+#[inline(always)]
+    pub fn sl_fills_log(&mut self, sl_fills_log: Option<&'b solana_account_info::AccountInfo<'a>>) -> &mut Self {
+                        self.instruction.sl_fills_log = sl_fills_log;
                     self
     }
                     #[inline(always)]
@@ -752,7 +1139,22 @@ impl<'a, 'b> ExecuteStrategyCpiBuilder<'a, 'b> {
         self
       }
                 #[inline(always)]
-      pub fn padding(&mut self, padding: [u8; 1]) -> &mut Self {
+      pub fn bump_trigger_authority(&mut self, bump_trigger_authority: u8) -> &mut Self {
+        self.instruction.bump_trigger_authority = Some(bump_trigger_authority);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_tp_fills_log(&mut self, bump_tp_fills_log: u8) -> &mut Self {
+        self.instruction.bump_tp_fills_log = Some(bump_tp_fills_log);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_sl_fills_log(&mut self, bump_sl_fills_log: u8) -> &mut Self {
+        self.instruction.bump_sl_fills_log = Some(bump_sl_fills_log);
+        self
+      }
+                #[inline(always)]
+      pub fn padding(&mut self, padding: [u8; 7]) -> &mut Self {
         self.instruction.padding = Some(padding);
         self
       }
@@ -785,6 +1187,9 @@ impl<'a, 'b> ExecuteStrategyCpiBuilder<'a, 'b> {
                                                                   bump_trigger_tp: self.instruction.bump_trigger_tp.clone().expect("bump_trigger_tp is not set"),
                                                                   bump_trigger_sl: self.instruction.bump_trigger_sl.clone().expect("bump_trigger_sl is not set"),
                                                                   bump_authority: self.instruction.bump_authority.clone().expect("bump_authority is not set"),
+                                                                  bump_trigger_authority: self.instruction.bump_trigger_authority.clone().expect("bump_trigger_authority is not set"),
+                                                                  bump_tp_fills_log: self.instruction.bump_tp_fills_log.clone().expect("bump_tp_fills_log is not set"),
+                                                                  bump_sl_fills_log: self.instruction.bump_sl_fills_log.clone().expect("bump_sl_fills_log is not set"),
                                                                   padding: self.instruction.padding.clone().expect("padding is not set"),
                                     };
         let instruction = ExecuteStrategyCpi {
@@ -811,6 +1216,18 @@ impl<'a, 'b> ExecuteStrategyCpiBuilder<'a, 'b> {
           orderbook_program: self.instruction.orderbook_program.expect("orderbook_program is not set"),
                   
           system_program: self.instruction.system_program.expect("system_program is not set"),
+                  
+          trigger_program: self.instruction.trigger_program,
+                  
+          trigger_authority: self.instruction.trigger_authority,
+                  
+          tp_trigger_order: self.instruction.tp_trigger_order,
+                  
+          tp_fills_log: self.instruction.tp_fills_log,
+                  
+          sl_trigger_order: self.instruction.sl_trigger_order,
+                  
+          sl_fills_log: self.instruction.sl_fills_log,
                           __args: args,
             };
     instruction.invoke_signed_with_remaining_accounts(signers_seeds, &self.instruction.__remaining_accounts)
@@ -831,13 +1248,22 @@ struct ExecuteStrategyCpiBuilderInstruction<'a, 'b> {
                 fills_log: Option<&'b solana_account_info::AccountInfo<'a>>,
                 orderbook_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                 system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
+                trigger_program: Option<&'b solana_account_info::AccountInfo<'a>>,
+                trigger_authority: Option<&'b solana_account_info::AccountInfo<'a>>,
+                tp_trigger_order: Option<&'b solana_account_info::AccountInfo<'a>>,
+                tp_fills_log: Option<&'b solana_account_info::AccountInfo<'a>>,
+                sl_trigger_order: Option<&'b solana_account_info::AccountInfo<'a>>,
+                sl_fills_log: Option<&'b solana_account_info::AccountInfo<'a>>,
                         signal: Option<u8>,
                 bump_oo_account: Option<u8>,
                 bump_fills_log: Option<u8>,
                 bump_trigger_tp: Option<u8>,
                 bump_trigger_sl: Option<u8>,
                 bump_authority: Option<u8>,
-                padding: Option<[u8; 1]>,
+                bump_trigger_authority: Option<u8>,
+                bump_tp_fills_log: Option<u8>,
+                bump_sl_fills_log: Option<u8>,
+                padding: Option<[u8; 7]>,
         /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
   __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }
