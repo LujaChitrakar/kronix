@@ -12,7 +12,7 @@ export function TradeForms() {
   const [tab, setTab] = useState<Tab>("order");
 
   return (
-    <div className="bg-kx-surface rounded-xl border kx-border overflow-hidden flex flex-col">
+    <div className="bg-kx-surface rounded-xl border kx-border overflow-hidden flex flex-col h-full">
       <div className="flex items-center border-b kx-border shrink-0">
         <TabBtn active={tab === "order"} onClick={() => setTab("order")}>
           Order
@@ -28,7 +28,7 @@ export function TradeForms() {
         </div>
       </div>
 
-      <div className="min-h-0">
+      <div className="flex-1 min-h-0 overflow-auto">
         {tab === "order" && <OrderForm />}
         {tab === "strategy" && <StrategyForm />}
         {tab === "trigger" && <TriggerForm />}

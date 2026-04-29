@@ -143,7 +143,7 @@ export function Orderbook() {
     fmtBigInt(priceLots * qty);
 
   return (
-    <div className="bg-kx-surface rounded-xl border kx-border overflow-hidden flex flex-col h-[560px]">
+    <div className="bg-kx-surface rounded-xl border kx-border overflow-hidden flex flex-col h-[620px]">
       <div className="flex items-center border-b kx-border shrink-0">
         <TabBtn active={tab === "book"} onClick={() => setTab("book")}>
           Order Book
