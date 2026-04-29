@@ -9,7 +9,7 @@ use std::i64;
 
 use crate::{
     constants::STRATEGY_AUTHORITY_SEED,
-    cpi::{place_order_cpi, place_trigger_order_cpi},
+    cpi::{initialize_fills_log_cpi, place_order_cpi, place_trigger_order_cpi},
     errors::StrategyProgramError,
     helpers::{verify_account_owner, verify_pda, verify_signer, verify_writtable},
     states::StrategyAccount,
@@ -21,11 +21,14 @@ pub struct ExecuteStrategyParams {
     pub signal: u8, // 0=Buy, 1=Sell
     // bumps for CPIs
     pub bump_oo_account: u8,
-    pub bump_fills_log: u8,
-    pub bump_trigger_tp: u8, // for take profit trigger PDA
-    pub bump_trigger_sl: u8, // for stop loss trigger PDA
-    pub bump_authority: u8,
-    pub padding: [u8; 1],
+    pub bump_fills_log: u8, // strategy's own fills_log (place_order taker)
+    pub bump_trigger_tp: u8, // TP trigger_order PDA
+    pub bump_trigger_sl: u8, // SL trigger_order PDA
+    pub bump_authority: u8,  // strategy_authority PDA
+    pub bump_trigger_authority: u8, // trigger_authority(of strategy_authority)
+    pub bump_tp_fills_log: u8, // fills_log used by TP trigger
+    pub bump_sl_fills_log: u8, // fills_log used by SL trigger
+    pub padding: [u8; 7],
 }
 
 pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
@@ -111,6 +114,22 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
 
     let owner_key = strategy.owner;
 
+    // Lazy-init fills_log for this client_order_id. After the first execution
+    // strategy.client_order_id is bumped by 3, so subsequent calls hit a fresh
+    // PDA that has never been initialized; init it here, paid by keeper.
+    if fills_log.is_data_empty() {
+        initialize_fills_log_cpi(
+            orderbook_program,
+            system_program,
+            keeper,
+            strategy_authority,
+            fills_log,
+            market,
+            strategy.client_order_id,
+            params.bump_fills_log,
+        )?;
+    }
+
     place_order_cpi(
         orderbook_program,
         system_program,
@@ -136,38 +155,80 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
     let has_tp = strategy.take_profit_price > 0;
     let has_sl = strategy.stop_loss_price > 0;
 
-    let (trigger_program, tp_account, sl_account): (
+    // Remaining accounts for trigger CPIs (when has_tp || has_sl):
+    //   [trigger_program, trigger_authority, tp_order?, tp_fills_log?,
+    //    sl_order?, sl_fills_log?]
+    let (
+        trigger_program,
+        trigger_authority,
+        tp_order,
+        tp_fills_log,
+        sl_order,
+        sl_fills_log,
+    ): (
+        Option<&AccountView>,
+        Option<&AccountView>,
+        Option<&AccountView>,
         Option<&AccountView>,
         Option<&AccountView>,
         Option<&AccountView>,
     ) = match (has_tp, has_sl) {
-        (false, false) => (None, None, None),
+        (false, false) => (None, None, None, None, None, None),
 
         (true, false) => {
-            let [trigger_program, tp_account, ..] = _remaining else {
+            let [trigger_program, trigger_authority, tp_order, tp_fills_log, ..] =
+                _remaining
+            else {
                 return Err(ProgramError::NotEnoughAccountKeys);
             };
-            (Some(trigger_program), Some(tp_account), None)
+            (
+                Some(trigger_program),
+                Some(trigger_authority),
+                Some(tp_order),
+                Some(tp_fills_log),
+                None,
+                None,
+            )
         }
 
         (false, true) => {
-            let [trigger_program, sl_account, ..] = _remaining else {
+            let [trigger_program, trigger_authority, sl_order, sl_fills_log, ..] =
+                _remaining
+            else {
                 return Err(ProgramError::NotEnoughAccountKeys);
             };
-            (Some(trigger_program), None, Some(sl_account))
+            (
+                Some(trigger_program),
+                Some(trigger_authority),
+                None,
+                None,
+                Some(sl_order),
+                Some(sl_fills_log),
+            )
         }
 
         (true, true) => {
-            let [trigger_program, tp_account, sl_account, ..] = _remaining else {
+            let [trigger_program, trigger_authority, tp_order, tp_fills_log, sl_order, sl_fills_log, ..] =
+                _remaining
+            else {
                 return Err(ProgramError::NotEnoughAccountKeys);
             };
-            (Some(trigger_program), Some(tp_account), Some(sl_account))
+            (
+                Some(trigger_program),
+                Some(trigger_authority),
+                Some(tp_order),
+                Some(tp_fills_log),
+                Some(sl_order),
+                Some(sl_fills_log),
+            )
         }
     };
 
     if has_tp {
         let trigger_program = trigger_program.unwrap();
-        let trigger_tp_account = tp_account.unwrap();
+        let trigger_authority = trigger_authority.unwrap();
+        let tp_order = tp_order.unwrap();
+        let tp_fills_log = tp_fills_log.unwrap();
         let tp_side = 1 - params.signal; // opposite side to close position
         let tp_trigger_type = 1u8; // TakeProfit
 
@@ -175,8 +236,12 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
             strategy_authority,
             trigger_program,
             system_program,
-            trigger_tp_account,
+            tp_order,
             open_orders_account,
+            trigger_authority,
+            tp_fills_log,
+            market,
+            orderbook_program,
             strategy.client_order_id,
             strategy.take_profit_price,
             strategy.size_lots,
@@ -185,6 +250,8 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
             tp_trigger_type,
             tp_side,
             params.bump_trigger_tp,
+            params.bump_trigger_authority,
+            params.bump_tp_fills_log,
             params.bump_authority,
             owner_key,
         )?;
@@ -192,7 +259,9 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
 
     if has_sl {
         let trigger_program = trigger_program.unwrap();
-        let trigger_sl_account = sl_account.unwrap();
+        let trigger_authority = trigger_authority.unwrap();
+        let sl_order = sl_order.unwrap();
+        let sl_fills_log = sl_fills_log.unwrap();
         let sl_side = 1 - params.signal; // opposite side to close position
         let sl_trigger_type = 0u8; // StopLoss
 
@@ -200,8 +269,12 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
             strategy_authority,
             trigger_program,
             system_program,
-            trigger_sl_account,
+            sl_order,
             open_orders_account,
+            trigger_authority,
+            sl_fills_log,
+            market,
+            orderbook_program,
             strategy.client_order_id + 1,
             strategy.stop_loss_price,
             strategy.size_lots,
@@ -210,6 +283,8 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
             sl_trigger_type,
             sl_side,
             params.bump_trigger_sl,
+            params.bump_trigger_authority,
+            params.bump_sl_fills_log,
             params.bump_authority,
             owner_key,
         )?;

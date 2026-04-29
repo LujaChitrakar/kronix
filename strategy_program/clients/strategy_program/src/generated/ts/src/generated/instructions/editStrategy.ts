@@ -8,8 +8,16 @@
 
 import {
   combineCodec,
+  fixDecoderSize,
+  fixEncoderSize,
+  getBytesDecoder,
+  getBytesEncoder,
+  getI64Decoder,
+  getI64Encoder,
   getStructDecoder,
   getStructEncoder,
+  getU64Decoder,
+  getU64Encoder,
   getU8Decoder,
   getU8Encoder,
   SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
@@ -18,9 +26,9 @@ import {
   type AccountMeta,
   type AccountSignerMeta,
   type Address,
-  type Codec,
-  type Decoder,
-  type Encoder,
+  type FixedSizeCodec,
+  type FixedSizeDecoder,
+  type FixedSizeEncoder,
   type Instruction,
   type InstructionWithAccounts,
   type InstructionWithData,
@@ -34,12 +42,6 @@ import {
   type ResolvedInstructionAccount,
 } from "@solana/program-client-core";
 import { STRATEGY_PROGRAM_PROGRAM_ADDRESS } from "../programs";
-import {
-  getEditStrategyParamsDecoder,
-  getEditStrategyParamsEncoder,
-  type EditStrategyParams,
-  type EditStrategyParamsArgs,
-} from "../types";
 
 export const EDIT_STRATEGY_DISCRIMINATOR = 1;
 
@@ -69,31 +71,59 @@ export type EditStrategyInstruction<
 
 export type EditStrategyInstructionData = {
   discriminator: number;
-  editStrategyParams: EditStrategyParams;
+  newLimitPriceLots: bigint;
+  newTakeProfitPrice: bigint;
+  newStopLossPrice: bigint;
+  newSizeLots: bigint;
+  newCooldownSecs: bigint;
+  newMaxExecutionsPerDay: bigint;
+  newStatus: number;
+  padding: ReadonlyUint8Array;
 };
 
 export type EditStrategyInstructionDataArgs = {
-  editStrategyParams: EditStrategyParamsArgs;
+  newLimitPriceLots: number | bigint;
+  newTakeProfitPrice: number | bigint;
+  newStopLossPrice: number | bigint;
+  newSizeLots: number | bigint;
+  newCooldownSecs: number | bigint;
+  newMaxExecutionsPerDay: number | bigint;
+  newStatus: number;
+  padding: ReadonlyUint8Array;
 };
 
-export function getEditStrategyInstructionDataEncoder(): Encoder<EditStrategyInstructionDataArgs> {
+export function getEditStrategyInstructionDataEncoder(): FixedSizeEncoder<EditStrategyInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", getU8Encoder()],
-      ["editStrategyParams", getEditStrategyParamsEncoder()],
+      ["newLimitPriceLots", getI64Encoder()],
+      ["newTakeProfitPrice", getI64Encoder()],
+      ["newStopLossPrice", getI64Encoder()],
+      ["newSizeLots", getI64Encoder()],
+      ["newCooldownSecs", getU64Encoder()],
+      ["newMaxExecutionsPerDay", getU64Encoder()],
+      ["newStatus", getU8Encoder()],
+      ["padding", fixEncoderSize(getBytesEncoder(), 7)],
     ]),
     (value) => ({ ...value, discriminator: EDIT_STRATEGY_DISCRIMINATOR }),
   );
 }
 
-export function getEditStrategyInstructionDataDecoder(): Decoder<EditStrategyInstructionData> {
+export function getEditStrategyInstructionDataDecoder(): FixedSizeDecoder<EditStrategyInstructionData> {
   return getStructDecoder([
     ["discriminator", getU8Decoder()],
-    ["editStrategyParams", getEditStrategyParamsDecoder()],
+    ["newLimitPriceLots", getI64Decoder()],
+    ["newTakeProfitPrice", getI64Decoder()],
+    ["newStopLossPrice", getI64Decoder()],
+    ["newSizeLots", getI64Decoder()],
+    ["newCooldownSecs", getU64Decoder()],
+    ["newMaxExecutionsPerDay", getU64Decoder()],
+    ["newStatus", getU8Decoder()],
+    ["padding", fixDecoderSize(getBytesDecoder(), 7)],
   ]);
 }
 
-export function getEditStrategyInstructionDataCodec(): Codec<
+export function getEditStrategyInstructionDataCodec(): FixedSizeCodec<
   EditStrategyInstructionDataArgs,
   EditStrategyInstructionData
 > {
@@ -111,7 +141,14 @@ export type EditStrategyInput<
   signer: TransactionSigner<TAccountSigner>;
   /** Strategy account PDA */
   strategyAccount: Address<TAccountStrategyAccount>;
-  editStrategyParams: EditStrategyInstructionDataArgs["editStrategyParams"];
+  newLimitPriceLots: EditStrategyInstructionDataArgs["newLimitPriceLots"];
+  newTakeProfitPrice: EditStrategyInstructionDataArgs["newTakeProfitPrice"];
+  newStopLossPrice: EditStrategyInstructionDataArgs["newStopLossPrice"];
+  newSizeLots: EditStrategyInstructionDataArgs["newSizeLots"];
+  newCooldownSecs: EditStrategyInstructionDataArgs["newCooldownSecs"];
+  newMaxExecutionsPerDay: EditStrategyInstructionDataArgs["newMaxExecutionsPerDay"];
+  newStatus: EditStrategyInstructionDataArgs["newStatus"];
+  padding: EditStrategyInstructionDataArgs["padding"];
 };
 
 export function getEditStrategyInstruction<

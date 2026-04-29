@@ -23,6 +23,9 @@ export type ExecuteStrategyParams = {
   bumpTriggerTp: number;
   bumpTriggerSl: number;
   bumpAuthority: number;
+  bumpTriggerAuthority: number;
+  bumpTpFillsLog: number;
+  bumpSlFillsLog: number;
   padding: ReadonlyUint8Array;
 };
 
@@ -36,7 +39,10 @@ export function getExecuteStrategyParamsEncoder(): FixedSizeEncoder<ExecuteStrat
     ["bumpTriggerTp", getU8Encoder()],
     ["bumpTriggerSl", getU8Encoder()],
     ["bumpAuthority", getU8Encoder()],
-    ["padding", fixEncoderSize(getBytesEncoder(), 1)],
+    ["bumpTriggerAuthority", getU8Encoder()],
+    ["bumpTpFillsLog", getU8Encoder()],
+    ["bumpSlFillsLog", getU8Encoder()],
+    ["padding", fixEncoderSize(getBytesEncoder(), 7)],
   ]);
 }
 
@@ -48,7 +54,10 @@ export function getExecuteStrategyParamsDecoder(): FixedSizeDecoder<ExecuteStrat
     ["bumpTriggerTp", getU8Decoder()],
     ["bumpTriggerSl", getU8Decoder()],
     ["bumpAuthority", getU8Decoder()],
-    ["padding", fixDecoderSize(getBytesDecoder(), 1)],
+    ["bumpTriggerAuthority", getU8Decoder()],
+    ["bumpTpFillsLog", getU8Decoder()],
+    ["bumpSlFillsLog", getU8Decoder()],
+    ["padding", fixDecoderSize(getBytesDecoder(), 7)],
   ]);
 }
 

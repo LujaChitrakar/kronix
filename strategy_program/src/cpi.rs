@@ -167,6 +167,10 @@ pub fn place_trigger_order_cpi(
     system_program: &AccountView,
     trigger_order: &AccountView,
     open_orders_account: &AccountView,
+    trigger_authority: &AccountView,
+    trigger_fills_log: &AccountView,
+    market: &AccountView,
+    orderbook_program: &AccountView,
     client_order_id: u64,
     trigger_price: i64,
     size_lots: i64,
@@ -175,6 +179,8 @@ pub fn place_trigger_order_cpi(
     trigger_type: u8, // 0=StopLoss, 1=TakeProfit
     side: u8,         // 0=Buy, 1=Sell
     trigger_bump: u8,
+    bump_trigger_authority: u8,
+    bump_fills_log: u8,
     bump_authority: u8,
     owner_pubkey: [u8; 32],
 ) -> ProgramResult {
@@ -187,7 +193,9 @@ pub fn place_trigger_order_cpi(
         trigger_type,
         side,
         bump: trigger_bump,
-        padding: [0; 3],
+        bump_authority: bump_trigger_authority,
+        bump_fills_log,
+        padding: [0; 1],
     };
 
     let params_bytes = bytemuck::bytes_of(&params);
@@ -200,6 +208,10 @@ pub fn place_trigger_order_cpi(
         InstructionAccount::new(strategy_authority.address(), true, true),
         InstructionAccount::new(trigger_order.address(), true, false),
         InstructionAccount::new(open_orders_account.address(), true, false),
+        InstructionAccount::new(trigger_authority.address(), false, false),
+        InstructionAccount::new(trigger_fills_log.address(), true, false),
+        InstructionAccount::new(market.address(), false, false),
+        InstructionAccount::new(orderbook_program.address(), false, false),
         InstructionAccount::new(system_program.address(), false, false),
     ];
 
@@ -207,6 +219,10 @@ pub fn place_trigger_order_cpi(
         strategy_authority,
         trigger_order,
         open_orders_account,
+        trigger_authority,
+        trigger_fills_log,
+        market,
+        orderbook_program,
         system_program,
     ];
 
@@ -223,7 +239,7 @@ pub fn place_trigger_order_cpi(
         Seed::from(bump_bytes.as_ref()),
     ];
 
-    invoke_signed::<4>(&ix, &account_infos, &[Signer::from(&seeds)])?;
+    invoke_signed::<8>(&ix, &account_infos, &[Signer::from(&seeds)])?;
 
     Ok(())
 }

@@ -14,16 +14,26 @@ import {
   SOLANA_ERROR__PROGRAM_CLIENTS__UNRECOGNIZED_INSTRUCTION_TYPE,
   SolanaError,
   type Address,
+  type ClientWithRpc,
   type ClientWithTransactionPlanning,
   type ClientWithTransactionSending,
+  type GetAccountInfoApi,
+  type GetMultipleAccountsApi,
   type Instruction,
   type InstructionWithData,
   type ReadonlyUint8Array,
 } from "@solana/kit";
 import {
+  addSelfFetchFunctions,
   addSelfPlanAndSendFunctions,
+  type SelfFetchFunctions,
   type SelfPlanAndSendFunctions,
 } from "@solana/program-client-core";
+import {
+  getStrategyAccountCodec,
+  type StrategyAccount,
+  type StrategyAccountArgs,
+} from "../accounts";
 import {
   getCloseStrategyInstruction,
   getCreateStrategyInstruction,
@@ -53,6 +63,10 @@ import {
 
 export const STRATEGY_PROGRAM_PROGRAM_ADDRESS =
   "7jUHqPKWF4ebe4gSRMwy1FfAWyuiQjpjTdzqtbMK6S9q" as Address<"7jUHqPKWF4ebe4gSRMwy1FfAWyuiQjpjTdzqtbMK6S9q">;
+
+export enum StrategyProgramAccount {
+  StrategyAccount,
+}
 
 export enum StrategyProgramInstruction {
   CreateStrategy,
@@ -172,7 +186,13 @@ export function parseStrategyProgramInstruction<TProgram extends string>(
 }
 
 export type StrategyProgramPlugin = {
+  accounts: StrategyProgramPluginAccounts;
   instructions: StrategyProgramPluginInstructions;
+};
+
+export type StrategyProgramPluginAccounts = {
+  strategyAccount: ReturnType<typeof getStrategyAccountCodec> &
+    SelfFetchFunctions<StrategyAccountArgs, StrategyAccount>;
 };
 
 export type StrategyProgramPluginInstructions = {
@@ -201,7 +221,10 @@ export type StrategyProgramPluginInstructions = {
     SelfPlanAndSendFunctions;
 };
 
-export type StrategyProgramPluginRequirements = ClientWithTransactionPlanning &
+export type StrategyProgramPluginRequirements = ClientWithRpc<
+  GetAccountInfoApi & GetMultipleAccountsApi
+> &
+  ClientWithTransactionPlanning &
   ClientWithTransactionSending;
 
 export function strategyProgramProgram() {
@@ -209,6 +232,12 @@ export function strategyProgramProgram() {
     return {
       ...client,
       strategyProgram: <StrategyProgramPlugin>{
+        accounts: {
+          strategyAccount: addSelfFetchFunctions(
+            client,
+            getStrategyAccountCodec(),
+          ),
+        },
         instructions: {
           createStrategy: (input) =>
             addSelfPlanAndSendFunctions(

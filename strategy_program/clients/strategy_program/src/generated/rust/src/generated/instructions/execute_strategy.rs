@@ -5,7 +5,6 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use crate::generated::types::ExecuteStrategyParams;
 use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
@@ -139,13 +138,13 @@ impl ExecuteStrategy {
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
  pub struct ExecuteStrategyInstructionData {
             discriminator: u8,
-            }
+                                                }
 
 impl ExecuteStrategyInstructionData {
   pub fn new() -> Self {
     Self {
                         discriminator: 2,
-                                }
+                                                                                                                    }
   }
 
     pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
@@ -161,7 +160,13 @@ impl Default for ExecuteStrategyInstructionData {
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
  pub struct ExecuteStrategyInstructionArgs {
-                  pub execute_strategy_params: ExecuteStrategyParams,
+                  pub signal: u8,
+                pub bump_oo_account: u8,
+                pub bump_fills_log: u8,
+                pub bump_trigger_tp: u8,
+                pub bump_trigger_sl: u8,
+                pub bump_authority: u8,
+                pub padding: [u8; 1],
       }
 
 impl ExecuteStrategyInstructionArgs {
@@ -199,7 +204,13 @@ pub struct ExecuteStrategyBuilder {
                 fills_log: Option<solana_address::Address>,
                 orderbook_program: Option<solana_address::Address>,
                 system_program: Option<solana_address::Address>,
-                        execute_strategy_params: Option<ExecuteStrategyParams>,
+                        signal: Option<u8>,
+                bump_oo_account: Option<u8>,
+                bump_fills_log: Option<u8>,
+                bump_trigger_tp: Option<u8>,
+                bump_trigger_sl: Option<u8>,
+                bump_authority: Option<u8>,
+                padding: Option<[u8; 1]>,
         __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
@@ -275,8 +286,38 @@ impl ExecuteStrategyBuilder {
                     self
     }
                     #[inline(always)]
-      pub fn execute_strategy_params(&mut self, execute_strategy_params: ExecuteStrategyParams) -> &mut Self {
-        self.execute_strategy_params = Some(execute_strategy_params);
+      pub fn signal(&mut self, signal: u8) -> &mut Self {
+        self.signal = Some(signal);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_oo_account(&mut self, bump_oo_account: u8) -> &mut Self {
+        self.bump_oo_account = Some(bump_oo_account);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_fills_log(&mut self, bump_fills_log: u8) -> &mut Self {
+        self.bump_fills_log = Some(bump_fills_log);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_trigger_tp(&mut self, bump_trigger_tp: u8) -> &mut Self {
+        self.bump_trigger_tp = Some(bump_trigger_tp);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_trigger_sl(&mut self, bump_trigger_sl: u8) -> &mut Self {
+        self.bump_trigger_sl = Some(bump_trigger_sl);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_authority(&mut self, bump_authority: u8) -> &mut Self {
+        self.bump_authority = Some(bump_authority);
+        self
+      }
+                #[inline(always)]
+      pub fn padding(&mut self, padding: [u8; 1]) -> &mut Self {
+        self.padding = Some(padding);
         self
       }
         /// Add an additional account to the instruction.
@@ -307,7 +348,13 @@ impl ExecuteStrategyBuilder {
                                         system_program: self.system_program.unwrap_or(solana_address::address!("11111111111111111111111111111111")),
                       };
           let args = ExecuteStrategyInstructionArgs {
-                                                              execute_strategy_params: self.execute_strategy_params.clone().expect("execute_strategy_params is not set"),
+                                                              signal: self.signal.clone().expect("signal is not set"),
+                                                                  bump_oo_account: self.bump_oo_account.clone().expect("bump_oo_account is not set"),
+                                                                  bump_fills_log: self.bump_fills_log.clone().expect("bump_fills_log is not set"),
+                                                                  bump_trigger_tp: self.bump_trigger_tp.clone().expect("bump_trigger_tp is not set"),
+                                                                  bump_trigger_sl: self.bump_trigger_sl.clone().expect("bump_trigger_sl is not set"),
+                                                                  bump_authority: self.bump_authority.clone().expect("bump_authority is not set"),
+                                                                  padding: self.padding.clone().expect("padding is not set"),
                                     };
     
     accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
@@ -597,7 +644,13 @@ impl<'a, 'b> ExecuteStrategyCpiBuilder<'a, 'b> {
               fills_log: None,
               orderbook_program: None,
               system_program: None,
-                                            execute_strategy_params: None,
+                                            signal: None,
+                                bump_oo_account: None,
+                                bump_fills_log: None,
+                                bump_trigger_tp: None,
+                                bump_trigger_sl: None,
+                                bump_authority: None,
+                                padding: None,
                     __remaining_accounts: Vec::new(),
     });
     Self { instruction }
@@ -669,8 +722,38 @@ impl<'a, 'b> ExecuteStrategyCpiBuilder<'a, 'b> {
                     self
     }
                     #[inline(always)]
-      pub fn execute_strategy_params(&mut self, execute_strategy_params: ExecuteStrategyParams) -> &mut Self {
-        self.instruction.execute_strategy_params = Some(execute_strategy_params);
+      pub fn signal(&mut self, signal: u8) -> &mut Self {
+        self.instruction.signal = Some(signal);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_oo_account(&mut self, bump_oo_account: u8) -> &mut Self {
+        self.instruction.bump_oo_account = Some(bump_oo_account);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_fills_log(&mut self, bump_fills_log: u8) -> &mut Self {
+        self.instruction.bump_fills_log = Some(bump_fills_log);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_trigger_tp(&mut self, bump_trigger_tp: u8) -> &mut Self {
+        self.instruction.bump_trigger_tp = Some(bump_trigger_tp);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_trigger_sl(&mut self, bump_trigger_sl: u8) -> &mut Self {
+        self.instruction.bump_trigger_sl = Some(bump_trigger_sl);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_authority(&mut self, bump_authority: u8) -> &mut Self {
+        self.instruction.bump_authority = Some(bump_authority);
+        self
+      }
+                #[inline(always)]
+      pub fn padding(&mut self, padding: [u8; 1]) -> &mut Self {
+        self.instruction.padding = Some(padding);
         self
       }
         /// Add an additional account to the instruction.
@@ -696,7 +779,13 @@ impl<'a, 'b> ExecuteStrategyCpiBuilder<'a, 'b> {
   #[allow(clippy::vec_init_then_push)]
   pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
           let args = ExecuteStrategyInstructionArgs {
-                                                              execute_strategy_params: self.instruction.execute_strategy_params.clone().expect("execute_strategy_params is not set"),
+                                                              signal: self.instruction.signal.clone().expect("signal is not set"),
+                                                                  bump_oo_account: self.instruction.bump_oo_account.clone().expect("bump_oo_account is not set"),
+                                                                  bump_fills_log: self.instruction.bump_fills_log.clone().expect("bump_fills_log is not set"),
+                                                                  bump_trigger_tp: self.instruction.bump_trigger_tp.clone().expect("bump_trigger_tp is not set"),
+                                                                  bump_trigger_sl: self.instruction.bump_trigger_sl.clone().expect("bump_trigger_sl is not set"),
+                                                                  bump_authority: self.instruction.bump_authority.clone().expect("bump_authority is not set"),
+                                                                  padding: self.instruction.padding.clone().expect("padding is not set"),
                                     };
         let instruction = ExecuteStrategyCpi {
         __program: self.instruction.__program,
@@ -742,7 +831,13 @@ struct ExecuteStrategyCpiBuilderInstruction<'a, 'b> {
                 fills_log: Option<&'b solana_account_info::AccountInfo<'a>>,
                 orderbook_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                 system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
-                        execute_strategy_params: Option<ExecuteStrategyParams>,
+                        signal: Option<u8>,
+                bump_oo_account: Option<u8>,
+                bump_fills_log: Option<u8>,
+                bump_trigger_tp: Option<u8>,
+                bump_trigger_sl: Option<u8>,
+                bump_authority: Option<u8>,
+                padding: Option<[u8; 1]>,
         /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
   __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }

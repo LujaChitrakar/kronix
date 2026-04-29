@@ -22,6 +22,46 @@
           ]
         },
         {
+          "name": "strategyAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Strategy authority PDA (taker for fills_log + OO delegate)"
+          ]
+        },
+        {
+          "name": "openOrdersAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Open orders account PDA"
+          ]
+        },
+        {
+          "name": "fillsLog",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "FillsLog PDA (initialized via CPI)"
+          ]
+        },
+        {
+          "name": "market",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Market state PDA"
+          ]
+        },
+        {
+          "name": "orderbookProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Orderbook program (CPI)"
+          ]
+        },
+        {
           "name": "systemProgram",
           "isMut": false,
           "isSigner": false,
@@ -260,7 +300,7 @@
       }
     }
   ],
-  "types": [
+  "accounts": [
     {
       "name": "StrategyAccount",
       "type": {
@@ -303,6 +343,14 @@
             "type": "u64"
           },
           {
+            "name": "maxExecutionsPerDay",
+            "type": "u64"
+          },
+          {
+            "name": "executionsToday",
+            "type": "u64"
+          },
+          {
             "name": "strategyType",
             "type": "u8"
           },
@@ -317,14 +365,6 @@
           {
             "name": "side",
             "type": "u8"
-          },
-          {
-            "name": "maxExecutionsPerDay",
-            "type": "u32"
-          },
-          {
-            "name": "executionsToday",
-            "type": "u32"
           },
           {
             "name": "marketIndex",
@@ -360,6 +400,169 @@
               "array": [
                 "u8",
                 32
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "CreateStrategyParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "clientOrderId",
+            "type": "u64"
+          },
+          {
+            "name": "sizeLots",
+            "type": "i64"
+          },
+          {
+            "name": "limitPriceLots",
+            "type": "i64"
+          },
+          {
+            "name": "takeProfitPrice",
+            "type": "i64"
+          },
+          {
+            "name": "stopLossPrice",
+            "type": "i64"
+          },
+          {
+            "name": "cooldownSecs",
+            "type": "u64"
+          },
+          {
+            "name": "maxExecutionsPerDay",
+            "type": "u64"
+          },
+          {
+            "name": "marketIndex",
+            "type": "u16"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "strategyType",
+            "type": "u8"
+          },
+          {
+            "name": "side",
+            "type": "u8"
+          },
+          {
+            "name": "bumpAuthority",
+            "type": "u8"
+          },
+          {
+            "name": "bumpFillsLog",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                1
+              ]
+            }
+          },
+          {
+            "name": "params",
+            "type": {
+              "defined": "StrategyParams"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "EditStrategyParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "newLimitPriceLots",
+            "type": "i64"
+          },
+          {
+            "name": "newTakeProfitPrice",
+            "type": "i64"
+          },
+          {
+            "name": "newStopLossPrice",
+            "type": "i64"
+          },
+          {
+            "name": "newSizeLots",
+            "type": "i64"
+          },
+          {
+            "name": "newCooldownSecs",
+            "type": "u64"
+          },
+          {
+            "name": "newMaxExecutionsPerDay",
+            "type": "u64"
+          },
+          {
+            "name": "newStatus",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                7
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ExecuteStrategyParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "signal",
+            "type": "u8"
+          },
+          {
+            "name": "bumpOoAccount",
+            "type": "u8"
+          },
+          {
+            "name": "bumpFillsLog",
+            "type": "u8"
+          },
+          {
+            "name": "bumpTriggerTp",
+            "type": "u8"
+          },
+          {
+            "name": "bumpTriggerSl",
+            "type": "u8"
+          },
+          {
+            "name": "bumpAuthority",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                1
               ]
             }
           }

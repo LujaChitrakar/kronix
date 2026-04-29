@@ -8,6 +8,10 @@
 
 import {
   combineCodec,
+  fixDecoderSize,
+  fixEncoderSize,
+  getBytesDecoder,
+  getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
   getU8Decoder,
@@ -18,9 +22,9 @@ import {
   type AccountMeta,
   type AccountSignerMeta,
   type Address,
-  type Codec,
-  type Decoder,
-  type Encoder,
+  type FixedSizeCodec,
+  type FixedSizeDecoder,
+  type FixedSizeEncoder,
   type Instruction,
   type InstructionWithAccounts,
   type InstructionWithData,
@@ -35,12 +39,6 @@ import {
   type ResolvedInstructionAccount,
 } from "@solana/program-client-core";
 import { STRATEGY_PROGRAM_PROGRAM_ADDRESS } from "../programs";
-import {
-  getExecuteStrategyParamsDecoder,
-  getExecuteStrategyParamsEncoder,
-  type ExecuteStrategyParams,
-  type ExecuteStrategyParamsArgs,
-} from "../types";
 
 export const EXECUTE_STRATEGY_DISCRIMINATOR = 2;
 
@@ -108,31 +106,55 @@ export type ExecuteStrategyInstruction<
 
 export type ExecuteStrategyInstructionData = {
   discriminator: number;
-  executeStrategyParams: ExecuteStrategyParams;
+  signal: number;
+  bumpOoAccount: number;
+  bumpFillsLog: number;
+  bumpTriggerTp: number;
+  bumpTriggerSl: number;
+  bumpAuthority: number;
+  padding: ReadonlyUint8Array;
 };
 
 export type ExecuteStrategyInstructionDataArgs = {
-  executeStrategyParams: ExecuteStrategyParamsArgs;
+  signal: number;
+  bumpOoAccount: number;
+  bumpFillsLog: number;
+  bumpTriggerTp: number;
+  bumpTriggerSl: number;
+  bumpAuthority: number;
+  padding: ReadonlyUint8Array;
 };
 
-export function getExecuteStrategyInstructionDataEncoder(): Encoder<ExecuteStrategyInstructionDataArgs> {
+export function getExecuteStrategyInstructionDataEncoder(): FixedSizeEncoder<ExecuteStrategyInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", getU8Encoder()],
-      ["executeStrategyParams", getExecuteStrategyParamsEncoder()],
+      ["signal", getU8Encoder()],
+      ["bumpOoAccount", getU8Encoder()],
+      ["bumpFillsLog", getU8Encoder()],
+      ["bumpTriggerTp", getU8Encoder()],
+      ["bumpTriggerSl", getU8Encoder()],
+      ["bumpAuthority", getU8Encoder()],
+      ["padding", fixEncoderSize(getBytesEncoder(), 1)],
     ]),
     (value) => ({ ...value, discriminator: EXECUTE_STRATEGY_DISCRIMINATOR }),
   );
 }
 
-export function getExecuteStrategyInstructionDataDecoder(): Decoder<ExecuteStrategyInstructionData> {
+export function getExecuteStrategyInstructionDataDecoder(): FixedSizeDecoder<ExecuteStrategyInstructionData> {
   return getStructDecoder([
     ["discriminator", getU8Decoder()],
-    ["executeStrategyParams", getExecuteStrategyParamsDecoder()],
+    ["signal", getU8Decoder()],
+    ["bumpOoAccount", getU8Decoder()],
+    ["bumpFillsLog", getU8Decoder()],
+    ["bumpTriggerTp", getU8Decoder()],
+    ["bumpTriggerSl", getU8Decoder()],
+    ["bumpAuthority", getU8Decoder()],
+    ["padding", fixDecoderSize(getBytesDecoder(), 1)],
   ]);
 }
 
-export function getExecuteStrategyInstructionDataCodec(): Codec<
+export function getExecuteStrategyInstructionDataCodec(): FixedSizeCodec<
   ExecuteStrategyInstructionDataArgs,
   ExecuteStrategyInstructionData
 > {
@@ -177,7 +199,13 @@ export type ExecuteStrategyInput<
   orderbookProgram: Address<TAccountOrderbookProgram>;
   /** System program */
   systemProgram?: Address<TAccountSystemProgram>;
-  executeStrategyParams: ExecuteStrategyInstructionDataArgs["executeStrategyParams"];
+  signal: ExecuteStrategyInstructionDataArgs["signal"];
+  bumpOoAccount: ExecuteStrategyInstructionDataArgs["bumpOoAccount"];
+  bumpFillsLog: ExecuteStrategyInstructionDataArgs["bumpFillsLog"];
+  bumpTriggerTp: ExecuteStrategyInstructionDataArgs["bumpTriggerTp"];
+  bumpTriggerSl: ExecuteStrategyInstructionDataArgs["bumpTriggerSl"];
+  bumpAuthority: ExecuteStrategyInstructionDataArgs["bumpAuthority"];
+  padding: ExecuteStrategyInstructionDataArgs["padding"];
 };
 
 export function getExecuteStrategyInstruction<

@@ -37,7 +37,7 @@ pub enum StrategyInstruction {
         desc = "Strategy authority PDA",
         writable
     )]
-    #[account(2, name = "strategy_owner", desc = "Strategy owner", signer, writable)]
+    #[account(2, name = "strategy_owner", desc = "Strategy owner")]
     #[account(3, name = "strategy_account", desc = "Strategy account PDA", writable)]
     #[account(
         4,
@@ -48,9 +48,15 @@ pub enum StrategyInstruction {
     #[account(5, name = "market", desc = "Market PDA", writable)]
     #[account(6, name = "bids", desc = "Bids PDA", writable)]
     #[account(7, name = "asks", desc = "Asks PDA", writable)]
-    #[account(8, name = "fills_log", desc = "Fills log PDA", writable)]
+    #[account(8, name = "fills_log", desc = "Fills log PDA (lazy init)", writable)]
     #[account(9, name = "orderbook_program", desc = "Orderbook Program")]
     #[account(10, name = "system_program", desc = "System program")]
+    #[account(11, name = "trigger_program", desc = "Trigger program (optional, when TP/SL set)", optional)]
+    #[account(12, name = "trigger_authority", desc = "Trigger authority PDA of strategy_authority (optional)", optional)]
+    #[account(13, name = "tp_trigger_order", desc = "TP trigger order PDA (optional)", optional, writable)]
+    #[account(14, name = "tp_fills_log", desc = "TP trigger fills_log PDA (optional)", optional, writable)]
+    #[account(15, name = "sl_trigger_order", desc = "SL trigger order PDA (optional)", optional, writable)]
+    #[account(16, name = "sl_fills_log", desc = "SL trigger fills_log PDA (optional)", optional, writable)]
     ExecuteStrategy(ExecuteStrategyParams),
 
     #[account(0, name = "signer", desc = "Fee payer", signer, writable)]

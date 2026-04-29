@@ -5,7 +5,7 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use crate::generated::types::CreateStrategyParams;
+use crate::generated::types::StrategyParams;
 use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
@@ -24,6 +24,31 @@ pub struct CreateStrategy {
     
               
           pub strategy_account: solana_address::Address,
+                /// Strategy authority PDA (taker for fills_log + OO delegate)
+
+    
+              
+          pub strategy_authority: solana_address::Address,
+                /// Open orders account PDA
+
+    
+              
+          pub open_orders_account: solana_address::Address,
+                /// FillsLog PDA (initialized via CPI)
+
+    
+              
+          pub fills_log: solana_address::Address,
+                /// Market state PDA
+
+    
+              
+          pub market: solana_address::Address,
+                /// Orderbook program (CPI)
+
+    
+              
+          pub orderbook_program: solana_address::Address,
                 /// System program
 
     
@@ -38,13 +63,33 @@ impl CreateStrategy {
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
   pub fn instruction_with_remaining_accounts(&self, args: CreateStrategyInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
-    let mut accounts = Vec::with_capacity(3+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(8+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             self.signer,
             true
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
             self.strategy_account,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.strategy_authority,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new(
+            self.open_orders_account,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new(
+            self.fills_log,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.market,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.orderbook_program,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -67,13 +112,13 @@ impl CreateStrategy {
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
  pub struct CreateStrategyInstructionData {
             discriminator: u8,
-            }
+                                                                                                }
 
 impl CreateStrategyInstructionData {
   pub fn new() -> Self {
     Self {
                         discriminator: 0,
-                                }
+                                                                                                                                                                                                                                    }
   }
 
     pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
@@ -89,7 +134,21 @@ impl Default for CreateStrategyInstructionData {
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
  pub struct CreateStrategyInstructionArgs {
-                  pub create_strategy_params: CreateStrategyParams,
+                  pub client_order_id: u64,
+                pub size_lots: i64,
+                pub limit_price_lots: i64,
+                pub take_profit_price: i64,
+                pub stop_loss_price: i64,
+                pub cooldown_secs: u64,
+                pub max_executions_per_day: u64,
+                pub market_index: u16,
+                pub bump: u8,
+                pub strategy_type: u8,
+                pub side: u8,
+                pub bump_authority: u8,
+                pub bump_fills_log: u8,
+                pub padding: [u8; 1],
+                pub params: StrategyParams,
       }
 
 impl CreateStrategyInstructionArgs {
@@ -105,13 +164,37 @@ impl CreateStrategyInstructionArgs {
 ///
                       ///   0. `[writable, signer]` signer
                 ///   1. `[writable]` strategy_account
-                ///   2. `[optional]` system_program (default to `11111111111111111111111111111111`)
+          ///   2. `[]` strategy_authority
+                ///   3. `[writable]` open_orders_account
+                ///   4. `[writable]` fills_log
+          ///   5. `[]` market
+          ///   6. `[]` orderbook_program
+                ///   7. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct CreateStrategyBuilder {
             signer: Option<solana_address::Address>,
                 strategy_account: Option<solana_address::Address>,
+                strategy_authority: Option<solana_address::Address>,
+                open_orders_account: Option<solana_address::Address>,
+                fills_log: Option<solana_address::Address>,
+                market: Option<solana_address::Address>,
+                orderbook_program: Option<solana_address::Address>,
                 system_program: Option<solana_address::Address>,
-                        create_strategy_params: Option<CreateStrategyParams>,
+                        client_order_id: Option<u64>,
+                size_lots: Option<i64>,
+                limit_price_lots: Option<i64>,
+                take_profit_price: Option<i64>,
+                stop_loss_price: Option<i64>,
+                cooldown_secs: Option<u64>,
+                max_executions_per_day: Option<u64>,
+                market_index: Option<u16>,
+                bump: Option<u8>,
+                strategy_type: Option<u8>,
+                side: Option<u8>,
+                bump_authority: Option<u8>,
+                bump_fills_log: Option<u8>,
+                padding: Option<[u8; 1]>,
+                params: Option<StrategyParams>,
         __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
@@ -131,6 +214,36 @@ impl CreateStrategyBuilder {
                         self.strategy_account = Some(strategy_account);
                     self
     }
+            /// Strategy authority PDA (taker for fills_log + OO delegate)
+#[inline(always)]
+    pub fn strategy_authority(&mut self, strategy_authority: solana_address::Address) -> &mut Self {
+                        self.strategy_authority = Some(strategy_authority);
+                    self
+    }
+            /// Open orders account PDA
+#[inline(always)]
+    pub fn open_orders_account(&mut self, open_orders_account: solana_address::Address) -> &mut Self {
+                        self.open_orders_account = Some(open_orders_account);
+                    self
+    }
+            /// FillsLog PDA (initialized via CPI)
+#[inline(always)]
+    pub fn fills_log(&mut self, fills_log: solana_address::Address) -> &mut Self {
+                        self.fills_log = Some(fills_log);
+                    self
+    }
+            /// Market state PDA
+#[inline(always)]
+    pub fn market(&mut self, market: solana_address::Address) -> &mut Self {
+                        self.market = Some(market);
+                    self
+    }
+            /// Orderbook program (CPI)
+#[inline(always)]
+    pub fn orderbook_program(&mut self, orderbook_program: solana_address::Address) -> &mut Self {
+                        self.orderbook_program = Some(orderbook_program);
+                    self
+    }
             /// `[optional account, default to '11111111111111111111111111111111']`
 /// System program
 #[inline(always)]
@@ -139,8 +252,78 @@ impl CreateStrategyBuilder {
                     self
     }
                     #[inline(always)]
-      pub fn create_strategy_params(&mut self, create_strategy_params: CreateStrategyParams) -> &mut Self {
-        self.create_strategy_params = Some(create_strategy_params);
+      pub fn client_order_id(&mut self, client_order_id: u64) -> &mut Self {
+        self.client_order_id = Some(client_order_id);
+        self
+      }
+                #[inline(always)]
+      pub fn size_lots(&mut self, size_lots: i64) -> &mut Self {
+        self.size_lots = Some(size_lots);
+        self
+      }
+                #[inline(always)]
+      pub fn limit_price_lots(&mut self, limit_price_lots: i64) -> &mut Self {
+        self.limit_price_lots = Some(limit_price_lots);
+        self
+      }
+                #[inline(always)]
+      pub fn take_profit_price(&mut self, take_profit_price: i64) -> &mut Self {
+        self.take_profit_price = Some(take_profit_price);
+        self
+      }
+                #[inline(always)]
+      pub fn stop_loss_price(&mut self, stop_loss_price: i64) -> &mut Self {
+        self.stop_loss_price = Some(stop_loss_price);
+        self
+      }
+                #[inline(always)]
+      pub fn cooldown_secs(&mut self, cooldown_secs: u64) -> &mut Self {
+        self.cooldown_secs = Some(cooldown_secs);
+        self
+      }
+                #[inline(always)]
+      pub fn max_executions_per_day(&mut self, max_executions_per_day: u64) -> &mut Self {
+        self.max_executions_per_day = Some(max_executions_per_day);
+        self
+      }
+                #[inline(always)]
+      pub fn market_index(&mut self, market_index: u16) -> &mut Self {
+        self.market_index = Some(market_index);
+        self
+      }
+                #[inline(always)]
+      pub fn bump(&mut self, bump: u8) -> &mut Self {
+        self.bump = Some(bump);
+        self
+      }
+                #[inline(always)]
+      pub fn strategy_type(&mut self, strategy_type: u8) -> &mut Self {
+        self.strategy_type = Some(strategy_type);
+        self
+      }
+                #[inline(always)]
+      pub fn side(&mut self, side: u8) -> &mut Self {
+        self.side = Some(side);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_authority(&mut self, bump_authority: u8) -> &mut Self {
+        self.bump_authority = Some(bump_authority);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_fills_log(&mut self, bump_fills_log: u8) -> &mut Self {
+        self.bump_fills_log = Some(bump_fills_log);
+        self
+      }
+                #[inline(always)]
+      pub fn padding(&mut self, padding: [u8; 1]) -> &mut Self {
+        self.padding = Some(padding);
+        self
+      }
+                #[inline(always)]
+      pub fn params(&mut self, params: StrategyParams) -> &mut Self {
+        self.params = Some(params);
         self
       }
         /// Add an additional account to the instruction.
@@ -160,10 +343,29 @@ impl CreateStrategyBuilder {
     let accounts = CreateStrategy {
                               signer: self.signer.expect("signer is not set"),
                                         strategy_account: self.strategy_account.expect("strategy_account is not set"),
+                                        strategy_authority: self.strategy_authority.expect("strategy_authority is not set"),
+                                        open_orders_account: self.open_orders_account.expect("open_orders_account is not set"),
+                                        fills_log: self.fills_log.expect("fills_log is not set"),
+                                        market: self.market.expect("market is not set"),
+                                        orderbook_program: self.orderbook_program.expect("orderbook_program is not set"),
                                         system_program: self.system_program.unwrap_or(solana_address::address!("11111111111111111111111111111111")),
                       };
           let args = CreateStrategyInstructionArgs {
-                                                              create_strategy_params: self.create_strategy_params.clone().expect("create_strategy_params is not set"),
+                                                              client_order_id: self.client_order_id.clone().expect("client_order_id is not set"),
+                                                                  size_lots: self.size_lots.clone().expect("size_lots is not set"),
+                                                                  limit_price_lots: self.limit_price_lots.clone().expect("limit_price_lots is not set"),
+                                                                  take_profit_price: self.take_profit_price.clone().expect("take_profit_price is not set"),
+                                                                  stop_loss_price: self.stop_loss_price.clone().expect("stop_loss_price is not set"),
+                                                                  cooldown_secs: self.cooldown_secs.clone().expect("cooldown_secs is not set"),
+                                                                  max_executions_per_day: self.max_executions_per_day.clone().expect("max_executions_per_day is not set"),
+                                                                  market_index: self.market_index.clone().expect("market_index is not set"),
+                                                                  bump: self.bump.clone().expect("bump is not set"),
+                                                                  strategy_type: self.strategy_type.clone().expect("strategy_type is not set"),
+                                                                  side: self.side.clone().expect("side is not set"),
+                                                                  bump_authority: self.bump_authority.clone().expect("bump_authority is not set"),
+                                                                  bump_fills_log: self.bump_fills_log.clone().expect("bump_fills_log is not set"),
+                                                                  padding: self.padding.clone().expect("padding is not set"),
+                                                                  params: self.params.clone().expect("params is not set"),
                                     };
     
     accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
@@ -182,6 +384,31 @@ impl CreateStrategyBuilder {
       
                     
               pub strategy_account: &'b solana_account_info::AccountInfo<'a>,
+                        /// Strategy authority PDA (taker for fills_log + OO delegate)
+
+      
+                    
+              pub strategy_authority: &'b solana_account_info::AccountInfo<'a>,
+                        /// Open orders account PDA
+
+      
+                    
+              pub open_orders_account: &'b solana_account_info::AccountInfo<'a>,
+                        /// FillsLog PDA (initialized via CPI)
+
+      
+                    
+              pub fills_log: &'b solana_account_info::AccountInfo<'a>,
+                        /// Market state PDA
+
+      
+                    
+              pub market: &'b solana_account_info::AccountInfo<'a>,
+                        /// Orderbook program (CPI)
+
+      
+                    
+              pub orderbook_program: &'b solana_account_info::AccountInfo<'a>,
                         /// System program
 
       
@@ -203,6 +430,31 @@ pub struct CreateStrategyCpi<'a, 'b> {
     
               
           pub strategy_account: &'b solana_account_info::AccountInfo<'a>,
+                /// Strategy authority PDA (taker for fills_log + OO delegate)
+
+    
+              
+          pub strategy_authority: &'b solana_account_info::AccountInfo<'a>,
+                /// Open orders account PDA
+
+    
+              
+          pub open_orders_account: &'b solana_account_info::AccountInfo<'a>,
+                /// FillsLog PDA (initialized via CPI)
+
+    
+              
+          pub fills_log: &'b solana_account_info::AccountInfo<'a>,
+                /// Market state PDA
+
+    
+              
+          pub market: &'b solana_account_info::AccountInfo<'a>,
+                /// Orderbook program (CPI)
+
+    
+              
+          pub orderbook_program: &'b solana_account_info::AccountInfo<'a>,
                 /// System program
 
     
@@ -222,6 +474,11 @@ impl<'a, 'b> CreateStrategyCpi<'a, 'b> {
       __program: program,
               signer: accounts.signer,
               strategy_account: accounts.strategy_account,
+              strategy_authority: accounts.strategy_authority,
+              open_orders_account: accounts.open_orders_account,
+              fills_log: accounts.fills_log,
+              market: accounts.market,
+              orderbook_program: accounts.orderbook_program,
               system_program: accounts.system_program,
                     __args: args,
           }
@@ -246,13 +503,33 @@ impl<'a, 'b> CreateStrategyCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program_error::ProgramResult {
-    let mut accounts = Vec::with_capacity(3+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(8+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             *self.signer.key,
             true
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
             *self.strategy_account.key,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.strategy_authority.key,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new(
+            *self.open_orders_account.key,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new(
+            *self.fills_log.key,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.market.key,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.orderbook_program.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -275,10 +552,15 @@ impl<'a, 'b> CreateStrategyCpi<'a, 'b> {
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(4 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(9 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
                   account_infos.push(self.signer.clone());
                         account_infos.push(self.strategy_account.clone());
+                        account_infos.push(self.strategy_authority.clone());
+                        account_infos.push(self.open_orders_account.clone());
+                        account_infos.push(self.fills_log.clone());
+                        account_infos.push(self.market.clone());
+                        account_infos.push(self.orderbook_program.clone());
                         account_infos.push(self.system_program.clone());
               remaining_accounts.iter().for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
 
@@ -296,7 +578,12 @@ impl<'a, 'b> CreateStrategyCpi<'a, 'b> {
 ///
                       ///   0. `[writable, signer]` signer
                 ///   1. `[writable]` strategy_account
-          ///   2. `[]` system_program
+          ///   2. `[]` strategy_authority
+                ///   3. `[writable]` open_orders_account
+                ///   4. `[writable]` fills_log
+          ///   5. `[]` market
+          ///   6. `[]` orderbook_program
+          ///   7. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct CreateStrategyCpiBuilder<'a, 'b> {
   instruction: Box<CreateStrategyCpiBuilderInstruction<'a, 'b>>,
@@ -308,8 +595,27 @@ impl<'a, 'b> CreateStrategyCpiBuilder<'a, 'b> {
       __program: program,
               signer: None,
               strategy_account: None,
+              strategy_authority: None,
+              open_orders_account: None,
+              fills_log: None,
+              market: None,
+              orderbook_program: None,
               system_program: None,
-                                            create_strategy_params: None,
+                                            client_order_id: None,
+                                size_lots: None,
+                                limit_price_lots: None,
+                                take_profit_price: None,
+                                stop_loss_price: None,
+                                cooldown_secs: None,
+                                max_executions_per_day: None,
+                                market_index: None,
+                                bump: None,
+                                strategy_type: None,
+                                side: None,
+                                bump_authority: None,
+                                bump_fills_log: None,
+                                padding: None,
+                                params: None,
                     __remaining_accounts: Vec::new(),
     });
     Self { instruction }
@@ -326,6 +632,36 @@ impl<'a, 'b> CreateStrategyCpiBuilder<'a, 'b> {
                         self.instruction.strategy_account = Some(strategy_account);
                     self
     }
+      /// Strategy authority PDA (taker for fills_log + OO delegate)
+#[inline(always)]
+    pub fn strategy_authority(&mut self, strategy_authority: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.strategy_authority = Some(strategy_authority);
+                    self
+    }
+      /// Open orders account PDA
+#[inline(always)]
+    pub fn open_orders_account(&mut self, open_orders_account: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.open_orders_account = Some(open_orders_account);
+                    self
+    }
+      /// FillsLog PDA (initialized via CPI)
+#[inline(always)]
+    pub fn fills_log(&mut self, fills_log: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.fills_log = Some(fills_log);
+                    self
+    }
+      /// Market state PDA
+#[inline(always)]
+    pub fn market(&mut self, market: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.market = Some(market);
+                    self
+    }
+      /// Orderbook program (CPI)
+#[inline(always)]
+    pub fn orderbook_program(&mut self, orderbook_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.orderbook_program = Some(orderbook_program);
+                    self
+    }
       /// System program
 #[inline(always)]
     pub fn system_program(&mut self, system_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
@@ -333,8 +669,78 @@ impl<'a, 'b> CreateStrategyCpiBuilder<'a, 'b> {
                     self
     }
                     #[inline(always)]
-      pub fn create_strategy_params(&mut self, create_strategy_params: CreateStrategyParams) -> &mut Self {
-        self.instruction.create_strategy_params = Some(create_strategy_params);
+      pub fn client_order_id(&mut self, client_order_id: u64) -> &mut Self {
+        self.instruction.client_order_id = Some(client_order_id);
+        self
+      }
+                #[inline(always)]
+      pub fn size_lots(&mut self, size_lots: i64) -> &mut Self {
+        self.instruction.size_lots = Some(size_lots);
+        self
+      }
+                #[inline(always)]
+      pub fn limit_price_lots(&mut self, limit_price_lots: i64) -> &mut Self {
+        self.instruction.limit_price_lots = Some(limit_price_lots);
+        self
+      }
+                #[inline(always)]
+      pub fn take_profit_price(&mut self, take_profit_price: i64) -> &mut Self {
+        self.instruction.take_profit_price = Some(take_profit_price);
+        self
+      }
+                #[inline(always)]
+      pub fn stop_loss_price(&mut self, stop_loss_price: i64) -> &mut Self {
+        self.instruction.stop_loss_price = Some(stop_loss_price);
+        self
+      }
+                #[inline(always)]
+      pub fn cooldown_secs(&mut self, cooldown_secs: u64) -> &mut Self {
+        self.instruction.cooldown_secs = Some(cooldown_secs);
+        self
+      }
+                #[inline(always)]
+      pub fn max_executions_per_day(&mut self, max_executions_per_day: u64) -> &mut Self {
+        self.instruction.max_executions_per_day = Some(max_executions_per_day);
+        self
+      }
+                #[inline(always)]
+      pub fn market_index(&mut self, market_index: u16) -> &mut Self {
+        self.instruction.market_index = Some(market_index);
+        self
+      }
+                #[inline(always)]
+      pub fn bump(&mut self, bump: u8) -> &mut Self {
+        self.instruction.bump = Some(bump);
+        self
+      }
+                #[inline(always)]
+      pub fn strategy_type(&mut self, strategy_type: u8) -> &mut Self {
+        self.instruction.strategy_type = Some(strategy_type);
+        self
+      }
+                #[inline(always)]
+      pub fn side(&mut self, side: u8) -> &mut Self {
+        self.instruction.side = Some(side);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_authority(&mut self, bump_authority: u8) -> &mut Self {
+        self.instruction.bump_authority = Some(bump_authority);
+        self
+      }
+                #[inline(always)]
+      pub fn bump_fills_log(&mut self, bump_fills_log: u8) -> &mut Self {
+        self.instruction.bump_fills_log = Some(bump_fills_log);
+        self
+      }
+                #[inline(always)]
+      pub fn padding(&mut self, padding: [u8; 1]) -> &mut Self {
+        self.instruction.padding = Some(padding);
+        self
+      }
+                #[inline(always)]
+      pub fn params(&mut self, params: StrategyParams) -> &mut Self {
+        self.instruction.params = Some(params);
         self
       }
         /// Add an additional account to the instruction.
@@ -360,7 +766,21 @@ impl<'a, 'b> CreateStrategyCpiBuilder<'a, 'b> {
   #[allow(clippy::vec_init_then_push)]
   pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
           let args = CreateStrategyInstructionArgs {
-                                                              create_strategy_params: self.instruction.create_strategy_params.clone().expect("create_strategy_params is not set"),
+                                                              client_order_id: self.instruction.client_order_id.clone().expect("client_order_id is not set"),
+                                                                  size_lots: self.instruction.size_lots.clone().expect("size_lots is not set"),
+                                                                  limit_price_lots: self.instruction.limit_price_lots.clone().expect("limit_price_lots is not set"),
+                                                                  take_profit_price: self.instruction.take_profit_price.clone().expect("take_profit_price is not set"),
+                                                                  stop_loss_price: self.instruction.stop_loss_price.clone().expect("stop_loss_price is not set"),
+                                                                  cooldown_secs: self.instruction.cooldown_secs.clone().expect("cooldown_secs is not set"),
+                                                                  max_executions_per_day: self.instruction.max_executions_per_day.clone().expect("max_executions_per_day is not set"),
+                                                                  market_index: self.instruction.market_index.clone().expect("market_index is not set"),
+                                                                  bump: self.instruction.bump.clone().expect("bump is not set"),
+                                                                  strategy_type: self.instruction.strategy_type.clone().expect("strategy_type is not set"),
+                                                                  side: self.instruction.side.clone().expect("side is not set"),
+                                                                  bump_authority: self.instruction.bump_authority.clone().expect("bump_authority is not set"),
+                                                                  bump_fills_log: self.instruction.bump_fills_log.clone().expect("bump_fills_log is not set"),
+                                                                  padding: self.instruction.padding.clone().expect("padding is not set"),
+                                                                  params: self.instruction.params.clone().expect("params is not set"),
                                     };
         let instruction = CreateStrategyCpi {
         __program: self.instruction.__program,
@@ -368,6 +788,16 @@ impl<'a, 'b> CreateStrategyCpiBuilder<'a, 'b> {
           signer: self.instruction.signer.expect("signer is not set"),
                   
           strategy_account: self.instruction.strategy_account.expect("strategy_account is not set"),
+                  
+          strategy_authority: self.instruction.strategy_authority.expect("strategy_authority is not set"),
+                  
+          open_orders_account: self.instruction.open_orders_account.expect("open_orders_account is not set"),
+                  
+          fills_log: self.instruction.fills_log.expect("fills_log is not set"),
+                  
+          market: self.instruction.market.expect("market is not set"),
+                  
+          orderbook_program: self.instruction.orderbook_program.expect("orderbook_program is not set"),
                   
           system_program: self.instruction.system_program.expect("system_program is not set"),
                           __args: args,
@@ -381,8 +811,27 @@ struct CreateStrategyCpiBuilderInstruction<'a, 'b> {
   __program: &'b solana_account_info::AccountInfo<'a>,
             signer: Option<&'b solana_account_info::AccountInfo<'a>>,
                 strategy_account: Option<&'b solana_account_info::AccountInfo<'a>>,
+                strategy_authority: Option<&'b solana_account_info::AccountInfo<'a>>,
+                open_orders_account: Option<&'b solana_account_info::AccountInfo<'a>>,
+                fills_log: Option<&'b solana_account_info::AccountInfo<'a>>,
+                market: Option<&'b solana_account_info::AccountInfo<'a>>,
+                orderbook_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                 system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
-                        create_strategy_params: Option<CreateStrategyParams>,
+                        client_order_id: Option<u64>,
+                size_lots: Option<i64>,
+                limit_price_lots: Option<i64>,
+                take_profit_price: Option<i64>,
+                stop_loss_price: Option<i64>,
+                cooldown_secs: Option<u64>,
+                max_executions_per_day: Option<u64>,
+                market_index: Option<u16>,
+                bump: Option<u8>,
+                strategy_type: Option<u8>,
+                side: Option<u8>,
+                bump_authority: Option<u8>,
+                bump_fills_log: Option<u8>,
+                padding: Option<[u8; 1]>,
+                params: Option<StrategyParams>,
         /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
   __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }

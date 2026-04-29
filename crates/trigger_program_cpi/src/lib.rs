@@ -13,5 +13,7 @@ pub struct PlaceTriggerOrderParams {
     pub trigger_type: u8, // 0=StopLoss, 1=TakeProfit
     pub side: u8,         // 0=Buy, 1=Sell
     pub bump: u8,
-    pub padding: [u8; 3],
+    pub bump_authority: u8,
+    pub bump_fills_log: u8,
+    pub padding: [u8; 1],
 }

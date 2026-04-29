@@ -3,6 +3,8 @@ import { Orderbook } from "@/components/trade/Orderbook";
 import { OrderForm } from "@/components/trade/OrderForm";
 import { TriggerForm } from "@/components/trade/TriggerForm";
 import { TriggerOrders } from "@/components/trade/TriggerOrders";
+import { StrategyForm } from "@/components/trade/StrategyForm";
+import { Strategies } from "@/components/trade/Strategies";
 import { AccountPanel } from "@/components/trade/AccountPanel";
 import { PositionPanel } from "@/components/trade/PositionPanel";
 import { OpenOrders } from "@/components/trade/OpenOrders";
@@ -24,11 +26,13 @@ export default function TradePage() {
           <Orderbook />
           <OpenOrders />
           <TriggerOrders />
+          <Strategies />
         </section>
 
         <section className="lg:col-span-3 flex flex-col gap-4">
           <OrderForm />
           <TriggerForm />
+          <StrategyForm />
         </section>
       </main>
     </div>

@@ -8,8 +8,18 @@
 
 import {
   combineCodec,
+  fixDecoderSize,
+  fixEncoderSize,
+  getBytesDecoder,
+  getBytesEncoder,
+  getI64Decoder,
+  getI64Encoder,
   getStructDecoder,
   getStructEncoder,
+  getU16Decoder,
+  getU16Encoder,
+  getU64Decoder,
+  getU64Encoder,
   getU8Decoder,
   getU8Encoder,
   SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
@@ -36,10 +46,10 @@ import {
 } from "@solana/program-client-core";
 import { STRATEGY_PROGRAM_PROGRAM_ADDRESS } from "../programs";
 import {
-  getCreateStrategyParamsDecoder,
-  getCreateStrategyParamsEncoder,
-  type CreateStrategyParams,
-  type CreateStrategyParamsArgs,
+  getStrategyParamsDecoder,
+  getStrategyParamsEncoder,
+  type StrategyParams,
+  type StrategyParamsArgs,
 } from "../types";
 
 export const CREATE_STRATEGY_DISCRIMINATOR = 0;
@@ -52,6 +62,11 @@ export type CreateStrategyInstruction<
   TProgram extends string = typeof STRATEGY_PROGRAM_PROGRAM_ADDRESS,
   TAccountSigner extends string | AccountMeta<string> = string,
   TAccountStrategyAccount extends string | AccountMeta<string> = string,
+  TAccountStrategyAuthority extends string | AccountMeta<string> = string,
+  TAccountOpenOrdersAccount extends string | AccountMeta<string> = string,
+  TAccountFillsLog extends string | AccountMeta<string> = string,
+  TAccountMarket extends string | AccountMeta<string> = string,
+  TAccountOrderbookProgram extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -66,6 +81,21 @@ export type CreateStrategyInstruction<
       TAccountStrategyAccount extends string
         ? WritableAccount<TAccountStrategyAccount>
         : TAccountStrategyAccount,
+      TAccountStrategyAuthority extends string
+        ? ReadonlyAccount<TAccountStrategyAuthority>
+        : TAccountStrategyAuthority,
+      TAccountOpenOrdersAccount extends string
+        ? WritableAccount<TAccountOpenOrdersAccount>
+        : TAccountOpenOrdersAccount,
+      TAccountFillsLog extends string
+        ? WritableAccount<TAccountFillsLog>
+        : TAccountFillsLog,
+      TAccountMarket extends string
+        ? ReadonlyAccount<TAccountMarket>
+        : TAccountMarket,
+      TAccountOrderbookProgram extends string
+        ? ReadonlyAccount<TAccountOrderbookProgram>
+        : TAccountOrderbookProgram,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
@@ -75,18 +105,60 @@ export type CreateStrategyInstruction<
 
 export type CreateStrategyInstructionData = {
   discriminator: number;
-  createStrategyParams: CreateStrategyParams;
+  clientOrderId: bigint;
+  sizeLots: bigint;
+  limitPriceLots: bigint;
+  takeProfitPrice: bigint;
+  stopLossPrice: bigint;
+  cooldownSecs: bigint;
+  maxExecutionsPerDay: bigint;
+  marketIndex: number;
+  bump: number;
+  strategyType: number;
+  side: number;
+  bumpAuthority: number;
+  bumpFillsLog: number;
+  padding: ReadonlyUint8Array;
+  params: StrategyParams;
 };
 
 export type CreateStrategyInstructionDataArgs = {
-  createStrategyParams: CreateStrategyParamsArgs;
+  clientOrderId: number | bigint;
+  sizeLots: number | bigint;
+  limitPriceLots: number | bigint;
+  takeProfitPrice: number | bigint;
+  stopLossPrice: number | bigint;
+  cooldownSecs: number | bigint;
+  maxExecutionsPerDay: number | bigint;
+  marketIndex: number;
+  bump: number;
+  strategyType: number;
+  side: number;
+  bumpAuthority: number;
+  bumpFillsLog: number;
+  padding: ReadonlyUint8Array;
+  params: StrategyParamsArgs;
 };
 
 export function getCreateStrategyInstructionDataEncoder(): Encoder<CreateStrategyInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", getU8Encoder()],
-      ["createStrategyParams", getCreateStrategyParamsEncoder()],
+      ["clientOrderId", getU64Encoder()],
+      ["sizeLots", getI64Encoder()],
+      ["limitPriceLots", getI64Encoder()],
+      ["takeProfitPrice", getI64Encoder()],
+      ["stopLossPrice", getI64Encoder()],
+      ["cooldownSecs", getU64Encoder()],
+      ["maxExecutionsPerDay", getU64Encoder()],
+      ["marketIndex", getU16Encoder()],
+      ["bump", getU8Encoder()],
+      ["strategyType", getU8Encoder()],
+      ["side", getU8Encoder()],
+      ["bumpAuthority", getU8Encoder()],
+      ["bumpFillsLog", getU8Encoder()],
+      ["padding", fixEncoderSize(getBytesEncoder(), 1)],
+      ["params", getStrategyParamsEncoder()],
     ]),
     (value) => ({ ...value, discriminator: CREATE_STRATEGY_DISCRIMINATOR }),
   );
@@ -95,7 +167,21 @@ export function getCreateStrategyInstructionDataEncoder(): Encoder<CreateStrateg
 export function getCreateStrategyInstructionDataDecoder(): Decoder<CreateStrategyInstructionData> {
   return getStructDecoder([
     ["discriminator", getU8Decoder()],
-    ["createStrategyParams", getCreateStrategyParamsDecoder()],
+    ["clientOrderId", getU64Decoder()],
+    ["sizeLots", getI64Decoder()],
+    ["limitPriceLots", getI64Decoder()],
+    ["takeProfitPrice", getI64Decoder()],
+    ["stopLossPrice", getI64Decoder()],
+    ["cooldownSecs", getU64Decoder()],
+    ["maxExecutionsPerDay", getU64Decoder()],
+    ["marketIndex", getU16Decoder()],
+    ["bump", getU8Decoder()],
+    ["strategyType", getU8Decoder()],
+    ["side", getU8Decoder()],
+    ["bumpAuthority", getU8Decoder()],
+    ["bumpFillsLog", getU8Decoder()],
+    ["padding", fixDecoderSize(getBytesDecoder(), 1)],
+    ["params", getStrategyParamsDecoder()],
   ]);
 }
 
@@ -112,26 +198,65 @@ export function getCreateStrategyInstructionDataCodec(): Codec<
 export type CreateStrategyInput<
   TAccountSigner extends string = string,
   TAccountStrategyAccount extends string = string,
+  TAccountStrategyAuthority extends string = string,
+  TAccountOpenOrdersAccount extends string = string,
+  TAccountFillsLog extends string = string,
+  TAccountMarket extends string = string,
+  TAccountOrderbookProgram extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   /** Fee payer */
   signer: TransactionSigner<TAccountSigner>;
   /** Strategy account PDA */
   strategyAccount: Address<TAccountStrategyAccount>;
+  /** Strategy authority PDA (taker for fills_log + OO delegate) */
+  strategyAuthority: Address<TAccountStrategyAuthority>;
+  /** Open orders account PDA */
+  openOrdersAccount: Address<TAccountOpenOrdersAccount>;
+  /** FillsLog PDA (initialized via CPI) */
+  fillsLog: Address<TAccountFillsLog>;
+  /** Market state PDA */
+  market: Address<TAccountMarket>;
+  /** Orderbook program (CPI) */
+  orderbookProgram: Address<TAccountOrderbookProgram>;
   /** System program */
   systemProgram?: Address<TAccountSystemProgram>;
-  createStrategyParams: CreateStrategyInstructionDataArgs["createStrategyParams"];
+  clientOrderId: CreateStrategyInstructionDataArgs["clientOrderId"];
+  sizeLots: CreateStrategyInstructionDataArgs["sizeLots"];
+  limitPriceLots: CreateStrategyInstructionDataArgs["limitPriceLots"];
+  takeProfitPrice: CreateStrategyInstructionDataArgs["takeProfitPrice"];
+  stopLossPrice: CreateStrategyInstructionDataArgs["stopLossPrice"];
+  cooldownSecs: CreateStrategyInstructionDataArgs["cooldownSecs"];
+  maxExecutionsPerDay: CreateStrategyInstructionDataArgs["maxExecutionsPerDay"];
+  marketIndex: CreateStrategyInstructionDataArgs["marketIndex"];
+  bump: CreateStrategyInstructionDataArgs["bump"];
+  strategyType: CreateStrategyInstructionDataArgs["strategyType"];
+  side: CreateStrategyInstructionDataArgs["side"];
+  bumpAuthority: CreateStrategyInstructionDataArgs["bumpAuthority"];
+  bumpFillsLog: CreateStrategyInstructionDataArgs["bumpFillsLog"];
+  padding: CreateStrategyInstructionDataArgs["padding"];
+  params: CreateStrategyInstructionDataArgs["params"];
 };
 
 export function getCreateStrategyInstruction<
   TAccountSigner extends string,
   TAccountStrategyAccount extends string,
+  TAccountStrategyAuthority extends string,
+  TAccountOpenOrdersAccount extends string,
+  TAccountFillsLog extends string,
+  TAccountMarket extends string,
+  TAccountOrderbookProgram extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof STRATEGY_PROGRAM_PROGRAM_ADDRESS,
 >(
   input: CreateStrategyInput<
     TAccountSigner,
     TAccountStrategyAccount,
+    TAccountStrategyAuthority,
+    TAccountOpenOrdersAccount,
+    TAccountFillsLog,
+    TAccountMarket,
+    TAccountOrderbookProgram,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
@@ -139,6 +264,11 @@ export function getCreateStrategyInstruction<
   TProgramAddress,
   TAccountSigner,
   TAccountStrategyAccount,
+  TAccountStrategyAuthority,
+  TAccountOpenOrdersAccount,
+  TAccountFillsLog,
+  TAccountMarket,
+  TAccountOrderbookProgram,
   TAccountSystemProgram
 > {
   // Program address.
@@ -149,6 +279,20 @@ export function getCreateStrategyInstruction<
   const originalAccounts = {
     signer: { value: input.signer ?? null, isWritable: true },
     strategyAccount: { value: input.strategyAccount ?? null, isWritable: true },
+    strategyAuthority: {
+      value: input.strategyAuthority ?? null,
+      isWritable: false,
+    },
+    openOrdersAccount: {
+      value: input.openOrdersAccount ?? null,
+      isWritable: true,
+    },
+    fillsLog: { value: input.fillsLog ?? null, isWritable: true },
+    market: { value: input.market ?? null, isWritable: false },
+    orderbookProgram: {
+      value: input.orderbookProgram ?? null,
+      isWritable: false,
+    },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
@@ -170,6 +314,11 @@ export function getCreateStrategyInstruction<
     accounts: [
       getAccountMeta("signer", accounts.signer),
       getAccountMeta("strategyAccount", accounts.strategyAccount),
+      getAccountMeta("strategyAuthority", accounts.strategyAuthority),
+      getAccountMeta("openOrdersAccount", accounts.openOrdersAccount),
+      getAccountMeta("fillsLog", accounts.fillsLog),
+      getAccountMeta("market", accounts.market),
+      getAccountMeta("orderbookProgram", accounts.orderbookProgram),
       getAccountMeta("systemProgram", accounts.systemProgram),
     ],
     data: getCreateStrategyInstructionDataEncoder().encode(
@@ -180,6 +329,11 @@ export function getCreateStrategyInstruction<
     TProgramAddress,
     TAccountSigner,
     TAccountStrategyAccount,
+    TAccountStrategyAuthority,
+    TAccountOpenOrdersAccount,
+    TAccountFillsLog,
+    TAccountMarket,
+    TAccountOrderbookProgram,
     TAccountSystemProgram
   >);
 }
@@ -194,8 +348,18 @@ export type ParsedCreateStrategyInstruction<
     signer: TAccountMetas[0];
     /** Strategy account PDA */
     strategyAccount: TAccountMetas[1];
+    /** Strategy authority PDA (taker for fills_log + OO delegate) */
+    strategyAuthority: TAccountMetas[2];
+    /** Open orders account PDA */
+    openOrdersAccount: TAccountMetas[3];
+    /** FillsLog PDA (initialized via CPI) */
+    fillsLog: TAccountMetas[4];
+    /** Market state PDA */
+    market: TAccountMetas[5];
+    /** Orderbook program (CPI) */
+    orderbookProgram: TAccountMetas[6];
     /** System program */
-    systemProgram: TAccountMetas[2];
+    systemProgram: TAccountMetas[7];
   };
   data: CreateStrategyInstructionData;
 };
@@ -208,12 +372,12 @@ export function parseCreateStrategyInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedCreateStrategyInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 3) {
+  if (instruction.accounts.length < 8) {
     throw new SolanaError(
       SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
       {
         actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 3,
+        expectedAccountMetas: 8,
       },
     );
   }
@@ -228,6 +392,11 @@ export function parseCreateStrategyInstruction<
     accounts: {
       signer: getNextAccount(),
       strategyAccount: getNextAccount(),
+      strategyAuthority: getNextAccount(),
+      openOrdersAccount: getNextAccount(),
+      fillsLog: getNextAccount(),
+      market: getNextAccount(),
+      orderbookProgram: getNextAccount(),
       systemProgram: getNextAccount(),
     },
     data: getCreateStrategyInstructionDataDecoder().decode(instruction.data),

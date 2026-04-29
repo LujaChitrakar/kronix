@@ -7,7 +7,12 @@
  */
 
 import {
+  assertAccountExists,
+  assertAccountsExist,
   combineCodec,
+  decodeAccount,
+  fetchEncodedAccount,
+  fetchEncodedAccounts,
   fixDecoderSize,
   fixEncoderSize,
   getBytesDecoder,
@@ -18,15 +23,20 @@ import {
   getStructEncoder,
   getU16Decoder,
   getU16Encoder,
-  getU32Decoder,
-  getU32Encoder,
   getU64Decoder,
   getU64Encoder,
   getU8Decoder,
   getU8Encoder,
+  type Account,
+  type Address,
   type Codec,
   type Decoder,
+  type EncodedAccount,
   type Encoder,
+  type FetchAccountConfig,
+  type FetchAccountsConfig,
+  type MaybeAccount,
+  type MaybeEncodedAccount,
   type ReadonlyUint8Array,
 } from "@solana/kit";
 import {
@@ -34,7 +44,7 @@ import {
   getStrategyParamsEncoder,
   type StrategyParams,
   type StrategyParamsArgs,
-} from ".";
+} from "../types";
 
 export type StrategyAccount = {
   clientOrderId: bigint;
@@ -46,12 +56,12 @@ export type StrategyAccount = {
   dayStartTs: bigint;
   lastExecutedTs: bigint;
   cooldownSecs: bigint;
+  maxExecutionsPerDay: bigint;
+  executionsToday: bigint;
   strategyType: number;
   status: number;
   bump: number;
   side: number;
-  maxExecutionsPerDay: number;
-  executionsToday: number;
   marketIndex: number;
   padding: ReadonlyUint8Array;
   params: StrategyParams;
@@ -69,12 +79,12 @@ export type StrategyAccountArgs = {
   dayStartTs: number | bigint;
   lastExecutedTs: number | bigint;
   cooldownSecs: number | bigint;
+  maxExecutionsPerDay: number | bigint;
+  executionsToday: number | bigint;
   strategyType: number;
   status: number;
   bump: number;
   side: number;
-  maxExecutionsPerDay: number;
-  executionsToday: number;
   marketIndex: number;
   padding: ReadonlyUint8Array;
   params: StrategyParamsArgs;
@@ -82,6 +92,7 @@ export type StrategyAccountArgs = {
   reserved: ReadonlyUint8Array;
 };
 
+/** Gets the encoder for {@link StrategyAccountArgs} account data. */
 export function getStrategyAccountEncoder(): Encoder<StrategyAccountArgs> {
   return getStructEncoder([
     ["clientOrderId", getU64Encoder()],
@@ -93,12 +104,12 @@ export function getStrategyAccountEncoder(): Encoder<StrategyAccountArgs> {
     ["dayStartTs", getI64Encoder()],
     ["lastExecutedTs", getI64Encoder()],
     ["cooldownSecs", getU64Encoder()],
+    ["maxExecutionsPerDay", getU64Encoder()],
+    ["executionsToday", getU64Encoder()],
     ["strategyType", getU8Encoder()],
     ["status", getU8Encoder()],
     ["bump", getU8Encoder()],
     ["side", getU8Encoder()],
-    ["maxExecutionsPerDay", getU32Encoder()],
-    ["executionsToday", getU32Encoder()],
     ["marketIndex", getU16Encoder()],
     ["padding", fixEncoderSize(getBytesEncoder(), 2)],
     ["params", getStrategyParamsEncoder()],
@@ -107,6 +118,7 @@ export function getStrategyAccountEncoder(): Encoder<StrategyAccountArgs> {
   ]);
 }
 
+/** Gets the decoder for {@link StrategyAccount} account data. */
 export function getStrategyAccountDecoder(): Decoder<StrategyAccount> {
   return getStructDecoder([
     ["clientOrderId", getU64Decoder()],
@@ -118,12 +130,12 @@ export function getStrategyAccountDecoder(): Decoder<StrategyAccount> {
     ["dayStartTs", getI64Decoder()],
     ["lastExecutedTs", getI64Decoder()],
     ["cooldownSecs", getU64Decoder()],
+    ["maxExecutionsPerDay", getU64Decoder()],
+    ["executionsToday", getU64Decoder()],
     ["strategyType", getU8Decoder()],
     ["status", getU8Decoder()],
     ["bump", getU8Decoder()],
     ["side", getU8Decoder()],
-    ["maxExecutionsPerDay", getU32Decoder()],
-    ["executionsToday", getU32Decoder()],
     ["marketIndex", getU16Decoder()],
     ["padding", fixDecoderSize(getBytesDecoder(), 2)],
     ["params", getStrategyParamsDecoder()],
@@ -132,9 +144,73 @@ export function getStrategyAccountDecoder(): Decoder<StrategyAccount> {
   ]);
 }
 
+/** Gets the codec for {@link StrategyAccount} account data. */
 export function getStrategyAccountCodec(): Codec<
   StrategyAccountArgs,
   StrategyAccount
 > {
   return combineCodec(getStrategyAccountEncoder(), getStrategyAccountDecoder());
+}
+
+export function decodeStrategyAccount<TAddress extends string = string>(
+  encodedAccount: EncodedAccount<TAddress>,
+): Account<StrategyAccount, TAddress>;
+export function decodeStrategyAccount<TAddress extends string = string>(
+  encodedAccount: MaybeEncodedAccount<TAddress>,
+): MaybeAccount<StrategyAccount, TAddress>;
+export function decodeStrategyAccount<TAddress extends string = string>(
+  encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>,
+):
+  | Account<StrategyAccount, TAddress>
+  | MaybeAccount<StrategyAccount, TAddress> {
+  return decodeAccount(
+    encodedAccount as MaybeEncodedAccount<TAddress>,
+    getStrategyAccountDecoder(),
+  );
+}
+
+export async function fetchStrategyAccount<TAddress extends string = string>(
+  rpc: Parameters<typeof fetchEncodedAccount>[0],
+  address: Address<TAddress>,
+  config?: FetchAccountConfig,
+): Promise<Account<StrategyAccount, TAddress>> {
+  const maybeAccount = await fetchMaybeStrategyAccount(rpc, address, config);
+  assertAccountExists(maybeAccount);
+  return maybeAccount;
+}
+
+export async function fetchMaybeStrategyAccount<
+  TAddress extends string = string,
+>(
+  rpc: Parameters<typeof fetchEncodedAccount>[0],
+  address: Address<TAddress>,
+  config?: FetchAccountConfig,
+): Promise<MaybeAccount<StrategyAccount, TAddress>> {
+  const maybeAccount = await fetchEncodedAccount(rpc, address, config);
+  return decodeStrategyAccount(maybeAccount);
+}
+
+export async function fetchAllStrategyAccount(
+  rpc: Parameters<typeof fetchEncodedAccounts>[0],
+  addresses: Array<Address>,
+  config?: FetchAccountsConfig,
+): Promise<Account<StrategyAccount>[]> {
+  const maybeAccounts = await fetchAllMaybeStrategyAccount(
+    rpc,
+    addresses,
+    config,
+  );
+  assertAccountsExist(maybeAccounts);
+  return maybeAccounts;
+}
+
+export async function fetchAllMaybeStrategyAccount(
+  rpc: Parameters<typeof fetchEncodedAccounts>[0],
+  addresses: Array<Address>,
+  config?: FetchAccountsConfig,
+): Promise<MaybeAccount<StrategyAccount>[]> {
+  const maybeAccounts = await fetchEncodedAccounts(rpc, addresses, config);
+  return maybeAccounts.map((maybeAccount) =>
+    decodeStrategyAccount(maybeAccount),
+  );
 }

@@ -5,7 +5,6 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use crate::generated::types::EditStrategyParams;
 use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
@@ -58,13 +57,13 @@ impl EditStrategy {
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
  pub struct EditStrategyInstructionData {
             discriminator: u8,
-            }
+                                                      }
 
 impl EditStrategyInstructionData {
   pub fn new() -> Self {
     Self {
                         discriminator: 1,
-                                }
+                                                                                                                                  }
   }
 
     pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
@@ -80,7 +79,14 @@ impl Default for EditStrategyInstructionData {
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
  pub struct EditStrategyInstructionArgs {
-                  pub edit_strategy_params: EditStrategyParams,
+                  pub new_limit_price_lots: i64,
+                pub new_take_profit_price: i64,
+                pub new_stop_loss_price: i64,
+                pub new_size_lots: i64,
+                pub new_cooldown_secs: u64,
+                pub new_max_executions_per_day: u64,
+                pub new_status: u8,
+                pub padding: [u8; 7],
       }
 
 impl EditStrategyInstructionArgs {
@@ -100,7 +106,14 @@ impl EditStrategyInstructionArgs {
 pub struct EditStrategyBuilder {
             signer: Option<solana_address::Address>,
                 strategy_account: Option<solana_address::Address>,
-                        edit_strategy_params: Option<EditStrategyParams>,
+                        new_limit_price_lots: Option<i64>,
+                new_take_profit_price: Option<i64>,
+                new_stop_loss_price: Option<i64>,
+                new_size_lots: Option<i64>,
+                new_cooldown_secs: Option<u64>,
+                new_max_executions_per_day: Option<u64>,
+                new_status: Option<u8>,
+                padding: Option<[u8; 7]>,
         __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
@@ -121,8 +134,43 @@ impl EditStrategyBuilder {
                     self
     }
                     #[inline(always)]
-      pub fn edit_strategy_params(&mut self, edit_strategy_params: EditStrategyParams) -> &mut Self {
-        self.edit_strategy_params = Some(edit_strategy_params);
+      pub fn new_limit_price_lots(&mut self, new_limit_price_lots: i64) -> &mut Self {
+        self.new_limit_price_lots = Some(new_limit_price_lots);
+        self
+      }
+                #[inline(always)]
+      pub fn new_take_profit_price(&mut self, new_take_profit_price: i64) -> &mut Self {
+        self.new_take_profit_price = Some(new_take_profit_price);
+        self
+      }
+                #[inline(always)]
+      pub fn new_stop_loss_price(&mut self, new_stop_loss_price: i64) -> &mut Self {
+        self.new_stop_loss_price = Some(new_stop_loss_price);
+        self
+      }
+                #[inline(always)]
+      pub fn new_size_lots(&mut self, new_size_lots: i64) -> &mut Self {
+        self.new_size_lots = Some(new_size_lots);
+        self
+      }
+                #[inline(always)]
+      pub fn new_cooldown_secs(&mut self, new_cooldown_secs: u64) -> &mut Self {
+        self.new_cooldown_secs = Some(new_cooldown_secs);
+        self
+      }
+                #[inline(always)]
+      pub fn new_max_executions_per_day(&mut self, new_max_executions_per_day: u64) -> &mut Self {
+        self.new_max_executions_per_day = Some(new_max_executions_per_day);
+        self
+      }
+                #[inline(always)]
+      pub fn new_status(&mut self, new_status: u8) -> &mut Self {
+        self.new_status = Some(new_status);
+        self
+      }
+                #[inline(always)]
+      pub fn padding(&mut self, padding: [u8; 7]) -> &mut Self {
+        self.padding = Some(padding);
         self
       }
         /// Add an additional account to the instruction.
@@ -144,7 +192,14 @@ impl EditStrategyBuilder {
                                         strategy_account: self.strategy_account.expect("strategy_account is not set"),
                       };
           let args = EditStrategyInstructionArgs {
-                                                              edit_strategy_params: self.edit_strategy_params.clone().expect("edit_strategy_params is not set"),
+                                                              new_limit_price_lots: self.new_limit_price_lots.clone().expect("new_limit_price_lots is not set"),
+                                                                  new_take_profit_price: self.new_take_profit_price.clone().expect("new_take_profit_price is not set"),
+                                                                  new_stop_loss_price: self.new_stop_loss_price.clone().expect("new_stop_loss_price is not set"),
+                                                                  new_size_lots: self.new_size_lots.clone().expect("new_size_lots is not set"),
+                                                                  new_cooldown_secs: self.new_cooldown_secs.clone().expect("new_cooldown_secs is not set"),
+                                                                  new_max_executions_per_day: self.new_max_executions_per_day.clone().expect("new_max_executions_per_day is not set"),
+                                                                  new_status: self.new_status.clone().expect("new_status is not set"),
+                                                                  padding: self.padding.clone().expect("padding is not set"),
                                     };
     
     accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
@@ -272,7 +327,14 @@ impl<'a, 'b> EditStrategyCpiBuilder<'a, 'b> {
       __program: program,
               signer: None,
               strategy_account: None,
-                                            edit_strategy_params: None,
+                                            new_limit_price_lots: None,
+                                new_take_profit_price: None,
+                                new_stop_loss_price: None,
+                                new_size_lots: None,
+                                new_cooldown_secs: None,
+                                new_max_executions_per_day: None,
+                                new_status: None,
+                                padding: None,
                     __remaining_accounts: Vec::new(),
     });
     Self { instruction }
@@ -290,8 +352,43 @@ impl<'a, 'b> EditStrategyCpiBuilder<'a, 'b> {
                     self
     }
                     #[inline(always)]
-      pub fn edit_strategy_params(&mut self, edit_strategy_params: EditStrategyParams) -> &mut Self {
-        self.instruction.edit_strategy_params = Some(edit_strategy_params);
+      pub fn new_limit_price_lots(&mut self, new_limit_price_lots: i64) -> &mut Self {
+        self.instruction.new_limit_price_lots = Some(new_limit_price_lots);
+        self
+      }
+                #[inline(always)]
+      pub fn new_take_profit_price(&mut self, new_take_profit_price: i64) -> &mut Self {
+        self.instruction.new_take_profit_price = Some(new_take_profit_price);
+        self
+      }
+                #[inline(always)]
+      pub fn new_stop_loss_price(&mut self, new_stop_loss_price: i64) -> &mut Self {
+        self.instruction.new_stop_loss_price = Some(new_stop_loss_price);
+        self
+      }
+                #[inline(always)]
+      pub fn new_size_lots(&mut self, new_size_lots: i64) -> &mut Self {
+        self.instruction.new_size_lots = Some(new_size_lots);
+        self
+      }
+                #[inline(always)]
+      pub fn new_cooldown_secs(&mut self, new_cooldown_secs: u64) -> &mut Self {
+        self.instruction.new_cooldown_secs = Some(new_cooldown_secs);
+        self
+      }
+                #[inline(always)]
+      pub fn new_max_executions_per_day(&mut self, new_max_executions_per_day: u64) -> &mut Self {
+        self.instruction.new_max_executions_per_day = Some(new_max_executions_per_day);
+        self
+      }
+                #[inline(always)]
+      pub fn new_status(&mut self, new_status: u8) -> &mut Self {
+        self.instruction.new_status = Some(new_status);
+        self
+      }
+                #[inline(always)]
+      pub fn padding(&mut self, padding: [u8; 7]) -> &mut Self {
+        self.instruction.padding = Some(padding);
         self
       }
         /// Add an additional account to the instruction.
@@ -317,7 +414,14 @@ impl<'a, 'b> EditStrategyCpiBuilder<'a, 'b> {
   #[allow(clippy::vec_init_then_push)]
   pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
           let args = EditStrategyInstructionArgs {
-                                                              edit_strategy_params: self.instruction.edit_strategy_params.clone().expect("edit_strategy_params is not set"),
+                                                              new_limit_price_lots: self.instruction.new_limit_price_lots.clone().expect("new_limit_price_lots is not set"),
+                                                                  new_take_profit_price: self.instruction.new_take_profit_price.clone().expect("new_take_profit_price is not set"),
+                                                                  new_stop_loss_price: self.instruction.new_stop_loss_price.clone().expect("new_stop_loss_price is not set"),
+                                                                  new_size_lots: self.instruction.new_size_lots.clone().expect("new_size_lots is not set"),
+                                                                  new_cooldown_secs: self.instruction.new_cooldown_secs.clone().expect("new_cooldown_secs is not set"),
+                                                                  new_max_executions_per_day: self.instruction.new_max_executions_per_day.clone().expect("new_max_executions_per_day is not set"),
+                                                                  new_status: self.instruction.new_status.clone().expect("new_status is not set"),
+                                                                  padding: self.instruction.padding.clone().expect("padding is not set"),
                                     };
         let instruction = EditStrategyCpi {
         __program: self.instruction.__program,
@@ -336,7 +440,14 @@ struct EditStrategyCpiBuilderInstruction<'a, 'b> {
   __program: &'b solana_account_info::AccountInfo<'a>,
             signer: Option<&'b solana_account_info::AccountInfo<'a>>,
                 strategy_account: Option<&'b solana_account_info::AccountInfo<'a>>,
-                        edit_strategy_params: Option<EditStrategyParams>,
+                        new_limit_price_lots: Option<i64>,
+                new_take_profit_price: Option<i64>,
+                new_stop_loss_price: Option<i64>,
+                new_size_lots: Option<i64>,
+                new_cooldown_secs: Option<u64>,
+                new_max_executions_per_day: Option<u64>,
+                new_status: Option<u8>,
+                padding: Option<[u8; 7]>,
         /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
   __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }
