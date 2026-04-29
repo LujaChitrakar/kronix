@@ -7,7 +7,7 @@ import {
   sendPlaceOrderAndSettle,
   sendCancelOrderByClientId,
 } from "@/lib/kronix/client";
-import { Side, PlaceOrderType, MARKET_NAME } from "@/lib/kronix/config";
+import { Side, PlaceOrderType } from "@/lib/kronix/config";
 import {
   findOpenOrdersPda,
   findMarketPda,
@@ -191,13 +191,7 @@ export function OrderForm() {
   };
 
   return (
-    <div className="bg-kx-surface rounded-xl border kx-border p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="font-headline text-sm text-on-surface uppercase tracking-wider">
-          New Order — {MARKET_NAME}
-        </div>
-      </div>
-
+    <div className="p-4">
       <div className="mb-3 px-2 py-1.5 rounded-md bg-kx-surface-lo border kx-border text-[10px] font-mono text-on-surface-variant break-all">
         Signer:{" "}
         <span className="text-[#4dffb4]">

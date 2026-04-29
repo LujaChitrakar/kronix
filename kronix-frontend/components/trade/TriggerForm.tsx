@@ -8,7 +8,6 @@ import {
 import {
   Side,
   TriggerType,
-  MARKET_NAME,
 } from "@/lib/kronix/config";
 import { sendTx, formatTxError } from "./tx";
 
@@ -64,11 +63,7 @@ export function TriggerForm() {
   };
 
   return (
-    <div className="bg-kx-surface rounded-xl border kx-border p-4">
-      <div className="font-headline text-sm text-on-surface uppercase tracking-wider mb-3">
-        Trigger — {MARKET_NAME}
-      </div>
-
+    <div className="p-4">
       <div className="grid grid-cols-2 gap-2 mb-3">
         <button
           onClick={() => setSide(Side.Bid)}

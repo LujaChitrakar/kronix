@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { sendCreateStrategy } from "@/lib/kronix/client";
-import { Side, StrategyType, MARKET_NAME } from "@/lib/kronix/config";
+import { Side, StrategyType } from "@/lib/kronix/config";
 import { emptyStrategyParamsArgs } from "@/lib/strategy-sdk";
 import { sendTx, formatTxError } from "./tx";
 
@@ -114,11 +114,7 @@ export function StrategyForm() {
   };
 
   return (
-    <div className="bg-kx-surface rounded-xl border kx-border p-4">
-      <div className="font-headline text-sm text-on-surface uppercase tracking-wider mb-3">
-        Strategy — {MARKET_NAME}
-      </div>
-
+    <div className="p-4">
       <div className="grid grid-cols-5 gap-1 mb-3">
         {STRATEGY_TYPES.map(([label, val]) => (
           <button

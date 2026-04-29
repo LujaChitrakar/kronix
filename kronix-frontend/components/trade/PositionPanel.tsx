@@ -8,7 +8,7 @@ import {
   findMarketConfigPda,
 } from "@/lib/kronix/pdas";
 import { fetchPosition, fetchMarketConfig, bytesToPubkey } from "@/lib/kronix/state";
-import { MARKET_INDEX, MARKET_NAME } from "@/lib/kronix/config";
+import { MARKET_INDEX } from "@/lib/kronix/config";
 import {
   sendClosePosition,
   sendAddMargin,
@@ -142,11 +142,7 @@ export function PositionPanel() {
     pos !== null && baseUnits > 0n && baseUnits > maxRemovable;
 
   return (
-    <div className="bg-kx-surface rounded-xl border kx-border p-4">
-      <div className="font-headline text-sm text-on-surface mb-3 uppercase tracking-wider">
-        {MARKET_NAME} Position
-      </div>
-
+    <div className="p-4">
       {!owner && (
         <div className="text-on-surface-variant text-sm">Connect wallet.</div>
       )}

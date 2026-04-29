@@ -94,7 +94,7 @@ export function AccountPanel() {
 
   if (!owner) {
     return (
-      <div className="bg-kx-surface rounded-xl border kx-border p-4 text-on-surface-variant text-sm">
+      <div className="p-4 text-on-surface-variant text-sm">
         Connect wallet to view account.
       </div>
     );
@@ -111,11 +111,7 @@ export function AccountPanel() {
   })();
 
   return (
-    <div className="bg-kx-surface rounded-xl border kx-border p-4">
-      <div className="font-headline text-sm text-on-surface mb-3 uppercase tracking-wider">
-        Account
-      </div>
-
+    <div className="p-4">
       <div className="grid grid-cols-2 gap-3 mb-4 text-sm font-mono">
         <Stat label="Collateral" v={collateral !== null ? `$${fmtUsdc(collateral)}` : "—"} />
         <Stat label="Margin Used" v={marginUsed !== null ? `$${fmtUsdc(marginUsed)}` : "—"} />
@@ -141,16 +137,14 @@ export function AccountPanel() {
         </button>
       )}
 
-      <div className="flex gap-2 mb-2">
+      <div className="flex gap-2 items-center">
         <input
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           placeholder="USDC amount"
           inputMode="decimal"
-          className="flex-1 bg-kx-surface-lo border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface"
+          className="flex-1 bg-kx-surface-lo border kx-border rounded-md px-2 py-1.5 text-xs font-mono text-on-surface"
         />
-      </div>
-      <div className="grid grid-cols-2 gap-2">
         <button
           disabled={!!busy || baseUnits === 0n}
           onClick={() =>
@@ -160,7 +154,7 @@ export function AccountPanel() {
               ),
             )
           }
-          className="bg-primary-container text-on-primary-fixed px-3 py-2 text-sm font-headline font-bold rounded-md disabled:opacity-50"
+          className="bg-primary-container text-on-primary-fixed px-2.5 py-1.5 text-[11px] font-headline font-bold rounded-md disabled:opacity-50"
         >
           Deposit
         </button>
@@ -173,7 +167,7 @@ export function AccountPanel() {
               ),
             )
           }
-          className="bg-kx-surface-hi text-on-surface px-3 py-2 text-sm font-headline font-bold rounded-md border kx-border disabled:opacity-50"
+          className="bg-kx-surface-hi text-on-surface px-2.5 py-1.5 text-[11px] font-headline font-bold rounded-md border kx-border disabled:opacity-50"
         >
           Withdraw
         </button>
