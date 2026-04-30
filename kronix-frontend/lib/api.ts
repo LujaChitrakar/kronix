@@ -1,5 +1,4 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 
-  (typeof window !== 'undefined' ? `http://${window.location.hostname}:8081` : 'http://localhost:8081');
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://crypto-exchange-0ff5.onrender.com";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
