@@ -1,6 +1,7 @@
 use actix_web::{get, web, HttpResponse, Responder};
 use chrono::TimeZone;
 use chrono::{DateTime, Utc};
+use rust_decimal::prelude::ToPrimitive;
 use serde::Deserialize;
 use sqlx::PgPool;
 
@@ -107,9 +108,11 @@ pub async fn get_current_index_value(pool: web::Data<PgPool>) -> impl Responder 
             let ts: DateTime<Utc> = row.get("timestamp");
             let val: rust_decimal::Decimal = row.get("close");
 
+            let numeric_val: f64 = val.to_f64().unwrap_or(0.0);
+
             HttpResponse::Ok().json(serde_json::json!({
                 "timestamp": ts.timestamp(),
-                "value": val.to_string()
+                "value": numeric_val
             }))
         }
         Ok(None) => HttpResponse::NotFound().json(serde_json::json!({
