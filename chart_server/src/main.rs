@@ -300,6 +300,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(candle_tx.clone()))
             .service(routes_chart::get_index_chart)
             .service(routes_chart::get_asset_chart)
+            .service(routes_chart::get_current_index_value)
             .service(ws::ws_handler)
     })
     // .bind(("127.0.0.1", 8081))?
