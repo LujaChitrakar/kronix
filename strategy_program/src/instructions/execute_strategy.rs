@@ -9,7 +9,10 @@ use std::i64;
 
 use crate::{
     constants::STRATEGY_AUTHORITY_SEED,
-    cpi::{initialize_fills_log_cpi, place_order_cpi, place_trigger_order_cpi},
+    cpi::{
+        create_open_orders_account_cpi, initialize_fills_log_cpi, place_order_cpi,
+        place_trigger_order_cpi,
+    },
     errors::StrategyProgramError,
     helpers::{verify_account_owner, verify_pda, verify_signer, verify_writtable},
     states::StrategyAccount,
@@ -113,6 +116,21 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
     };
 
     let owner_key = strategy.owner;
+
+    // Lazy-init OpenOrdersAccount for strategy_authority on first execution.
+    // Strategy keeper does not pre-create it; orderbook PlaceOrder requires
+    // the account initialized. Paid by keeper.
+    if open_orders_account.is_data_empty() {
+        create_open_orders_account_cpi(
+            orderbook_program,
+            system_program,
+            keeper,
+            strategy_authority,
+            open_orders_account,
+            market,
+            params.bump_oo_account,
+        )?;
+    }
 
     // Lazy-init fills_log for this client_order_id. After the first execution
     // strategy.client_order_id is bumped by 3, so subsequent calls hit a fresh

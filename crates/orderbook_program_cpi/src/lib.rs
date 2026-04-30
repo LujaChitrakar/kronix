@@ -1,5 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 
+pub const CREATE_OPEN_ORDERS_ACCOUNT_IX: u8 = 1;
 pub const INITIALIZE_FILLS_LOG_IX: u8 = 2;
 pub const PLACE_ORDER_IX: u8 = 3;
 pub const PLACE_TAKE_ORDER_IX: u8 = 4;
@@ -9,6 +10,14 @@ pub const SET_DELEGATE_IX: u8 = 11;
 #[repr(C)]
 pub struct SetDelegateParams {
     pub delegate: [u8; 32],
+}
+
+#[derive(Pod, Zeroable, Clone, Copy)]
+#[repr(C)]
+pub struct CreateOpenOrdersAccountParams {
+    pub owner: [u8; 32],
+    pub bump: u8,
+    pub padding: [u8; 7],
 }
 
 #[derive(Pod, Zeroable, Clone, Copy)]

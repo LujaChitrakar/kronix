@@ -1,6 +1,7 @@
 use orderbook_program_cpi::{
-    self, InitializeFillsLogParams, PlaceOrderParams, SetDelegateParams,
-    INITIALIZE_FILLS_LOG_IX, PLACE_ORDER_IX, SET_DELEGATE_IX,
+    self, CreateOpenOrdersAccountParams, InitializeFillsLogParams, PlaceOrderParams,
+    SetDelegateParams, CREATE_OPEN_ORDERS_ACCOUNT_IX, INITIALIZE_FILLS_LOG_IX, PLACE_ORDER_IX,
+    SET_DELEGATE_IX,
 };
 use pinocchio::cpi::{invoke, invoke_signed, Seed, Signer};
 use pinocchio::instruction::{InstructionAccount, InstructionView};
@@ -8,6 +9,44 @@ use pinocchio::{AccountView, ProgramResult};
 use trigger_program_cpi::{PlaceTriggerOrderParams, PLACE_TRIGGER_IX};
 
 use crate::constants::STRATEGY_AUTHORITY_SEED;
+
+pub fn create_open_orders_account_cpi(
+    orderbook_program: &AccountView,
+    system_program: &AccountView,
+    fee_payer: &AccountView,
+    strategy_authority: &AccountView,
+    open_orders_account: &AccountView,
+    market: &AccountView,
+    bump: u8,
+) -> ProgramResult {
+    let params = CreateOpenOrdersAccountParams {
+        owner: *strategy_authority.address().as_array(),
+        bump,
+        padding: [0; 7],
+    };
+    let params_bytes = bytemuck::bytes_of(&params);
+    let mut ix_data = [0u8; 1 + core::mem::size_of::<CreateOpenOrdersAccountParams>()];
+    ix_data[0] = CREATE_OPEN_ORDERS_ACCOUNT_IX;
+    ix_data[1..].copy_from_slice(params_bytes);
+
+    let account_metas = [
+        InstructionAccount::new(fee_payer.address(), true, true),
+        InstructionAccount::new(open_orders_account.address(), true, false),
+        InstructionAccount::new(market.address(), false, false),
+        InstructionAccount::new(system_program.address(), false, false),
+    ];
+
+    let account_infos = [fee_payer, open_orders_account, market, system_program];
+
+    let ix = InstructionView {
+        program_id: orderbook_program.address(),
+        accounts: &account_metas,
+        data: &ix_data,
+    };
+
+    invoke::<4>(&ix, &account_infos)?;
+    Ok(())
+}
 
 pub fn initialize_fills_log_cpi(
     orderbook_program: &AccountView,

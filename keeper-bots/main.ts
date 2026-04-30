@@ -26,6 +26,7 @@ import {
   Connection,
   Keypair,
   PublicKey,
+  SystemProgram,
   Transaction,
   TransactionInstruction,
   ComputeBudgetProgram,
@@ -93,6 +94,7 @@ const KEYPAIR_PATH =
 const POSITION_SIZE = 104;
 const USER_ACCOUNT_SIZE = 88;
 const TRIGGER_ORDER_SIZE = 144;
+const FILLS_LOG_SIZE = 952; // FillsLog::LEN — orderbook_program/src/states/fills_log.rs
 const PRUNE_BATCH = 16;
 const EXECUTE_TRIGGER_DISC = 2;
 const PRUNE_EXPIRED_TRIGGER_DISC = 4;
@@ -528,6 +530,63 @@ function buildExecuteTriggerIx(args: {
   });
 }
 
+// Walk a BookSide critbit tree and return the OO-account pubkey of the
+// best (top-of-book) leaf. Mirrors `OrderTreeIter::find_left_most_leaf`:
+// bids walk children[1] always, asks walk children[0] always.
+//
+// BookSide layout (orderbook_program/src/states/orderbook/bookside.rs):
+//   roots: OrderTreeRoot @ 0  (maybe_node u32 + leaf_count u32 = 8 bytes)
+//   reserved_roots [OrderTreeRoot; 5] @ 8   (40 bytes)
+//   reserved [u8; 256] @ 48
+//   nodes: OrderTreeNodes @ 304
+//     order_tree_type u8 @ 304
+//     padding [u8;3]      @ 305
+//     bump_index u32      @ 308
+//     free_list_len u32   @ 312
+//     free_list_head u32  @ 316
+//     reserved [u8;512]   @ 320
+//     nodes [AnyNode;100] @ 832  (each AnyNode = 88 bytes, NODE_SIZE)
+//
+// AnyNode tag byte: 1=InnerNode, 2=LeafNode.
+// LeafNode owner @ +48 ([u8;32]). InnerNode children @ +40 ([u32;2]).
+const BOOK_NODES_BASE = 832;
+const BOOK_NODE_SIZE = 88;
+const BOOK_LEAF_OWNER_OFFSET = 48;
+const BOOK_INNER_CHILDREN_OFFSET = 40;
+
+async function fetchTopOfBookOwner(
+  bookAccount: PublicKey,
+  isBids: boolean,
+): Promise<PublicKey | null> {
+  const acc = await conn.getAccountInfo(bookAccount, "confirmed");
+  if (!acc) return null;
+  const data = acc.data;
+  const maybeNode = data.readUInt32LE(0);
+  const leafCount = data.readUInt32LE(4);
+  if (leafCount === 0) return null;
+
+  const dir = isBids ? 1 : 0;
+  let h = maybeNode;
+  for (let depth = 0; depth < 64; depth++) {
+    const off = BOOK_NODES_BASE + h * BOOK_NODE_SIZE;
+    if (off + BOOK_NODE_SIZE > data.length) return null;
+    const tag = data.readUInt8(off);
+    if (tag === 2) {
+      return new PublicKey(
+        data.subarray(
+          off + BOOK_LEAF_OWNER_OFFSET,
+          off + BOOK_LEAF_OWNER_OFFSET + 32,
+        ),
+      );
+    } else if (tag === 1) {
+      h = data.readUInt32LE(off + BOOK_INNER_CHILDREN_OFFSET + dir * 4);
+    } else {
+      return null;
+    }
+  }
+  return null;
+}
+
 async function runExecuteTriggers(): Promise<void> {
   const markets = await loadMarkets();
   const triggers = await scanTriggerOrders();
@@ -553,6 +612,19 @@ async function runExecuteTriggers(): Promise<void> {
       triggerAuthority,
       t.clientId,
     );
+
+    // Self-trade guard: orderbook PlaceTakeOrder aborts with WouldSelfTrade
+    // (errors.rs:19) when best opposing leaf owner == taker OO account.
+    // Trigger side 0=Buy hits asks, side 1=Sell hits bids.
+    const opposingBook = t.side === 0 ? asks : bids;
+    const isBidsSide = t.side === 1;
+    const topOwner = await fetchTopOfBookOwner(opposingBook, isBidsSide);
+    if (topOwner && topOwner.equals(openOrdersAccount)) {
+      console.log(
+        `[execute-trigger ${t.owner.toBase58().slice(0, 6)}/${t.clientId}] skip — self-trade (top maker == taker OO)`,
+      );
+      continue;
+    }
 
     const ix = buildExecuteTriggerIx({
       keeper: keeper.publicKey,
@@ -1224,11 +1296,38 @@ async function runExecuteStrategies(): Promise<void> {
       slTriggerOrder,
       slFillsLog,
     });
+
+    // strategy_authority PDA pays rent for trigger_order + trigger fills_log
+    // PDAs created inside trigger_program::place_trigger_order. PDA holds no
+    // SOL — keeper prefunds the exact rent in the same tx.
+    const fundIxs: TransactionInstruction[] = [];
+    if (hasTp || hasSl) {
+      const triggerCount = (hasTp ? 1 : 0) + (hasSl ? 1 : 0);
+      const fundLamports =
+        triggerCount *
+        (rentExemptLamports(TRIGGER_ORDER_SIZE) +
+          rentExemptLamports(FILLS_LOG_SIZE));
+      fundIxs.push(
+        SystemProgram.transfer({
+          fromPubkey: keeper.publicKey,
+          toPubkey: strategyAuthority,
+          lamports: fundLamports,
+        }),
+      );
+    }
+
     await send(
-      [...priorityFeeIxs(), ix],
+      [...priorityFeeIxs(), ...fundIxs, ix],
       `execute-strategy ${s.owner.toBase58().slice(0, 6)}/t${s.strategyType}/sig${signal}`,
     );
   }
+}
+
+// Rent-exempt lamports for a given account size. Solana formula:
+// (data_len + ACCOUNT_STORAGE_OVERHEAD) * LAMPORTS_PER_BYTE_YEAR * EXEMPTION_THRESHOLD
+// = (size + 128) * 6960 (devnet/mainnet baseline)
+function rentExemptLamports(size: number): number {
+  return (size + 128) * 6960;
 }
 
 // ── Scheduler ────────────────────────────────────────────────────────────
