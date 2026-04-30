@@ -15,6 +15,7 @@ import {
 } from "@/lib/kronix/pdas";
 import { fetchOpenOrders, fetchMarketConfig } from "@/lib/kronix/state";
 import { MARKET_INDEX } from "@/lib/kronix/config";
+import { useStore } from "@/lib/store";
 import { sendTx, formatTxError } from "./tx";
 
 type OwnOrder = { clientId: bigint; priceLots: bigint; side: number };
@@ -55,6 +56,22 @@ export function OrderForm() {
     quoteLotSize: bigint;
     initialMarginBps: number;
   } | null>(null);
+
+  const [mounted, setMounted] = useState(false);
+  const selectedPrice = useStore(s => s.selectedPrice);
+  const lastFocusedInputId = useStore(s => s.lastFocusedInputId);
+  const setLastFocusedInputId = useStore(s => s.setLastFocusedInputId);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (selectedPrice !== null && lastFocusedInputId) {
+      const p = Math.round(selectedPrice).toString();
+      if (lastFocusedInputId === "order-price") setPrice(p);
+    }
+  }, [selectedPrice, lastFocusedInputId]);
 
   useEffect(() => {
     const [cfgPda] = findMarketConfigPda(MARKET_INDEX);
@@ -190,6 +207,8 @@ export function OrderForm() {
     }
   };
 
+  if (!mounted) return <div className="p-3 animate-pulse bg-kx-surface-lo rounded-xl h-full" />;
+
   return (
     <div className="p-3 space-y-3">
       {/*<SignerBadge owner={owner} />*/}
@@ -236,12 +255,20 @@ export function OrderForm() {
 
       <div className="space-y-2">
         <Field
+          id="order-price"
           label="Price (lots)"
           value={price}
           onChange={setPrice}
+          onFocus={() => setLastFocusedInputId("order-price")}
           disabled={orderType === PlaceOrderType.Market}
         />
-        <Field label="Size (base lots)" value={size} onChange={setSize} />
+        <Field 
+          id="order-size"
+          label="Size (base lots)" 
+          value={size} 
+          onChange={setSize} 
+          onFocus={() => setLastFocusedInputId("order-size")}
+        />
       </div>
 
       {cfg && (() => {
@@ -361,14 +388,18 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function Field({
+  id,
   label,
   value,
   onChange,
+  onFocus,
   disabled,
 }: {
+  id?: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
+  onFocus?: () => void;
   disabled?: boolean;
 }) {
   return (
@@ -377,8 +408,10 @@ function Field({
         {label}
       </div>
       <input
+        id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={onFocus}
         disabled={disabled}
         inputMode="numeric"
         className="w-full bg-kx-surface-lo border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface focus:outline-none focus:border-[#4dffb4]/50 focus:bg-kx-surface-lo/80 disabled:opacity-40 transition-colors"

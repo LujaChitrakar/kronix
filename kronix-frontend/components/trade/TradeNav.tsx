@@ -1,11 +1,17 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { MARKET_NAME, RPC_URL } from "@/lib/kronix/config";
 
 export function TradeNav() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const cluster = RPC_URL.includes("devnet")
     ? "Devnet"
     : RPC_URL.includes("mainnet")
@@ -30,16 +36,18 @@ export function TradeNav() {
             {cluster}
           </span>
         </div>
-        <WalletMultiButton style={{
-          background: "#222F2B",
-          color: "#4DFFB4",
-          fontFamily: "Manrope, sans-serif",
-          fontWeight: 700,
-          fontSize: 12,
-          height: 36,
-          borderRadius: 8,
-          border: "1px solid rgba(77, 255, 180, 0.25)",
-        }} />
+        {mounted && (
+          <WalletMultiButton style={{
+            background: "#222F2B",
+            color: "#4DFFB4",
+            fontFamily: "Manrope, sans-serif",
+            fontWeight: 700,
+            fontSize: 12,
+            height: 36,
+            borderRadius: 8,
+            border: "1px solid rgba(77, 255, 180, 0.25)",
+          }} />
+        )}
       </div>
     </nav>
   );
