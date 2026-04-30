@@ -5,6 +5,8 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { sendCreateStrategy } from "@/lib/kronix/client";
 import { Side, StrategyType } from "@/lib/kronix/config";
 import { emptyStrategyParamsArgs } from "@/lib/strategy-sdk";
+import { useStore } from "@/lib/store";
+import { useEffect } from "react";
 import { sendTx, formatTxError } from "./tx";
 
 const STRATEGY_TYPES: [string, number][] = [
@@ -54,6 +56,26 @@ export function StrategyForm() {
 
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+
+  const [mounted, setMounted] = useState(false);
+  const selectedPrice = useStore(s => s.selectedPrice);
+  const lastFocusedInputId = useStore(s => s.lastFocusedInputId);
+  const setLastFocusedInputId = useStore(s => s.setLastFocusedInputId);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (selectedPrice !== null && lastFocusedInputId) {
+      const p = Math.round(selectedPrice).toString();
+      if (lastFocusedInputId === "strategy-limit") setLimitPriceLots(p);
+      else if (lastFocusedInputId === "strategy-tp") setTakeProfit(p);
+      else if (lastFocusedInputId === "strategy-sl") setStopLoss(p);
+      else if (lastFocusedInputId === "strategy-lower") setDca({ ...dca, lowerPrice: p });
+      else if (lastFocusedInputId === "strategy-upper") setDca({ ...dca, upperPrice: p });
+    }
+  }, [selectedPrice, lastFocusedInputId]);
 
   const submit = async () => {
     if (!owner) return;
@@ -113,6 +135,8 @@ export function StrategyForm() {
     }
   };
 
+  if (!mounted) return <div className="p-3 animate-pulse bg-kx-surface-lo rounded-xl h-full" />;
+
   return (
     <div className="p-3 space-y-3">
       <SectionLabel>Strategy Type</SectionLabel>
@@ -157,31 +181,51 @@ export function StrategyForm() {
 
       <SectionLabel>Order</SectionLabel>
       <div className="space-y-2">
-        <Field label="Size (base lots)" value={sizeLots} onChange={setSizeLots} />
+        <Field 
+          id="strategy-size"
+          label="Size (base lots)" 
+          value={sizeLots} 
+          onChange={setSizeLots} 
+          onFocus={() => setLastFocusedInputId("strategy-size")}
+        />
         <Field
+          id="strategy-limit"
           label="Limit Price (lots, 0 = market)"
           value={limitPriceLots}
           onChange={setLimitPriceLots}
+          onFocus={() => setLastFocusedInputId("strategy-limit")}
         />
         <div className="grid grid-cols-2 gap-2">
           <Field
+            id="strategy-tp"
             label="Take Profit"
             value={takeProfit}
             onChange={setTakeProfit}
+            onFocus={() => setLastFocusedInputId("strategy-tp")}
           />
           <Field
+            id="strategy-sl"
             label="Stop Loss"
             value={stopLoss}
             onChange={setStopLoss}
+            onFocus={() => setLastFocusedInputId("strategy-sl")}
           />
         </div>
         <div className="grid grid-cols-2 gap-2">
           <Field
+            id="strategy-cooldown"
             label="Cooldown (s)"
             value={cooldownSecs}
             onChange={setCooldownSecs}
+            onFocus={() => setLastFocusedInputId("strategy-cooldown")}
           />
-          <Field label="Max / Day" value={maxPerDay} onChange={setMaxPerDay} />
+          <Field 
+            id="strategy-maxday"
+            label="Max / Day" 
+            value={maxPerDay} 
+            onChange={setMaxPerDay} 
+            onFocus={() => setLastFocusedInputId("strategy-maxday")}
+          />
         </div>
       </div>
 
@@ -227,19 +271,25 @@ export function StrategyForm() {
       {strategyType === StrategyType.RangeDCA && (
         <div className="grid grid-cols-3 gap-2">
           <Field
+            id="strategy-lower"
             label="Lower (lots)"
             value={dca.lowerPrice}
             onChange={(v) => setDca({ ...dca, lowerPrice: v })}
+            onFocus={() => setLastFocusedInputId("strategy-lower")}
           />
           <Field
+            id="strategy-upper"
             label="Upper (lots)"
             value={dca.upperPrice}
             onChange={(v) => setDca({ ...dca, upperPrice: v })}
+            onFocus={() => setLastFocusedInputId("strategy-upper")}
           />
           <Field
+            id="strategy-grid"
             label="Grid Count"
             value={dca.gridCount}
             onChange={(v) => setDca({ ...dca, gridCount: v })}
+            onFocus={() => setLastFocusedInputId("strategy-grid")}
           />
         </div>
       )}
@@ -300,13 +350,17 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function Field({
+  id,
   label,
   value,
   onChange,
+  onFocus,
 }: {
+  id?: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
+  onFocus?: () => void;
 }) {
   return (
     <div className="mb-2">
@@ -314,8 +368,10 @@ function Field({
         {label}
       </div>
       <input
+        id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={onFocus}
         inputMode="numeric"
         className="w-full bg-kx-surface-lo border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface focus:outline-none focus:border-[#4dffb4]/50 transition-colors"
       />

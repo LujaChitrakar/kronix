@@ -60,6 +60,11 @@ export function Orderbook() {
   const [currentSlot, setCurrentSlot] = useState<bigint>(0n);
   const [err, setErr] = useState<string | null>(null);
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const refreshBook = useCallback(async () => {
     try {
       const [market] = findMarketPda(MARKET_INDEX);
@@ -141,6 +146,10 @@ export function Orderbook() {
 
   const totalUsdc = (priceLots: bigint, qty: bigint): string =>
     fmtBigInt(priceLots * qty);
+
+  if (!mounted) {
+    return <div className="bg-kx-surface rounded-xl border kx-border h-[620px] animate-pulse" />;
+  }
 
   return (
     <div className="bg-kx-surface rounded-xl border kx-border overflow-hidden flex flex-col h-[620px]">

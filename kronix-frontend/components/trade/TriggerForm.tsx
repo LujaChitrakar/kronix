@@ -9,6 +9,8 @@ import {
   Side,
   TriggerType,
 } from "@/lib/kronix/config";
+import { useStore } from "@/lib/store";
+import { useEffect } from "react";
 import { sendTx, formatTxError } from "./tx";
 
 const TRIGGER_TYPES: [string, number][] = [
@@ -28,6 +30,22 @@ export function TriggerForm() {
   const [expiry, setExpiry] = useState("0");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+
+  const [mounted, setMounted] = useState(false);
+  const selectedPrice = useStore(s => s.selectedPrice);
+  const lastFocusedInputId = useStore(s => s.lastFocusedInputId);
+  const setLastFocusedInputId = useStore(s => s.setLastFocusedInputId);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (selectedPrice !== null && lastFocusedInputId) {
+      const p = Math.round(selectedPrice).toString();
+      if (lastFocusedInputId === "trigger-price") setTriggerPrice(p);
+    }
+  }, [selectedPrice, lastFocusedInputId]);
 
   const submit = async () => {
     if (!owner) return;
@@ -61,6 +79,8 @@ export function TriggerForm() {
       setBusy(false);
     }
   };
+
+  if (!mounted) return <div className="p-3 animate-pulse bg-kx-surface-lo rounded-xl h-full" />;
 
   return (
     <div className="p-3 space-y-3">
@@ -109,15 +129,25 @@ export function TriggerForm() {
 
       <div className="space-y-2">
         <Field
+          id="trigger-price"
           label="Trigger Price (lots)"
           value={triggerPrice}
           onChange={setTriggerPrice}
+          onFocus={() => setLastFocusedInputId("trigger-price")}
         />
-        <Field label="Size (base lots)" value={size} onChange={setSize} />
+        <Field 
+          id="trigger-size"
+          label="Size (base lots)" 
+          value={size} 
+          onChange={setSize} 
+          onFocus={() => setLastFocusedInputId("trigger-size")}
+        />
         <Field
+          id="trigger-expiry"
           label="Expiry (unix ts, 0 = never)"
           value={expiry}
           onChange={setExpiry}
+          onFocus={() => setLastFocusedInputId("trigger-expiry")}
         />
       </div>
 
@@ -159,13 +189,17 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function Field({
+  id,
   label,
   value,
   onChange,
+  onFocus,
 }: {
+  id?: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
+  onFocus?: () => void;
 }) {
   return (
     <div className="mb-2">
@@ -173,8 +207,10 @@ function Field({
         {label}
       </div>
       <input
+        id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={onFocus}
         inputMode="numeric"
         className="w-full bg-kx-surface-lo border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface focus:outline-none focus:border-[#4dffb4]/50 transition-colors"
       />
