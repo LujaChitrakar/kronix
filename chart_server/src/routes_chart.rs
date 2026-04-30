@@ -105,21 +105,13 @@ pub async fn get_current_index_value(pool: web::Data<PgPool>) -> impl Responder 
     match res {
         Ok(Some(row)) => {
             use sqlx::Row;
-            let ts: DateTime<Utc> = row.get("timestamp");
             let val: rust_decimal::Decimal = row.get("close");
 
-            let numeric_val: f64 = val.to_f64().unwrap_or(0.0);
-
-            HttpResponse::Ok().json(serde_json::json!({
-                "timestamp": ts.timestamp(),
-                "value": numeric_val
-            }))
+            HttpResponse::Ok().body(val.to_string())
         }
-        Ok(None) => HttpResponse::NotFound().json(serde_json::json!({
-            "error": "No price data found"
-        })),
+        Ok(None) => HttpResponse::NotFound().body("0"),
         Err(e) => {
-            // log::error!("Failed to fetch live index price: {:?}", e);
+            eprintln!("Database error: {:?}", e);
             HttpResponse::InternalServerError().finish()
         }
     }
