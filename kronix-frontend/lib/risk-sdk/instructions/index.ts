@@ -11,6 +11,7 @@ export * from "./closePosition";
 export * from "./coverBadDebt";
 export * from "./createRiskMarket";
 export * from "./deposit";
+export * from "./depositInsurance";
 export * from "./initializeInsuranceFund";
 export * from "./initializeVault";
 export * from "./liquidate";

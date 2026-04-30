@@ -6,6 +6,7 @@ pub mod close_position;
 pub mod cover_bad_debt;
 pub mod create_risk_market;
 pub mod deposit;
+pub mod deposit_insurance;
 pub mod initialize_insurance_fund;
 pub mod initialize_vault;
 pub mod liquidate;
@@ -21,6 +22,7 @@ pub use close_position::*;
 pub use cover_bad_debt::*;
 pub use create_risk_market::*;
 pub use deposit::*;
+pub use deposit_insurance::*;
 pub use initialize_insurance_fund::*;
 pub use initialize_vault::*;
 pub use liquidate::*;
@@ -103,7 +105,13 @@ pub enum RiskInstruction {
     #[account(2, name = "market_config", desc = "MarketConfig")]
     #[account(3, name = "funding_state", desc = "FundingState", writable)]
     #[account(4, name = "system_program", desc = "System program")]
-    #[account(5, name = "payer", desc = "Fee payer for position creation", signer, writable)]
+    #[account(
+        5,
+        name = "payer",
+        desc = "Fee payer for position creation",
+        signer,
+        writable
+    )]
     SettleFill(SettleFillParams),
 
     #[account(0, name = "signer", desc = "Trader", signer)]
@@ -145,6 +153,14 @@ pub enum RiskInstruction {
     #[account(5, name = "insurance_fund", desc = "InsuranceFund", writable)]
     #[account(6, name = "oracle", desc = "Pyth oracle")]
     CoverBadDebt(CoverBadDebtParams),
+
+    #[account(0, name = "signer", desc = "Depositor", signer, writable)]
+    #[account(1, name = "insurance_fund", desc = "InsuranceFund PDA", writable)]
+    #[account(2, name = "user_token_account", desc = "User USDC ATA", writable)]
+    #[account(3, name = "vault", desc = "Program vault", writable)]
+    #[account(4, name = "token_program", desc = "Token program")]
+    #[account(5, name = "system_program", desc = "System program")]
+    DepositInsurance(DepositInsuranceParams),
 }
 
 #[repr(u8)]
@@ -163,6 +179,7 @@ pub enum RiskProgramInstruction {
     UpdateFundingRate = 11,
     Liquidate = 12,
     CoverBadDebt = 13,
+    DepositInsurance = 14,
 }
 
 impl TryFrom<&u8> for RiskProgramInstruction {
@@ -184,6 +201,7 @@ impl TryFrom<&u8> for RiskProgramInstruction {
             11 => Ok(RiskProgramInstruction::UpdateFundingRate),
             12 => Ok(RiskProgramInstruction::Liquidate),
             13 => Ok(RiskProgramInstruction::CoverBadDebt),
+            14 => Ok(RiskProgramInstruction::DepositInsurance),
             _ => Err(ProgramError::InvalidInstructionData),
         }
     }

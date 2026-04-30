@@ -1,16 +1,17 @@
 #![allow(unexpected_cfgs)]
 
 use pinocchio::{
-    AccountView, Address, ProgramResult, default_panic_handler, error::ProgramError, no_allocator,
-    program_entrypoint,
+    default_panic_handler, error::ProgramError, no_allocator, program_entrypoint, AccountView,
+    Address, ProgramResult,
 };
 use pinocchio_log::log;
 
 use crate::instructions::{
-    RiskProgramInstruction, process_add_margin, process_close_position, process_cover_bad_debt,
-    process_create_risk_market, process_deposit, process_initialize_insurance_fund,
+    process_add_margin, process_close_position, process_cover_bad_debt, process_create_risk_market,
+    process_deposit, process_deposit_insurance, process_initialize_insurance_fund,
     process_initialize_vault, process_liquidate, process_open_position, process_remove_margin,
     process_settle_fill, process_settle_funding, process_update_funding_rate, process_withdraw,
+    RiskProgramInstruction,
 };
 
 program_entrypoint!(process_instruction);
@@ -45,6 +46,7 @@ pub fn process_instruction(
         RiskProgramInstruction::UpdateFundingRate => process_update_funding_rate(accounts, data)?,
         RiskProgramInstruction::Liquidate => process_liquidate(accounts, data)?,
         RiskProgramInstruction::CoverBadDebt => process_cover_bad_debt(accounts, data)?,
+        RiskProgramInstruction::DepositInsurance => process_deposit_insurance(accounts, data)?,
     }
     Ok(())
 }

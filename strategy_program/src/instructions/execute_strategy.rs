@@ -21,7 +21,7 @@ pub struct ExecuteStrategyParams {
     pub signal: u8, // 0=Buy, 1=Sell
     // bumps for CPIs
     pub bump_oo_account: u8,
-    pub bump_fills_log: u8, // strategy's own fills_log (place_order taker)
+    pub bump_fills_log: u8,  // strategy's own fills_log (place_order taker)
     pub bump_trigger_tp: u8, // TP trigger_order PDA
     pub bump_trigger_sl: u8, // SL trigger_order PDA
     pub bump_authority: u8,  // strategy_authority PDA
@@ -158,14 +158,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
     // Remaining accounts for trigger CPIs (when has_tp || has_sl):
     //   [trigger_program, trigger_authority, tp_order?, tp_fills_log?,
     //    sl_order?, sl_fills_log?]
-    let (
-        trigger_program,
-        trigger_authority,
-        tp_order,
-        tp_fills_log,
-        sl_order,
-        sl_fills_log,
-    ): (
+    let (trigger_program, trigger_authority, tp_order, tp_fills_log, sl_order, sl_fills_log): (
         Option<&AccountView>,
         Option<&AccountView>,
         Option<&AccountView>,
@@ -176,8 +169,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
         (false, false) => (None, None, None, None, None, None),
 
         (true, false) => {
-            let [trigger_program, trigger_authority, tp_order, tp_fills_log, ..] =
-                _remaining
+            let [trigger_program, trigger_authority, tp_order, tp_fills_log, ..] = _remaining
             else {
                 return Err(ProgramError::NotEnoughAccountKeys);
             };
@@ -192,8 +184,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
         }
 
         (false, true) => {
-            let [trigger_program, trigger_authority, sl_order, sl_fills_log, ..] =
-                _remaining
+            let [trigger_program, trigger_authority, sl_order, sl_fills_log, ..] = _remaining
             else {
                 return Err(ProgramError::NotEnoughAccountKeys);
             };

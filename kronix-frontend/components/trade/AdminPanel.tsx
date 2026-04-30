@@ -8,6 +8,7 @@ import {
   sendInitVault,
   sendCreateRiskMarket,
   sendCreateOrderbookMarket,
+  sendDepositInsurance,
 } from "@/lib/kronix/client";
 import {
   findInsuranceFundPda,
@@ -48,6 +49,7 @@ export function AdminPanel() {
   const [liqFeeBps, setLiqFeeBps] = useState("100"); // 1%
   const [maxLeverage, setMaxLeverage] = useState("10");
   const [timeExpiry, setTimeExpiry] = useState("0");
+  const [insuranceAmount, setInsuranceAmount] = useState("1000"); // USDC (human units)
 
   const [status, setStatus] = useState<Status>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -249,10 +251,48 @@ export function AdminPanel() {
         </button>
       </Step>
 
+      {/* Step 5 — fund insurance */}
+      <div className="mt-4 mb-2 text-[11px] uppercase tracking-wider text-on-surface-variant/70">
+        Insurance Funding
+      </div>
+      <div className="mb-3">
+        <Field
+          label="Amount (USDC)"
+          v={insuranceAmount}
+          setV={setInsuranceAmount}
+        />
+      </div>
+      <Step
+        n={5}
+        title="deposit_insurance (USDC → InsuranceFund)"
+        ok={status.insurance ?? null}
+      >
+        <button
+          disabled={!owner || !!busy || !status.insurance || !status.vault}
+          onClick={() => {
+            const human = parseFloat(insuranceAmount || "0");
+            if (!Number.isFinite(human) || human <= 0) {
+              setMsg("DepositInsurance failed:\nAmount must be > 0");
+              return;
+            }
+            const baseUnits = BigInt(Math.round(human * 1_000_000));
+            run("DepositInsurance", () =>
+              sendDepositInsurance(owner!, baseUnits, connection, (ixs, c) =>
+                sendTx(wallet, c, ixs),
+              ),
+            );
+          }}
+          className="bg-primary-container text-on-primary-fixed px-3 py-2 text-xs font-headline font-bold rounded-md disabled:opacity-50"
+        >
+          Deposit
+        </button>
+      </Step>
+
       <div className="mt-4 text-[10px] font-mono text-on-surface-variant/70 leading-relaxed">
         Order matters: insurance → vault → risk market → orderbook market
         (same market_index for both). Risk market must exist before orderbook
-        market for the same index.
+        market for the same index. Deposit insurance only after vault +
+        insurance fund both initialized.
       </div>
 
       {msg && (

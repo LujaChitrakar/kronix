@@ -43,6 +43,7 @@ import {
   getInitializeInsuranceFundInstruction,
   getInitializeVaultInstruction,
   getCreateRiskMarketInstruction,
+  getDepositInsuranceInstruction,
 } from "@/lib/risk-sdk";
 
 import {
@@ -726,6 +727,30 @@ export async function sendInitInsuranceFund(
     insuranceFund: addr(insuranceFund),
     systemProgram: addr(SYSTEM_PROGRAM_ID),
     bump,
+    padding: PADDING_7,
+  });
+  return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
+}
+
+export async function sendDepositInsurance(
+  payer: PublicKey,
+  amountBaseUnits: bigint,
+  conn: Connection,
+  send: Send,
+): Promise<string> {
+  const [insuranceFund] = findInsuranceFundPda();
+  const [vault, bumpVault] = findVaultPda();
+  const userAta = getAssociatedTokenAddressSync(USDC_MINT, payer);
+
+  const ix = getDepositInsuranceInstruction({
+    signer: fakeSigner(payer),
+    insuranceFund: addr(insuranceFund),
+    userTokenAccount: addr(userAta),
+    vault: addr(vault),
+    tokenProgram: addr(TOKEN_PROGRAM_ID),
+    systemProgram: addr(SYSTEM_PROGRAM_ID),
+    amount: amountBaseUnits,
+    bumpVault,
     padding: PADDING_7,
   });
   return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);

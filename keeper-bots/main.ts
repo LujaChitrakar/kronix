@@ -133,7 +133,10 @@ async function send(ixs: TransactionInstruction[], label: string): Promise<strin
     return sig;
   } catch (e) {
     const msg = (e as Error).message ?? String(e);
-    if (msg.includes("0xd")) return null;
+    if (msg.includes("0xd")) return null; // FundingNotDue
+    if (msg.includes("0x10")) return null; // NotLiquidatable
+    if (msg.includes("0x11")) return null; // NotInBadDebt
+    if (msg.includes("0xf") && label.startsWith("cover-bad-debt")) return null; // InsuranceFundDepleted
     const logs = (e as { logs?: string[] }).logs;
     const tail = logs ? "\n" + logs.slice(-12).join("\n") : "";
     console.log(`[${label}] ✗ ${msg}${tail}`);
