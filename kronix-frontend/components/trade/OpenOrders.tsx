@@ -219,14 +219,14 @@ export function OpenOrders() {
                             });
                           }
                         }}
-                        className="text-[10px] px-2 py-1 rounded-md bg-kx-surface-hi border kx-border disabled:opacity-50"
+                        className="text-[10px] font-headline font-bold uppercase tracking-wider min-w-[64px] px-2.5 py-1 rounded-md bg-kx-surface-hi border kx-border text-on-surface-variant hover:text-on-surface hover:bg-kx-surface-hi/80 transition-colors disabled:opacity-50"
                       >
-                        Edit
+                        {editing === r.clientId ? "Close" : "Edit"}
                       </button>
                       <button
                         disabled={!!busy}
                         onClick={() => cancel(r.clientId)}
-                        className="text-[10px] px-2 py-1 rounded-md bg-kx-surface-hi border kx-border disabled:opacity-50"
+                        className="text-[10px] font-headline font-bold uppercase tracking-wider min-w-[64px] px-2.5 py-1 rounded-md bg-[#ff6b6b]/10 border border-[#ff6b6b]/30 text-[#ff6b6b] hover:bg-[#ff6b6b]/20 transition-colors disabled:opacity-50"
                       >
                         {busy === `cancel ${r.clientId}` ? "…" : "Cancel"}
                       </button>
@@ -235,10 +235,10 @@ export function OpenOrders() {
                 </tr>
                 {editing === r.clientId && (
                   <tr className="border-t kx-border bg-kx-surface-lo">
-                    <td colSpan={6} className="p-2">
-                      <div className="flex gap-2 items-end">
+                    <td colSpan={6} className="p-3">
+                      <div className="flex gap-3 items-end">
                         <div className="flex-1">
-                          <div className="text-[9px] uppercase text-on-surface-variant/70">
+                          <div className="text-[11px] uppercase tracking-wider text-on-surface-variant/70 mb-1">
                             new price (lots)
                           </div>
                           <input
@@ -247,11 +247,11 @@ export function OpenOrders() {
                               setDraft({ ...draft, price: e.target.value })
                             }
                             inputMode="numeric"
-                            className="w-full bg-kx-surface border kx-border rounded-md px-2 py-1 text-xs font-mono text-on-surface"
+                            className="w-full bg-kx-surface border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface"
                           />
                         </div>
                         <div className="flex-1">
-                          <div className="text-[9px] uppercase text-on-surface-variant/70">
+                          <div className="text-[11px] uppercase tracking-wider text-on-surface-variant/70 mb-1">
                             new size (base lots)
                           </div>
                           <input
@@ -260,13 +260,13 @@ export function OpenOrders() {
                               setDraft({ ...draft, size: e.target.value })
                             }
                             inputMode="numeric"
-                            className="w-full bg-kx-surface border kx-border rounded-md px-2 py-1 text-xs font-mono text-on-surface"
+                            className="w-full bg-kx-surface border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface"
                           />
                         </div>
                         <button
                           disabled={!!busy}
                           onClick={() => submitEdit(r)}
-                          className="text-[10px] px-3 py-1.5 rounded-md bg-primary-container text-on-primary-fixed font-bold disabled:opacity-50"
+                          className="text-[11px] font-headline font-bold uppercase tracking-wider px-4 py-2 rounded-md bg-[#4dffb4] text-on-primary-fixed shadow-md shadow-[#4dffb4]/20 hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50"
                         >
                           {busy === `edit ${r.clientId}` ? "…" : "Submit"}
                         </button>

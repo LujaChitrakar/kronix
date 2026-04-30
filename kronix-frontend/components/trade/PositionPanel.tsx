@@ -25,6 +25,17 @@ function fmtUsdc(n: bigint): string {
   return `${sign}${whole}.${frac}`;
 }
 
+// Parse Pyth PriceUpdateV2 → native USDC (6 decimals).
+// Layout: price (i64) at offset 73, exponent (i32) at offset 89.
+function parsePythPriceNative(data: Buffer): bigint | null {
+  if (data.length < 134) return null;
+  const rawPrice = data.readBigInt64LE(73);
+  const exponent = data.readInt32LE(89);
+  const scaleExp = 6 + exponent;
+  if (scaleExp >= 0) return rawPrice * 10n ** BigInt(scaleExp);
+  return rawPrice / 10n ** BigInt(-scaleExp);
+}
+
 export function PositionPanel() {
   const { connection } = useConnection();
   const wallet = useWallet();
@@ -75,18 +86,9 @@ export function PositionPanel() {
         oraclePk,
         "confirmed",
       );
-      if (oraclePriceAcc && oraclePriceAcc.data.length >= 134) {
-        const buf = oraclePriceAcc.data;
-        const rawPrice = buf.readBigInt64LE(73);
-        const exponent = buf.readInt32LE(89);
-        const scaleExp = 6 + exponent;
-        let normalized: bigint;
-        if (scaleExp >= 0) {
-          normalized = rawPrice * 10n ** BigInt(scaleExp);
-        } else {
-          normalized = rawPrice / 10n ** BigInt(-scaleExp);
-        }
-        setMarkPriceNative(normalized);
+      if (oraclePriceAcc) {
+        const px = parsePythPriceNative(oraclePriceAcc.data);
+        if (px !== null) setMarkPriceNative(px);
       }
     }
   }, [connection, owner]);
@@ -96,6 +98,41 @@ export function PositionPanel() {
     const t = setInterval(() => refresh().catch(() => null), 8000);
     return () => clearInterval(t);
   }, [refresh]);
+
+  // Real-time Pyth — WebSocket push on oracle account change + 1s poll fallback.
+  // Dep on base58 string (stable) instead of PublicKey instance (re-created each refresh).
+  const oracleKey = oracle?.toBase58() ?? null;
+  useEffect(() => {
+    if (!oracleKey) return;
+    const pk = new PublicKey(oracleKey);
+    let canceled = false;
+    const id = connection.onAccountChange(
+      pk,
+      (acc) => {
+        const px = parsePythPriceNative(acc.data);
+        if (px !== null) setMarkPriceNative(px);
+      },
+      { commitment: "confirmed" },
+    );
+    const poll = async () => {
+      try {
+        const acc = await connection.getAccountInfo(pk, "confirmed");
+        if (!canceled && acc) {
+          const px = parsePythPriceNative(acc.data);
+          if (px !== null) setMarkPriceNative(px);
+        }
+      } catch {
+        // ignore — next tick retries
+      }
+    };
+    poll();
+    const t = setInterval(poll, 1000);
+    return () => {
+      canceled = true;
+      clearInterval(t);
+      connection.removeAccountChangeListener(id).catch(() => null);
+    };
+  }, [connection, oracleKey]);
 
   const run = async (label: string, fn: () => Promise<string>) => {
     setBusy(label);
@@ -187,23 +224,25 @@ export function PositionPanel() {
               </div>
             )}
 
-          <div className="flex gap-2 mb-2">
+          <div className="grid grid-cols-2 gap-3 mb-2 items-center">
             <input
               value={marginAmt}
               onChange={(e) => setMarginAmt(e.target.value)}
               placeholder="USDC"
               inputMode="decimal"
-              className="flex-1 bg-kx-surface-lo border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface"
+              className="bg-kx-surface-lo border kx-border rounded-lg px-3 py-3 text-sm font-mono text-on-surface"
             />
-            <button
-              type="button"
-              onClick={() =>
-                setMarginAmt((Number(maxRemovable) / 1_000_000).toString())
-              }
-              className="px-3 py-2 text-[10px] font-mono rounded-md border kx-border bg-kx-surface-lo text-on-surface-variant hover:text-on-surface"
-            >
-              MAX
-            </button>
+            <div className="grid grid-cols-8 gap-1.5">
+              <button
+                type="button"
+                onClick={() =>
+                  setMarginAmt((Number(maxRemovable) / 1_000_000).toString())
+                }
+                className="py-2 text-[11px] font-headline font-bold uppercase tracking-wider rounded-md border kx-border bg-kx-surface-lo text-on-surface-variant hover:text-on-surface hover:bg-kx-surface-hi/60 transition-colors"
+              >
+                MAX
+              </button>
+            </div>
           </div>
           {removeExceeds && (
             <div className="mb-2 text-[10px] font-mono text-[#ffb86b]">
@@ -213,7 +252,7 @@ export function PositionPanel() {
               Reduce or use MAX.
             </div>
           )}
-          <div className="grid grid-cols-2 gap-2 mb-2">
+          <div className="flex flex-wrap gap-1.5">
             <button
               disabled={!!busy || baseUnits === 0n}
               onClick={() =>
@@ -223,7 +262,7 @@ export function PositionPanel() {
                   ),
                 )
               }
-              className="bg-kx-surface-hi text-on-surface px-3 py-2 text-xs font-headline font-bold rounded-md border kx-border disabled:opacity-50"
+              className="text-[11px] font-headline font-bold uppercase tracking-wider min-w-[88px] px-3 py-1.5 rounded-md bg-[#4dffb4]/10 border border-[#4dffb4]/30 text-[#4dffb4] hover:bg-[#4dffb4]/20 transition-colors disabled:opacity-50"
             >
               + Margin
             </button>
@@ -236,12 +275,10 @@ export function PositionPanel() {
                   ),
                 )
               }
-              className="bg-kx-surface-hi text-on-surface px-3 py-2 text-xs font-headline font-bold rounded-md border kx-border disabled:opacity-50"
+              className="text-[11px] font-headline font-bold uppercase tracking-wider min-w-[88px] px-3 py-1.5 rounded-md bg-[#ffb86b]/10 border border-[#ffb86b]/30 text-[#ffb86b] hover:bg-[#ffb86b]/20 transition-colors disabled:opacity-50"
             >
               − Margin
             </button>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
             <button
               disabled={!!busy || !oracle}
               onClick={() =>
@@ -251,7 +288,7 @@ export function PositionPanel() {
                   ),
                 )
               }
-              className="bg-[#ff6b6b]/20 text-[#ff6b6b] px-3 py-2 text-xs font-headline font-bold rounded-md border border-[#ff6b6b]/30 disabled:opacity-50"
+              className="text-[11px] font-headline font-bold uppercase tracking-wider min-w-[88px] px-3 py-1.5 rounded-md bg-[#ff6b6b]/10 border border-[#ff6b6b]/30 text-[#ff6b6b] hover:bg-[#ff6b6b]/20 transition-colors disabled:opacity-50"
             >
               Close Position
             </button>
@@ -264,7 +301,7 @@ export function PositionPanel() {
                   ),
                 )
               }
-              className="bg-kx-surface-hi text-on-surface px-3 py-2 text-xs font-headline font-bold rounded-md border kx-border disabled:opacity-50"
+              className="text-[11px] font-headline font-bold uppercase tracking-wider min-w-[88px] px-3 py-1.5 rounded-md bg-kx-surface-hi border kx-border text-on-surface-variant hover:text-on-surface hover:bg-kx-surface-hi/80 transition-colors disabled:opacity-50"
             >
               Settle Funding
             </button>

@@ -234,53 +234,55 @@ export function TriggerOrders() {
                     <td>{String(r.sizeLots)}</td>
                     <td>{r.expiry === 0n ? "—" : String(r.expiry)}</td>
                     <td>{statusLabel(r.status)}</td>
-                    <td className="text-right space-x-1">
-                      {editable && (
-                        <button
-                          disabled={!!busy}
-                          onClick={() =>
-                            editId === r.clientId
-                              ? setEditId(null)
-                              : startEdit(r)
-                          }
-                          className="text-[10px] px-2 py-1 rounded-md bg-kx-surface-hi border kx-border disabled:opacity-50"
-                        >
-                          {editId === r.clientId ? "Close" : "Edit"}
-                        </button>
-                      )}
-                      {isActive && (
-                        <button
-                          disabled={!!busy}
-                          onClick={() => pause(r.clientId)}
-                          className="text-[10px] px-2 py-1 rounded-md bg-kx-surface-hi border kx-border disabled:opacity-50"
-                        >
-                          {busy === `pause ${r.clientId}` ? "…" : "Pause"}
-                        </button>
-                      )}
-                      {isPaused && (
-                        <button
-                          disabled={!!busy}
-                          onClick={() => resume(r.clientId)}
-                          className="text-[10px] px-2 py-1 rounded-md bg-[#4dffb4]/20 border border-[#4dffb4]/40 text-[#4dffb4] disabled:opacity-50"
-                        >
-                          {busy === `resume ${r.clientId}` ? "…" : "Resume"}
-                        </button>
-                      )}
-                      {(isActive || isPaused) && (
-                        <button
-                          disabled={!!busy}
-                          onClick={() => cancel(r.clientId)}
-                          className="text-[10px] px-2 py-1 rounded-md bg-[#ff6b6b]/20 border border-[#ff6b6b]/40 text-[#ff6b6b] disabled:opacity-50"
-                        >
-                          {busy === `cancel ${r.clientId}` ? "…" : "Cancel"}
-                        </button>
-                      )}
+                    <td className="text-right">
+                      <div className="inline-flex gap-1">
+                        {editable && (
+                          <button
+                            disabled={!!busy}
+                            onClick={() =>
+                              editId === r.clientId
+                                ? setEditId(null)
+                                : startEdit(r)
+                            }
+                            className="text-[10px] font-headline font-bold uppercase tracking-wider min-w-[64px] px-2.5 py-1 rounded-md bg-kx-surface-hi border kx-border text-on-surface-variant hover:text-on-surface hover:bg-kx-surface-hi/80 transition-colors disabled:opacity-50"
+                          >
+                            {editId === r.clientId ? "Close" : "Edit"}
+                          </button>
+                        )}
+                        {isActive && (
+                          <button
+                            disabled={!!busy}
+                            onClick={() => pause(r.clientId)}
+                            className="text-[10px] font-headline font-bold uppercase tracking-wider min-w-[64px] px-2.5 py-1 rounded-md bg-[#ffb86b]/10 border border-[#ffb86b]/30 text-[#ffb86b] hover:bg-[#ffb86b]/20 transition-colors disabled:opacity-50"
+                          >
+                            {busy === `pause ${r.clientId}` ? "…" : "Pause"}
+                          </button>
+                        )}
+                        {isPaused && (
+                          <button
+                            disabled={!!busy}
+                            onClick={() => resume(r.clientId)}
+                            className="text-[10px] font-headline font-bold uppercase tracking-wider min-w-[64px] px-2.5 py-1 rounded-md bg-[#4dffb4]/10 border border-[#4dffb4]/30 text-[#4dffb4] hover:bg-[#4dffb4]/20 transition-colors disabled:opacity-50"
+                          >
+                            {busy === `resume ${r.clientId}` ? "…" : "Resume"}
+                          </button>
+                        )}
+                        {(isActive || isPaused) && (
+                          <button
+                            disabled={!!busy}
+                            onClick={() => cancel(r.clientId)}
+                            className="text-[10px] font-headline font-bold uppercase tracking-wider min-w-[64px] px-2.5 py-1 rounded-md bg-[#ff6b6b]/10 border border-[#ff6b6b]/30 text-[#ff6b6b] hover:bg-[#ff6b6b]/20 transition-colors disabled:opacity-50"
+                          >
+                            {busy === `cancel ${r.clientId}` ? "…" : "Cancel"}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                   {editId === r.clientId && (
                     <tr className="border-t kx-border bg-kx-surface-lo">
-                      <td colSpan={7} className="py-2 px-2">
-                        <div className="grid grid-cols-4 gap-2 items-end">
+                      <td colSpan={7} className="py-3 px-3">
+                        <div className="grid grid-cols-4 gap-3 items-end">
                           <EditField
                             label="Trigger (0=keep)"
                             value={draft.newTriggerPrice}
@@ -305,7 +307,7 @@ export function TriggerOrders() {
                           <button
                             disabled={!!busy}
                             onClick={() => submitEdit(r.clientId)}
-                            className="h-8 text-[11px] font-bold rounded-md bg-primary-container text-on-primary-fixed disabled:opacity-50"
+                            className="h-9 text-[11px] font-headline font-bold uppercase tracking-wider rounded-md bg-[#4dffb4] text-on-primary-fixed shadow-md shadow-[#4dffb4]/20 hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50"
                           >
                             {busy === `edit ${r.clientId}` ? "…" : "Save"}
                           </button>
@@ -339,14 +341,14 @@ function EditField({
 }) {
   return (
     <div>
-      <div className="text-[10px] text-on-surface-variant/70 uppercase mb-1">
+      <div className="text-[11px] text-on-surface-variant/70 uppercase tracking-wider mb-1">
         {label}
       </div>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         inputMode="numeric"
-        className="w-full bg-kx-surface border kx-border rounded-md px-2 py-1.5 text-xs font-mono text-on-surface"
+        className="w-full bg-kx-surface border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface"
       />
     </div>
   );

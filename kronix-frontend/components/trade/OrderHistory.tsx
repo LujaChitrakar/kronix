@@ -9,17 +9,6 @@ import {
 
 const SLOT_MS = 400;
 
-function fmtAge(ms: number): string {
-  if (ms < 0) ms = 0;
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h`;
-  return `${Math.floor(h / 24)}d`;
-}
-
 type Row = {
   side: "BUY" | "SELL";
   role: "TAKER" | "MAKER";
@@ -109,10 +98,21 @@ export function OrderHistory() {
           </thead>
           <tbody>
             {rows.map((r) => {
+              const now = Date.now();
               const ageMs =
                 currentSlot > 0n && r.slot > 0n && currentSlot > r.slot
                   ? Number(currentSlot - r.slot) * SLOT_MS
                   : 0;
+              const wallTime = now - ageMs;
+              const timeStr =
+                ageMs > 0
+                  ? new Date(wallTime).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                      hour12: false,
+                    })
+                  : "—";
               const sideColor =
                 r.side === "BUY" ? "text-[#4dffb4]" : "text-[#ff6b6b]";
               return (
@@ -129,7 +129,7 @@ export function OrderHistory() {
                     {(r.priceLots * r.qty).toString()}
                   </td>
                   <td className="py-1.5 text-right text-on-surface-variant">
-                    {ageMs > 0 ? fmtAge(ageMs) : "—"}
+                    {timeStr}
                   </td>
                 </tr>
               );

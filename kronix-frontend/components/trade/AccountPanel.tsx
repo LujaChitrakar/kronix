@@ -2,10 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Connection, PublicKey } from "@solana/web3.js";
-import {
-  useConnection,
-  useWallet,
-} from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import {
   findUserAccountPda,
@@ -13,11 +10,7 @@ import {
   findMarketPda,
 } from "@/lib/kronix/pdas";
 import { fetchUser, fetchOpenOrders } from "@/lib/kronix/state";
-import {
-  MARKET_INDEX,
-  USDC_MINT,
-  USDC_DECIMALS,
-} from "@/lib/kronix/config";
+import { MARKET_INDEX, USDC_MINT, USDC_DECIMALS } from "@/lib/kronix/config";
 import {
   sendDeposit,
   sendWithdraw,
@@ -83,7 +76,9 @@ export function AccountPanel() {
     setMsg("");
     try {
       const sig = await fn();
-      setMsg(sig ? `${label} → ${sig.slice(0, 8)}…` : `${label}: nothing to do`);
+      setMsg(
+        sig ? `${label} → ${sig.slice(0, 8)}…` : `${label}: nothing to do`,
+      );
       await refresh();
     } catch (e) {
       setMsg(`${label} failed:\n${formatTxError(e)}`);
@@ -100,9 +95,8 @@ export function AccountPanel() {
     );
   }
 
-  const free = collateral !== null && marginUsed !== null
-    ? collateral - marginUsed
-    : null;
+  const free =
+    collateral !== null && marginUsed !== null ? collateral - marginUsed : null;
 
   const baseUnits = (() => {
     const f = parseFloat(amount);
@@ -113,11 +107,23 @@ export function AccountPanel() {
   return (
     <div className="p-4">
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
-        <Stat label="Collateral" v={collateral !== null ? `$${fmtUsdc(collateral)}` : "—"} />
-        <Stat label="Margin Used" v={marginUsed !== null ? `$${fmtUsdc(marginUsed)}` : "—"} />
+        <Stat
+          label="Collateral"
+          v={collateral !== null ? `$${fmtUsdc(collateral)}` : "—"}
+        />
+        <Stat
+          label="Margin Used"
+          v={marginUsed !== null ? `$${fmtUsdc(marginUsed)}` : "—"}
+        />
         <Stat label="Free" v={free !== null ? `$${fmtUsdc(free)}` : "—"} />
-        <Stat label="Positions" v={posCount !== null ? String(posCount) : "—"} />
-        <Stat label="Wallet USDC" v={walletUsdc !== null ? `$${fmtUsdc(walletUsdc)}` : "—"} />
+        <Stat
+          label="Positions"
+          v={posCount !== null ? String(posCount) : "—"}
+        />
+        <Stat
+          label="Wallet USDC"
+          v={walletUsdc !== null ? `$${fmtUsdc(walletUsdc)}` : "—"}
+        />
         <Stat label="Open Orders" v={hasOO ? "Initialized" : "Missing"} />
       </div>
 
@@ -131,49 +137,53 @@ export function AccountPanel() {
               ),
             )
           }
-          className="w-full mb-3 bg-[#222F2B] text-[#4DFFB4] px-3 py-2 text-sm font-headline font-bold rounded-md border border-[#4DFFB4]/20 disabled:opacity-50"
+          className="w-full mb-3 px-3 py-2 text-xs font-headline font-bold uppercase tracking-wider rounded-md bg-[#4dffb4]/10 border border-[#4dffb4]/30 text-[#4dffb4] hover:bg-[#4dffb4]/20 transition-colors disabled:opacity-50"
         >
           Initialize Open Orders Account
         </button>
       )}
 
-      <div className="flex gap-2 items-center">
-        <input
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="USDC amount"
-          inputMode="decimal"
-          className="flex-1 bg-kx-surface-lo border kx-border rounded-md px-2 py-1.5 text-xs font-mono text-on-surface"
-        />
-        <button
-          disabled={!!busy || baseUnits === 0n}
-          onClick={() =>
-            run("Deposit", () =>
-              sendDeposit(owner, baseUnits, connection, (ixs, c) =>
-                sendTx(wallet, c, ixs),
-              ),
-            )
-          }
-          className="bg-primary-container text-on-primary-fixed px-2.5 py-1.5 text-[11px] font-headline font-bold rounded-md disabled:opacity-50"
-        >
-          Deposit
-        </button>
-        <button
-          disabled={!!busy || baseUnits === 0n}
-          onClick={() =>
-            run("Withdraw", () =>
-              sendWithdraw(owner, baseUnits, connection, (ixs, c) =>
-                sendTx(wallet, c, ixs),
-              ),
-            )
-          }
-          className="bg-kx-surface-hi text-on-surface px-2.5 py-1.5 text-[11px] font-headline font-bold rounded-md border kx-border disabled:opacity-50"
-        >
-          Withdraw
-        </button>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        <div className="space-y-2">
+          <input
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="USDC amount"
+            inputMode="decimal"
+            className="w-full bg-kx-surface-lo border kx-border rounded-lg px-3 py-3 text-sm font-mono text-on-surface"
+          />
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              disabled={!!busy || baseUnits === 0n}
+              onClick={() =>
+                run("Deposit", () =>
+                  sendDeposit(owner, baseUnits, connection, (ixs, c) =>
+                    sendTx(wallet, c, ixs),
+                  ),
+                )
+              }
+              className="py-2 text-[11px] font-headline font-bold uppercase tracking-wider rounded-md bg-[#4dffb4] text-on-primary-fixed shadow-md shadow-[#4dffb4]/20 hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50"
+            >
+              Deposit
+            </button>
+            <button
+              disabled={!!busy || baseUnits === 0n}
+              onClick={() =>
+                run("Withdraw", () =>
+                  sendWithdraw(owner, baseUnits, connection, (ixs, c) =>
+                    sendTx(wallet, c, ixs),
+                  ),
+                )
+              }
+              className="py-2 text-[11px] font-headline font-bold uppercase tracking-wider rounded-md bg-[#ff6b6b] text-white shadow-md shadow-[#ff6b6b]/20 hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50"
+            >
+              Withdraw
+            </button>
+          </div>
+        </div>
       </div>
 
-      {hasOO && (
+      {/*{hasOO && (
         <div className="mt-4 pt-3 border-t kx-border">
           <div className="text-[10px] uppercase tracking-wider text-on-surface-variant/70 mb-2">
             Delegate (signs orders on behalf of OO)
@@ -202,7 +212,7 @@ export function AccountPanel() {
                   );
                 })
               }
-              className="px-3 py-2 text-xs font-headline font-bold rounded-md bg-kx-surface-hi border kx-border disabled:opacity-50"
+              className="px-3 py-2 text-[11px] font-headline font-bold uppercase tracking-wider rounded-md bg-kx-surface-hi border kx-border text-on-surface-variant hover:text-on-surface hover:bg-kx-surface-hi/80 transition-colors disabled:opacity-50"
             >
               Set
             </button>
@@ -211,7 +221,7 @@ export function AccountPanel() {
             Empty input + Set → clears delegate (zero pubkey).
           </div>
         </div>
-      )}
+      )}*/}
 
       {msg && (
         <pre className="mt-3 text-[10px] font-mono text-on-surface-variant break-all whitespace-pre-wrap max-h-64 overflow-auto bg-kx-surface-lo p-2 rounded-md border kx-border">

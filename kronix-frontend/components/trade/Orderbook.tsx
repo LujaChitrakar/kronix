@@ -342,10 +342,10 @@ function TradesView({
   const now = Date.now();
   return (
     <div className="px-2 py-2 h-full flex flex-col">
-      <div className="grid grid-cols-[1fr_1fr_auto] gap-2 px-2 pb-1 text-[10px] font-mono text-on-surface-variant/60 uppercase tracking-wide shrink-0">
+      <div className="grid grid-cols-3 px-2 pb-1 text-[10px] font-mono text-on-surface-variant/60 uppercase tracking-wide shrink-0">
         <div className="text-left">Price</div>
         <div className="text-right">Size</div>
-        <div className="text-right pr-1">Time</div>
+        <div className="text-right">Time</div>
       </div>
 
       {trades.length === 0 ? (
@@ -374,7 +374,7 @@ function TradesView({
             return (
               <div
                 key={`${t.slot}-${t.takerClientId}-${t.makerClientId}-${i}`}
-                className="grid grid-cols-[1fr_1fr_auto] gap-2 px-2 py-[3px] font-mono text-xs hover:bg-kx-surface-lo/50 items-center"
+                className="grid grid-cols-3 px-2 py-[3px] font-mono text-xs hover:bg-kx-surface-lo/50 items-center"
               >
                 <div className={`text-left ${color}`}>
                   {priceUsdc(t.priceLots)}

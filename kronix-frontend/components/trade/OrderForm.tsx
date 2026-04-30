@@ -192,7 +192,7 @@ export function OrderForm() {
 
   return (
     <div className="p-3 space-y-3">
-      <SignerBadge owner={owner} />
+      {/*<SignerBadge owner={owner} />*/}
 
       <div className="grid grid-cols-2 gap-1.5 p-1 rounded-lg bg-kx-surface-lo border kx-border">
         <button
