@@ -27,9 +27,6 @@ pub fn validate_pyth_price(
     }
 
     let feed_id = &data[PRICE_ACC_OFFSET_FEED_ID..PRICE_ACC_OFFSET_FEED_ID + 32];
-    // if feed_id != FEED_ID {
-    //     return Err(MakerError::InvalidFeedId.into());
-    // }
 
     let raw_price = i64::from_le_bytes(
         data[PRICE_ACC_OFFSET_PRICE..PRICE_ACC_OFFSET_PRICE + 8]

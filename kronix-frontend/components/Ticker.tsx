@@ -1,10 +1,10 @@
 const items = [
   { sym: "KXI-PERP" },
-  { sym: "BTC-PERP" },
-  { sym: "ETH-PERP" },
   { sym: "SOL-PERP" },
-  { sym: "BNB-PERP" },
-  { sym: "LTC-PERP" },
+  // { sym: "BTC-PERP" },
+  // { sym: "ETH-PERP" },
+  // { sym: "BNB-PERP" },
+  // { sym: "LTC-PERP" },
 ];
 
 export default function Ticker() {

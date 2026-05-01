@@ -36,18 +36,36 @@ export function TradeNav() {
             {cluster}
           </span>
         </div>*/}
-        {mounted && (
-          <WalletMultiButton style={{
-            background: "#222F2B",
-            color: "#4DFFB4",
-            fontFamily: "Manrope, sans-serif",
-            fontWeight: 700,
-            fontSize: 12,
-            height: 36,
-            borderRadius: 8,
-            border: "1px solid rgba(77, 255, 180, 0.25)",
-          }} />
-        )}
+        <div className="flex items-center gap-2">
+          <a
+            href="https://faucet.circle.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 h-9 inline-flex items-center rounded-md bg-kx-surface-hi border kx-border text-xs font-bold text-on-surface hover:text-[#4DFFB4] transition-colors"
+          >
+            Get USDC devnet
+          </a>
+          <a
+            href="https://faucet.solana.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 h-9 inline-flex items-center rounded-md bg-kx-surface-hi border kx-border text-xs font-bold text-on-surface hover:text-[#4DFFB4] transition-colors"
+          >
+            Get SOL devnet
+          </a>
+          {mounted && (
+            <WalletMultiButton style={{
+              background: "#222F2B",
+              color: "#4DFFB4",
+              fontFamily: "Manrope, sans-serif",
+              fontWeight: 700,
+              fontSize: 12,
+              height: 36,
+              borderRadius: 8,
+              border: "1px solid rgba(77, 255, 180, 0.25)",
+            }} />
+          )}
+        </div>
       </div>
     </nav>
   );

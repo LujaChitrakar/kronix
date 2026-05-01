@@ -40,7 +40,7 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
   );
 }
 
-const AVAILABLE_SYMBOLS = ['KXI', 'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'LTC', 'XMR'];
+const AVAILABLE_SYMBOLS = ['KXI', 'SOL'];
 
 export default function Chart({ symbol = 'KXI' }: ChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -712,7 +712,7 @@ export default function Chart({ symbol = 'KXI' }: ChartProps) {
               backgroundColor: '#14181A',
               border: '1px solid rgba(77,255,180,0.18)',
               borderRadius: 6,
-              padding: '6px 28px 6px 12px',
+              padding: '6px 28px 6px 18px',
               cursor: 'pointer',
               outline: 'none',
               appearance: 'none',
@@ -721,7 +721,7 @@ export default function Chart({ symbol = 'KXI' }: ChartProps) {
                 "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path fill='%234dffb4' d='M2 4l3 3 3-3z'/></svg>\")",
               backgroundRepeat: 'no-repeat',
               backgroundPosition: 'right 10px center',
-              letterSpacing: 0.4,
+              letterSpacing: 0.1,
             }}
             aria-label="Select symbol"
           >
