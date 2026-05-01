@@ -6,7 +6,7 @@ import React from 'react';
 const Chart = dynamic(() => import('./Chart'), { 
   ssr: false,
   loading: () => (
-    <div className="w-full h-full flex items-center justify-center bg-[#131722] text-[#4dffb4]/40 font-mono text-xs">
+    <div className="w-full h-full flex items-center justify-center bg-kx-surface text-[#4dffb4]/50 font-mono text-xs tracking-widest">
       LOADING KRONIX ENGINE...
     </div>
   )

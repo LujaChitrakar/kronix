@@ -14,9 +14,48 @@ interface ChartProps {
   symbol?: string;
 }
 
+function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, gap: 2 }}>
+      <span style={{
+        color: 'rgba(255,255,255,0.45)',
+        fontSize: 10,
+        textTransform: 'uppercase',
+        letterSpacing: 0.8,
+        fontFamily: 'var(--font-ibm-mono)',
+        fontWeight: 500,
+      }}>
+        {label}
+      </span>
+      <span style={{
+        color: color ?? '#ffffff',
+        fontSize: 13.5,
+        fontFamily: 'var(--font-ibm-mono)',
+        fontWeight: 600,
+        letterSpacing: 0.2,
+      }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+const AVAILABLE_SYMBOLS = ['KXI', 'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'LTC', 'XMR'];
+
 export default function Chart({ symbol = 'KXI' }: ChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [selectedSymbol, setSelectedSymbol] = useState<string>(symbol);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+  const [openPrice24h, setOpenPrice24h] = useState<number | null>(null);
+  const activeTickerRef = useRef<string>(symbol);
+
+  useEffect(() => {
+    setSelectedSymbol(symbol);
+  }, [symbol]);
+
+  useEffect(() => {
+    activeTickerRef.current = selectedSymbol;
+  }, [selectedSymbol]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -120,6 +159,12 @@ export default function Chart({ symbol = 'KXI' }: ChartProps) {
 
           if (deduped.length > 0) {
             lastCandle = { ...deduped[deduped.length - 1], intervalSecs };
+            if (activeTickerRef.current === ticker) {
+              setCurrentPrice(deduped[deduped.length - 1].close);
+              const cutoff = (Math.floor(Date.now() / 1000) - 86400) * 1000;
+              const open24 = [...deduped].reverse().find((c: any) => c.timestamp <= cutoff);
+              setOpenPrice24h(open24 ? open24.close : deduped[0].close);
+            }
           }
 
           return deduped;
@@ -142,8 +187,9 @@ export default function Chart({ symbol = 'KXI' }: ChartProps) {
           },
           onCandleUpdate: (candle: any) => {
             if (candle.symbol !== ticker) return;
+            if (activeTickerRef.current !== ticker) return;
             console.log(`Kronix Chart: Candle Update for ${ticker}`, candle);
-            
+
             if (!candle.data) return;
 
             // Round timestamp to current resolution to prevent "future" ghost candles
@@ -157,7 +203,9 @@ export default function Chart({ symbol = 'KXI' }: ChartProps) {
               low:   parseFloat(String(candle.data.low)),
               close: parseFloat(String(candle.data.close)),
             };
-            
+
+            setCurrentPrice(update.close);
+
             if (liveTickCallback) {
                liveTickCallback(update);
             }
@@ -166,10 +214,13 @@ export default function Chart({ symbol = 'KXI' }: ChartProps) {
 
         const handleTick = (tick: PriceTick) => {
           if (!lastCandle || !liveTickCallback) return;
-          
+          if (activeTickerRef.current !== ticker) return;
+
           const tickTime = new Date(tick.timestamp).getTime();
           const candleStart = lastCandle.timestamp;
           const candleEnd = candleStart + (lastCandle.intervalSecs * 1000);
+
+          setCurrentPrice(tick.price);
 
           if (tickTime >= candleStart && tickTime < candleEnd) {
             // Same candle: Update
@@ -210,13 +261,13 @@ export default function Chart({ symbol = 'KXI' }: ChartProps) {
       drawingBarVisible: false,
       symbol: {
         exchange: 'KRONIX',
-        market: symbol,
-        name: symbol === 'KXI' ? 'Kronix Index Perpetual KXI' : `${symbol} Perpetual`,
-        shortName: symbol,
-        ticker: symbol,
+        market: selectedSymbol,
+        name: selectedSymbol === 'KXI' ? 'Kronix Index Perpetual KXI' : `${selectedSymbol} Perpetual`,
+        shortName: selectedSymbol,
+        ticker: selectedSymbol,
         pricePrecision: 2,
         volumePrecision: 0,
-        type: symbol === 'KXI' ? 'index' : 'crypto'
+        type: selectedSymbol === 'KXI' ? 'index' : 'crypto'
       },
       period: { multiplier: 1, timespan: 'day', text: '1d' },
       periods: [
@@ -229,7 +280,7 @@ export default function Chart({ symbol = 'KXI' }: ChartProps) {
         { multiplier: 1, timespan: 'week', text: '1W' },
         { multiplier: 1, timespan: 'month', text: '1M' }
       ],
-      mainIndicators: ['MA'],
+      mainIndicators: [],
       subIndicators: [],
       datafeed,
     });
@@ -281,51 +332,56 @@ export default function Chart({ symbol = 'KXI' }: ChartProps) {
 
     chart.setStyles({
       grid: {
-        show: false,
-        horizontal: { show: false, size: 1, color: '#f0f3fa', style: 'dashed' as any, dashedValue: [2, 2] },
-        vertical: { show: false, size: 1, color: '#f0f3fa', style: 'dashed' as any, dashedValue: [2, 2] },
+        show: true,
+        horizontal: { show: true, size: 1, color: 'rgba(77,255,180,0.04)', style: 'dashed' as any, dashedValue: [2, 4] },
+        vertical: { show: true, size: 1, color: 'rgba(77,255,180,0.04)', style: 'dashed' as any, dashedValue: [2, 4] },
       },
       candle: {
         bar: {
-          upColor: '#26a69a',        
-          downColor: '#ef5350',      
+          upColor: '#4dffb4',
+          downColor: '#ff5c5c',
           noChangeColor: '#888888',
-          upBorderColor: '#26a69a',
-          downBorderColor: '#ef5350',
-          upWickColor: '#26a69a',
-          downWickColor: '#ef5350',
+          upBorderColor: '#4dffb4',
+          downBorderColor: '#ff5c5c',
+          upWickColor: '#4dffb4',
+          downWickColor: '#ff5c5c',
         },
         priceMark: {
           show: true,
-          high: { show: true, color: '#26a69a' },
-          low: { show: true, color: '#ef5350' },
+          high: { show: true, color: '#4dffb4' },
+          low: { show: true, color: '#ff5c5c' },
           last: {
             show: true,
-            upColor: '#26a69a',
-            downColor: '#ef5350',
+            upColor: '#4dffb4',
+            downColor: '#ff5c5c',
             noChangeColor: '#888888',
-            text: { show: true, color: '#ffffff', size: 12, family: 'var(--font-ibm-mono)', weight: 'bold' }
+            text: { show: true, color: '#0B0F0D', size: 11, family: 'var(--font-ibm-mono)', weight: 'bold' }
           }
-        }
+        },
+        tooltip: { showRule: 'none' as any, custom: [] as any },
       },
       xAxis: {
-        tickText: { color: '#787b86', size: 11 },
+        axisLine: { color: 'rgba(77,255,180,0.10)', size: 1 },
+        tickLine: { show: true, size: 1, length: 3, color: 'rgba(255,255,255,0.25)' },
+        tickText: { color: 'rgba(255,255,255,0.55)', size: 11, family: 'var(--font-ibm-mono)' },
       },
       yAxis: {
-        tickText: { color: '#787b86', size: 11 },
+        axisLine: { color: 'rgba(77,255,180,0.10)', size: 1 },
+        tickLine: { show: true, size: 1, length: 3, color: 'rgba(255,255,255,0.25)' },
+        tickText: { color: 'rgba(255,255,255,0.55)', size: 11, family: 'var(--font-ibm-mono)' },
       },
-      separator: { size: 1, color: '#e0e3eb', fill: true, activeBackgroundColor: '#d1d4dc' },
+      separator: { size: 1, color: 'rgba(77,255,180,0.08)', fill: true, activeBackgroundColor: 'rgba(77,255,180,0.18)' },
       crosshair: {
         show: true,
         horizontal: {
           show: true,
-          line: { show: true, style: 'dashed' as any, dashedValue: [4, 2], size: 1, color: '#787b86' },
-          text: { show: true, color: '#ffffff', size: 12, backgroundColor: '#131722' },
+          line: { show: true, style: 'dashed' as any, dashedValue: [4, 2], size: 1, color: 'rgba(77,255,180,0.4)' },
+          text: { show: true, color: '#0B0F0D', size: 11, backgroundColor: '#4dffb4', family: 'var(--font-ibm-mono)', weight: 'bold' },
         },
         vertical: {
           show: true,
-          line: { show: true, style: 'dashed' as any, dashedValue: [4, 2], size: 1, color: '#787b86' },
-          text: { show: true, color: '#ffffff', size: 12, backgroundColor: '#131722' },
+          line: { show: true, style: 'dashed' as any, dashedValue: [4, 2], size: 1, color: 'rgba(77,255,180,0.4)' },
+          text: { show: true, color: '#0B0F0D', size: 11, backgroundColor: '#4dffb4', family: 'var(--font-ibm-mono)', weight: 'bold' },
         },
       },
     });
@@ -351,17 +407,18 @@ export default function Chart({ symbol = 'KXI' }: ChartProps) {
               points: [{ price: event.price }],
               styles: {
                 line: {
-                  color: '#f0b90b',
+                  color: '#4dffb4',
                   size: 1,
                   style: 'dashed',
                   dashedValue: [4, 4]
                 },
                 text: {
                   show: true,
-                  color: '#f0b90b',
-                  size: 12,
-                  family: 'JetBrains Mono',
+                  color: '#0B0F0D',
+                  size: 11,
+                  family: 'var(--font-ibm-mono)',
                   weight: 'bold',
+                  backgroundColor: '#4dffb4',
                   text: `PICKED: $${event.price.toFixed(2)}`
                 }
               }
@@ -386,17 +443,316 @@ export default function Chart({ symbol = 'KXI' }: ChartProps) {
         containerRef.current.innerHTML = '';
       }
     };
-  }, [symbol]);
+  }, [selectedSymbol]);
+
+  const change24h =
+    currentPrice != null && openPrice24h != null && openPrice24h !== 0
+      ? ((currentPrice - openPrice24h) / openPrice24h) * 100
+      : null;
+  const changeColor =
+    change24h == null ? 'rgba(255,255,255,0.45)' : change24h >= 0 ? '#4dffb4' : '#ff5c5c';
+
+  const fmtPrice = (p: number | null) =>
+    p == null ? '—' : `$${p.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
-    <div className="chart-container" style={{ width: '100%', height: '100%', position: 'relative' }}>
+    <div className="chart-container" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', backgroundColor: '#14181A' }}>
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            #super-crypto-chart .klinecharts-pro {
+              --klinecharts-pro-background-color: #14181A !important;
+              --klinecharts-pro-popover-background-color: #181D1F !important;
+              --klinecharts-pro-text-color: #ffffff !important;
+              --klinecharts-pro-text-second-color: rgba(255,255,255,0.55) !important;
+              --klinecharts-pro-border-color: rgba(77,255,180,0.10) !important;
+              --klinecharts-pro-primary-color: #4dffb4 !important;
+              --klinecharts-pro-hover-background-color: rgba(77,255,180,0.10) !important;
+              --klinecharts-pro-selected-color: rgba(77,255,180,0.15) !important;
+              height: 100% !important;
+              width: 100% !important;
+              background-color: #14181A !important;
+            }
+            #super-crypto-chart .klinecharts-pro-period-bar .symbol { display: none !important; }
+            #super-crypto-chart .klinecharts-pro-period-bar {
+              width: 100% !important;
+              box-sizing: border-box;
+              background-color: #181D1F !important;
+              border-bottom: 1px solid rgba(77,255,180,0.08) !important;
+              height: 40px !important;
+            }
+            #super-crypto-chart .klinecharts-pro-content { width: 100% !important; background-color: #14181A !important; }
+            #super-crypto-chart .klinecharts-pro-widget { width: 100% !important; margin-left: 0 !important; }
+            #super-crypto-chart .klinecharts-pro-period-bar .item.tools:nth-last-child(3) { margin-left: auto !important; }
+            #super-crypto-chart .klinecharts-pro-period-bar .item.tools {
+              padding: 0 10px !important;
+              cursor: pointer;
+              transition: background-color 0.15s ease;
+              border-radius: 4px;
+              margin: 4px 2px !important;
+              fill: rgba(255,255,255,0.7) !important;
+              color: rgba(255,255,255,0.7) !important;
+            }
+            #super-crypto-chart .klinecharts-pro-period-bar .item.tools:hover {
+              background-color: rgba(77,255,180,0.08) !important;
+              fill: #4dffb4 !important;
+              color: #4dffb4 !important;
+            }
+            #super-crypto-chart .klinecharts-pro-period-bar .menu-container {
+              fill: rgba(255,255,255,0.7) !important;
+              padding: 0 12px !important;
+              cursor: pointer;
+            }
+            #super-crypto-chart .klinecharts-pro-period-bar .menu-container:hover { fill: #4dffb4 !important; }
+            #super-crypto-chart .symbol-select:focus { border-color: #4dffb4 !important; }
+            #super-crypto-chart .symbol-select:hover { border-color: rgba(77,255,180,0.4) !important; background-color: #1F2426 !important; }
+
+            /* ── Modal & Settings UI ── */
+            #super-crypto-chart .klinecharts-pro-modal {
+              background-color: rgba(0,0,0,0.55) !important;
+              backdrop-filter: blur(4px) !important;
+              -webkit-backdrop-filter: blur(4px) !important;
+            }
+            #super-crypto-chart .klinecharts-pro-modal .inner {
+              background-color: #14181A !important;
+              border: 1px solid rgba(77,255,180,0.18) !important;
+              border-radius: 10px !important;
+              box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(77,255,180,0.04) !important;
+              padding: 24px 36px !important;
+              min-width: 760px !important;
+              color: #ffffff !important;
+            }
+            #super-crypto-chart .klinecharts-pro-modal > .inner > .title,
+            #super-crypto-chart .klinecharts-pro-modal .inner > .title {
+              background-color: #14181A !important;
+              color: #ffffff !important;
+              font-size: 14px !important;
+              font-weight: 700 !important;
+              letter-spacing: 0.6px !important;
+              text-transform: uppercase !important;
+              padding: 0 0 14px 0 !important;
+              border-bottom: 1px solid rgba(77,255,180,0.10) !important;
+              font-family: var(--font-ibm-mono), monospace !important;
+            }
+            #super-crypto-chart .klinecharts-pro-indicator-modal-list .title {
+              background-color: #14181A !important;
+              color: rgba(255,255,255,0.75) !important;
+              font-size: 12px !important;
+              font-weight: 700 !important;
+              letter-spacing: 0.8px !important;
+              text-transform: uppercase !important;
+              padding: 10px 20px !important;
+              border-bottom: 1px solid rgba(77,255,180,0.08) !important;
+              z-index: 2 !important;
+            }
+            #super-crypto-chart .klinecharts-pro-setting-modal-content {
+              grid-row-gap: 14px !important;
+              grid-column-gap: 18px !important;
+              margin-top: 18px !important;
+              margin-bottom: 22px !important;
+              font-size: 13px !important;
+              color: rgba(255,255,255,0.85) !important;
+            }
+            #super-crypto-chart .klinecharts-pro-setting-modal-content > * {
+              color: rgba(255,255,255,0.85) !important;
+            }
+            #super-crypto-chart .klinecharts-pro-input {
+              background-color: #181D1F !important;
+              border: 1px solid rgba(77,255,180,0.12) !important;
+              border-radius: 6px !important;
+              color: #ffffff !important;
+              height: 32px !important;
+              font-size: 12px !important;
+              transition: border-color 0.15s ease, background-color 0.15s ease !important;
+            }
+            #super-crypto-chart .klinecharts-pro-input:hover {
+              border-color: rgba(77,255,180,0.30) !important;
+              background-color: #1F2426 !important;
+            }
+            #super-crypto-chart .klinecharts-pro-input:focus-within {
+              border-color: #4dffb4 !important;
+            }
+            #super-crypto-chart .klinecharts-pro-select {
+              color: #ffffff !important;
+              height: 32px !important;
+              width: 140px !important;
+            }
+            #super-crypto-chart .klinecharts-pro-select .selector-container {
+              background-color: #181D1F !important;
+              border: 1px solid rgba(77,255,180,0.12) !important;
+              border-radius: 6px !important;
+              padding: 0 12px !important;
+              transition: border-color 0.15s ease, background-color 0.15s ease !important;
+            }
+            #super-crypto-chart .klinecharts-pro-select .selector-container:hover {
+              border-color: rgba(77,255,180,0.30) !important;
+              background-color: #1F2426 !important;
+            }
+            #super-crypto-chart .klinecharts-pro-select .selector-container .arrow {
+              border-top-color: #4dffb4 !important;
+            }
+            #super-crypto-chart .klinecharts-pro-select.klinecharts-pro-select-show .selector-container,
+            #super-crypto-chart .klinecharts-pro-select-show .selector-container {
+              border-color: #4dffb4 !important;
+            }
+            #super-crypto-chart .klinecharts-pro-select .drop-down-container {
+              background-color: #181D1F !important;
+              border: 1px solid rgba(77,255,180,0.18) !important;
+              border-radius: 6px !important;
+              box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+              margin-top: 4px !important;
+              max-height: 180px !important;
+            }
+            #super-crypto-chart .klinecharts-pro-select .drop-down-container ul li {
+              height: 34px !important;
+              color: rgba(255,255,255,0.85) !important;
+              font-size: 12px !important;
+              transition: background-color 0.12s ease, color 0.12s ease !important;
+            }
+            #super-crypto-chart .klinecharts-pro-select .drop-down-container ul li:hover {
+              background-color: rgba(77,255,180,0.10) !important;
+              color: #4dffb4 !important;
+            }
+            #super-crypto-chart .klinecharts-pro-switch {
+              background-color: rgba(255,255,255,0.12) !important;
+              transition: background-color 0.2s ease !important;
+            }
+            #super-crypto-chart .klinecharts-pro-switch.open,
+            #super-crypto-chart .klinecharts-pro-switch[data-checked="true"] {
+              background-color: #4dffb4 !important;
+            }
+            #super-crypto-chart .klinecharts-pro-checkbox {
+              color: rgba(255,255,255,0.85) !important;
+              fill: rgba(255,255,255,0.85) !important;
+            }
+            #super-crypto-chart .klinecharts-pro-checkbox.checked {
+              color: #4dffb4 !important;
+              fill: #4dffb4 !important;
+            }
+            #super-crypto-chart .klinecharts-pro-button {
+              border-radius: 6px !important;
+              height: 34px !important;
+              width: auto !important;
+              padding: 0 18px !important;
+              font-size: 12px !important;
+              font-weight: 600 !important;
+              letter-spacing: 0.5px !important;
+              text-transform: uppercase !important;
+              font-family: var(--font-ibm-mono), monospace !important;
+              transition: all 0.15s ease !important;
+              border: 1px solid rgba(77,255,180,0.30) !important;
+            }
+            #super-crypto-chart .klinecharts-pro-button.confirm {
+              background-color: #4dffb4 !important;
+              color: #0B0F0D !important;
+              border-color: #4dffb4 !important;
+            }
+            #super-crypto-chart .klinecharts-pro-button.confirm:hover {
+              background-color: #17e29a !important;
+              border-color: #17e29a !important;
+              box-shadow: 0 0 16px rgba(77,255,180,0.35) !important;
+            }
+            #super-crypto-chart .klinecharts-pro-button.cancel {
+              background-color: transparent !important;
+              color: rgba(255,255,255,0.7) !important;
+              border-color: rgba(255,255,255,0.18) !important;
+            }
+            #super-crypto-chart .klinecharts-pro-button.cancel:hover {
+              color: #ffffff !important;
+              border-color: rgba(255,255,255,0.35) !important;
+              background-color: rgba(255,255,255,0.04) !important;
+            }
+            #super-crypto-chart .klinecharts-pro-list {
+              color: rgba(255,255,255,0.85) !important;
+              scrollbar-color: rgba(77,255,180,0.20) transparent !important;
+            }
+            #super-crypto-chart .klinecharts-pro-list::-webkit-scrollbar-thumb {
+              background-color: rgba(77,255,180,0.20) !important;
+            }
+            #super-crypto-chart .klinecharts-pro-list li {
+              padding: 8px 12px !important;
+              border-radius: 4px !important;
+              transition: background-color 0.12s ease !important;
+            }
+            #super-crypto-chart .klinecharts-pro-list li:hover {
+              background-color: rgba(77,255,180,0.08) !important;
+              color: #4dffb4 !important;
+            }
+          `,
+        }}
+      />
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 28,
+          width: '100%',
+          padding: '10px 20px 10px 28px',
+          boxSizing: 'border-box',
+          borderBottom: '1px solid rgba(77,255,180,0.08)',
+          backgroundColor: '#181D1F',
+          overflowX: 'auto',
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, marginRight: 8 }}>
+          <select
+            className="symbol-select"
+            value={selectedSymbol}
+            onChange={(e) => {
+              setCurrentPrice(null);
+              setOpenPrice24h(null);
+              setSelectedSymbol(e.target.value);
+            }}
+            style={{
+              color: '#ffffff',
+              fontSize: 14,
+              fontWeight: 700,
+              fontFamily: 'var(--font-ibm-mono)',
+              backgroundColor: '#14181A',
+              border: '1px solid rgba(77,255,180,0.18)',
+              borderRadius: 6,
+              padding: '6px 28px 6px 12px',
+              cursor: 'pointer',
+              outline: 'none',
+              appearance: 'none',
+              transition: 'border-color 0.15s ease, background-color 0.15s ease',
+              backgroundImage:
+                "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path fill='%234dffb4' d='M2 4l3 3 3-3z'/></svg>\")",
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 10px center',
+              letterSpacing: 0.4,
+            }}
+            aria-label="Select symbol"
+          >
+            {AVAILABLE_SYMBOLS.map((s) => (
+              <option key={s} value={s} style={{ backgroundColor: '#14181A', color: '#ffffff' }}>
+                {s === 'KXI' ? 'KXI-PERP' : `${s}-PERP`}
+              </option>
+            ))}
+          </select>
+       
+        </div>
+        <div style={{ width: 1, height: 28, backgroundColor: 'rgba(77,255,180,0.10)', flexShrink: 0 }} />
+        <Stat label="Mark" value={fmtPrice(currentPrice)} />
+        <Stat label="Oracle" value={fmtPrice(currentPrice)} />
+        <Stat
+          label="24h Change"
+          value={change24h == null ? '—' : `${change24h >= 0 ? '+' : ''}${change24h.toFixed(2)}%`}
+          color={changeColor}
+        />
+        <Stat label="24h Volume" value="—" />
+        <Stat label="Open Interest" value="—" />
+        <Stat label="Funding" value="—" color="#4dffb4" />
+      </div>
       <div
         id="super-crypto-chart"
         ref={containerRef}
         style={{
           width: '100%',
-          height: '100%',
-          backgroundColor: '#131722', 
+          flex: 1,
+          minHeight: 0,
+          backgroundColor: '#14181A',
         }}
       />
     </div>

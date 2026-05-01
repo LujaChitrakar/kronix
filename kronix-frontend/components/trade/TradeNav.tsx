@@ -24,7 +24,7 @@ export function TradeNav() {
           <Image src="/logo.png" alt="Kronix" width={32} height={32} />
           KRONIX
         </Link>
-        <div className="hidden sm:flex items-center gap-2 font-mono text-xs text-on-surface-variant">
+        {/*<div className="hidden sm:flex items-center gap-2 font-mono text-xs text-on-surface-variant">
           <span className="px-2.5 py-1 rounded-md bg-kx-surface-hi border kx-border font-bold text-on-surface">
             {MARKET_NAME}
           </span>
@@ -35,7 +35,7 @@ export function TradeNav() {
             </span>
             {cluster}
           </span>
-        </div>
+        </div>*/}
         {mounted && (
           <WalletMultiButton style={{
             background: "#222F2B",
