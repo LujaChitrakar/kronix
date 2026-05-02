@@ -101,7 +101,7 @@ export default function Chart({ symbol = "KXI" }: ChartProps) {
     let unsubWS: (() => void) | null = null;
     let liveTickCallback: ((data: any) => void) | null = null;
     let lastCandle: any = null;
-
+    let intervalSecs = 86400;
     // Build the datafeed adapter for KLineChartPro
     const datafeed: Datafeed = {
       searchSymbols: async () => {
@@ -126,7 +126,7 @@ export default function Chart({ symbol = "KXI" }: ChartProps) {
         let resolution = "1d";
         const { multiplier, timespan } = period;
 
-        let intervalSecs = 86400;
+        // let intervalSecs = 86400;
         if (timespan === "minute") {
           intervalSecs = multiplier * 60;
           if (multiplier === 1) resolution = "1m";
