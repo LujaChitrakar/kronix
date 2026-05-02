@@ -75,7 +75,7 @@ pub enum RiskInstruction {
     #[account(2, name = "position", desc = "Position PDA", writable)]
     #[account(3, name = "market_config", desc = "MarketConfig")]
     #[account(4, name = "funding_state", desc = "FundingState", writable)]
-    #[account(5, name = "oracle", desc = "Pyth oracle")]
+    #[account(5, name = "oracle", desc = "Switchboard oracle")]
     #[account(6, name = "system_program", desc = "System program")]
     OpenPosition(OpenPositionParams),
 
@@ -84,7 +84,7 @@ pub enum RiskInstruction {
     #[account(2, name = "position", desc = "Position PDA", writable)]
     #[account(3, name = "market_config", desc = "MarketConfig")]
     #[account(4, name = "funding_state", desc = "FundingState", writable)]
-    #[account(5, name = "oracle", desc = "Pyth oracle")]
+    #[account(5, name = "oracle", desc = "Switchboard oracle")]
     ClosePosition(ClosePositionParams),
 
     #[account(0, name = "signer", desc = "Trader", signer)]
@@ -97,7 +97,7 @@ pub enum RiskInstruction {
     #[account(1, name = "user_account", desc = "UserAccount PDA", writable)]
     #[account(2, name = "position", desc = "Position PDA", writable)]
     #[account(3, name = "market_config", desc = "MarketConfig")]
-    #[account(4, name = "oracle", desc = "Pyth oracle")]
+    #[account(4, name = "oracle", desc = "Switchboard oracle")]
     RemoveMargin(RemoveMarginParams),
 
     #[account(0, name = "user_account", desc = "UserAccount PDA", writable)]
@@ -124,7 +124,7 @@ pub enum RiskInstruction {
     #[account(0, name = "cranker", desc = "Permissionless crank", signer)]
     #[account(1, name = "market_config", desc = "MarketConfig")]
     #[account(2, name = "funding_state", desc = "FundingState", writable)]
-    #[account(3, name = "oracle", desc = "Pyth oracle")]
+    #[account(3, name = "oracle", desc = "Switchboard oracle")]
     UpdateFundingRate(UpdateFundingRateParams),
 
     #[account(0, name = "liquidator", desc = "Liquidator bot", signer)]
@@ -141,7 +141,7 @@ pub enum RiskInstruction {
         desc = "Liquidator USDC ATA",
         writable
     )]
-    #[account(9, name = "oracle", desc = "Pyth oracle")]
+    #[account(9, name = "oracle", desc = "Switchboard oracle")]
     #[account(10, name = "token_program", desc = "Token program")]
     Liquidate(LiquidateParams),
 
@@ -151,7 +151,7 @@ pub enum RiskInstruction {
     #[account(3, name = "market_config", desc = "MarketConfig")]
     #[account(4, name = "funding_state", desc = "FundingState", writable)]
     #[account(5, name = "insurance_fund", desc = "InsuranceFund", writable)]
-    #[account(6, name = "oracle", desc = "Pyth oracle")]
+    #[account(6, name = "oracle", desc = "Switchboard oracle")]
     CoverBadDebt(CoverBadDebtParams),
 
     #[account(0, name = "signer", desc = "Depositor", signer, writable)]

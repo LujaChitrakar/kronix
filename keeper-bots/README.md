@@ -5,8 +5,8 @@ programs. Single Node process runs every job at a fixed cadence.
 
 | Job                     | Interval | Program            | What it does                                                                |
 | ----------------------- | -------- | ------------------ | --------------------------------------------------------------------------- |
-| update_funding_rate     | 1h       | risk_program       | Reads Pyth, calls `update_funding_rate` so `cumulative_index` advances     |
-| liquidate               | 30s      | risk_program       | Scans all positions, liquidates any with health factor < 100                |
+| update_funding_rate     | 1h       | risk_program       | Reads Switchboard, calls `update_funding_rate` so `cumulative_index` advances |
+| liquidate               | 30s      | risk_program       | Scans all positions, liquidates only when equity minus maintenance is below buffer |
 | cover_bad_debt          | 60s      | risk_program       | Drains InsuranceFund into accounts with `collateral < 0`                    |
 | prune_orders            | 60s      | orderbook_program  | Drops expired TIF orders on bids and asks                                   |
 | settle_funding          | 8h       | risk_program       | Sweeps every open position, applies pending funding                         |
@@ -56,6 +56,9 @@ Required env vars (read from `.env.local`):
 | `NEXT_PUBLIC_TRIGGER_PROGRAM_ID` | hardcoded                            | Override deployed trigger program               |
 | `NEXT_PUBLIC_STRATEGY_PROGRAM_ID`| hardcoded                            | Override deployed strategy program              |
 | `KEEPER_PRICE_HISTORY_PATH`      | sibling of keypair file              | JSON file persisting mark-price samples         |
+| `KEEPER_DEV_SKIP_CORRUPTED_ACCOUNTS` | unset                            | Dev-only: set `1` to skip legacy corrupted accounts |
+| `KEEPER_DEV_CORRUPTED_COLLATERAL_FLOOR` | `-100000000000`               | Dev-only collateral floor used by skip mode     |
+| `KEEPER_DEV_CORRUPTED_ACCOUNTS`  | unset                                | Dev-only comma list of owner/user/position pubkeys to skip |
 
 The frontend's `lib/kronix/config.ts` reads the same `NEXT_PUBLIC_*` env vars,
 so the same value set works for both processes (or copy

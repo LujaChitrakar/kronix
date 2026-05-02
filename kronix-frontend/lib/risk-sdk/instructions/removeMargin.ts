@@ -141,7 +141,7 @@ export type RemoveMarginInput<
   position: Address<TAccountPosition>;
   /** MarketConfig */
   marketConfig: Address<TAccountMarketConfig>;
-  /** Pyth oracle */
+  /** Switchboard oracle */
   oracle: Address<TAccountOracle>;
   amount: RemoveMarginInstructionDataArgs["amount"];
   marketIndex: RemoveMarginInstructionDataArgs["marketIndex"];
@@ -228,7 +228,7 @@ export type ParsedRemoveMarginInstruction<
     position: TAccountMetas[2];
     /** MarketConfig */
     marketConfig: TAccountMetas[3];
-    /** Pyth oracle */
+    /** Switchboard oracle */
     oracle: TAccountMetas[4];
   };
   data: RemoveMarginInstructionData;

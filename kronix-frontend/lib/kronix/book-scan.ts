@@ -81,9 +81,10 @@ function decodeBookSide(
 export async function scanBook(
   conn: Connection,
   _market: PublicKey,
+  marketIndex = MARKET_INDEX,
 ): Promise<BookSnapshot> {
-  const [bidsPda] = findBidsPda(MARKET_INDEX);
-  const [asksPda] = findAsksPda(MARKET_INDEX);
+  const [bidsPda] = findBidsPda(marketIndex);
+  const [asksPda] = findAsksPda(marketIndex);
   const [bidsAcc, asksAcc] = await Promise.all([
     conn.getAccountInfo(bidsPda, "confirmed"),
     conn.getAccountInfo(asksPda, "confirmed"),
@@ -99,9 +100,9 @@ export async function scanBook(
 }
 
 // Optional helper if Orderbook PDA is needed elsewhere.
-export function bookPdas() {
-  const [market] = findMarketPda(MARKET_INDEX);
-  const [bids] = findBidsPda(MARKET_INDEX);
-  const [asks] = findAsksPda(MARKET_INDEX);
+export function bookPdas(marketIndex = MARKET_INDEX) {
+  const [market] = findMarketPda(marketIndex);
+  const [bids] = findBidsPda(marketIndex);
+  const [asks] = findAsksPda(marketIndex);
   return { market, bids, asks };
 }

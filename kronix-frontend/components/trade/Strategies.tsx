@@ -10,6 +10,7 @@ import {
   sendPauseStrategy,
   sendResumeStrategy,
 } from "@/lib/kronix/client";
+import { useStore } from "@/lib/store";
 import { sendTx, formatTxError } from "./tx";
 import { getStrategyAccountDecoder, STRATEGY_ACCOUNT_LEN } from "@/lib/strategy-sdk";
 
@@ -71,6 +72,7 @@ export function Strategies() {
     newCooldownSecs: "0",
     newMaxExecutionsPerDay: "0",
   });
+  const marketIndex = useStore((s) => s.selectedMarketIndex);
 
   const refresh = useCallback(async () => {
     if (!owner) {
@@ -89,6 +91,7 @@ export function Strategies() {
     for (const { pubkey, account } of accs) {
       try {
         const s = decoder.decode(new Uint8Array(account.data));
+        if (s.marketIndex !== marketIndex) continue;
         list.push({
           pubkey,
           strategyType: s.strategyType,
@@ -109,7 +112,7 @@ export function Strategies() {
     }
     list.sort((a, b) => a.strategyType - b.strategyType);
     setRows(list);
-  }, [connection, owner]);
+  }, [connection, owner, marketIndex]);
 
   useEffect(() => {
     refresh().catch(console.error);
@@ -122,8 +125,12 @@ export function Strategies() {
     setBusy(`pause ${t}`);
     setMsg("");
     try {
-      const sig = await sendPauseStrategy(owner, t, connection, (ixs, c) =>
-        sendTx(wallet, c, ixs),
+      const sig = await sendPauseStrategy(
+        owner,
+        t,
+        connection,
+        (ixs, c) => sendTx(wallet, c, ixs),
+        marketIndex,
       );
       setMsg(`Pause → ${sig.slice(0, 8)}…`);
       await refresh();
@@ -139,8 +146,12 @@ export function Strategies() {
     setBusy(`resume ${t}`);
     setMsg("");
     try {
-      const sig = await sendResumeStrategy(owner, t, connection, (ixs, c) =>
-        sendTx(wallet, c, ixs),
+      const sig = await sendResumeStrategy(
+        owner,
+        t,
+        connection,
+        (ixs, c) => sendTx(wallet, c, ixs),
+        marketIndex,
       );
       setMsg(`Resume → ${sig.slice(0, 8)}…`);
       await refresh();
@@ -156,8 +167,12 @@ export function Strategies() {
     setBusy(`close ${t}`);
     setMsg("");
     try {
-      const sig = await sendCloseStrategy(owner, t, connection, (ixs, c) =>
-        sendTx(wallet, c, ixs),
+      const sig = await sendCloseStrategy(
+        owner,
+        t,
+        connection,
+        (ixs, c) => sendTx(wallet, c, ixs),
+        marketIndex,
       );
       setMsg(`Close → ${sig.slice(0, 8)}…`);
       await refresh();
@@ -199,6 +214,7 @@ export function Strategies() {
         },
         connection,
         (ixs, c) => sendTx(wallet, c, ixs),
+        marketIndex,
       );
       setMsg(`Edit → ${sig.slice(0, 8)}…`);
       setEditType(null);

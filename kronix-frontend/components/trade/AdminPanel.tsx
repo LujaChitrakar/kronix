@@ -24,7 +24,9 @@ import {
   USDC_MINT,
   MARKET_INDEX,
   MARKET_NAME,
+  getMarketInfo,
 } from "@/lib/kronix/config";
+import { useStore } from "@/lib/store";
 import { sendTx, formatTxError } from "./tx";
 
 type Status = Record<string, boolean | null>;
@@ -50,10 +52,18 @@ export function AdminPanel() {
   const [maxLeverage, setMaxLeverage] = useState("10");
   const [timeExpiry, setTimeExpiry] = useState("0");
   const [insuranceAmount, setInsuranceAmount] = useState("1000"); // USDC (human units)
+  const selectedSymbol = useStore((s) => s.selectedSymbol);
 
   const [status, setStatus] = useState<Status>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    const market = getMarketInfo(selectedSymbol);
+    setMarketIdx(String(market.marketIndex));
+    setName(market.name);
+    setOracle(market.oracle.toBase58());
+  }, [selectedSymbol]);
 
   const refresh = useCallback(async () => {
     const idx = parseInt(marketIdx, 10) || 0;
@@ -178,7 +188,7 @@ export function AdminPanel() {
       </div>
       <div className="mb-3">
         <div className="text-[10px] text-on-surface-variant/70 uppercase mb-1">
-          Pyth Oracle (PriceUpdateV2 pubkey)
+          Switchboard Oracle (pull feed pubkey)
         </div>
         <input
           value={oracle}

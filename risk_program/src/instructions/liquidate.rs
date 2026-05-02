@@ -14,7 +14,7 @@ use crate::{
     errors::RiskProgramError,
     helper::{verify_account_owner, verify_program_id, verify_signer, verify_writtable},
     instructions::settle_funding_internal,
-    oracle::validate_pyth_price,
+    oracle::validate_switchboard_price,
     state::{FundingState, InsuranceFund, MarketConfig, Position, UserAccount},
 };
 
@@ -73,7 +73,13 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
         return Err(RiskProgramError::InvalidMarketIndex.into());
     }
     // uncommet during oracle fixed
-    let mark_price = validate_pyth_price(oracle, clock.unix_timestamp)?;
+    let mark_price_native = validate_switchboard_price(oracle, params.market_index, clock.slot)?;
+    let mark_price = mark_price_native
+        .checked_div(market_config_state.quote_lot_size)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    if mark_price <= 0 {
+        return Err(RiskProgramError::InvalidOraclePrice.into());
+    }
     // let mark_price = validated.price;
     // let mark_price: i64 = 100;
 
@@ -122,8 +128,6 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
         return Err(RiskProgramError::NotLiquidatable.into());
     }
 
-    user_account_state.collateral = equity;
-
     let total_fee = market_config_state.liquidation_fee(position_state.size, mark_price);
 
     // Split fee
@@ -132,8 +136,7 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
     // 5%  → protocol
     let liquidator_reward = (total_fee as i128 * 75 / 100) as u64;
     let insurance_fee = (total_fee as i128 * 25 / 100) as u64;
-    let collateral = user_account_state.collateral;
-    let is_solvent = collateral >= total_fee;
+    let is_solvent = equity >= total_fee;
 
     let mut insurance_data = insurance_fund.try_borrow_mut()?;
     let insurance_state =
@@ -147,8 +150,7 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
 
     if is_solvent {
         // deduct full fee from user_collateral
-        user_account_state.collateral = user_account_state
-            .collateral
+        user_account_state.collateral = equity
             .checked_sub(total_fee)
             .ok_or(ProgramError::ArithmeticOverflow)?;
 
@@ -167,7 +169,7 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
         .invoke_signed(&[Signer::from(&vault_authority_seed)])?;
     } else {
         // bad debt
-        let shortfall = user_account_state.collateral.min(0).unsigned_abs() as u64;
+        let shortfall = equity.min(0).unsigned_abs();
 
         let uncovered = insurance_state.cover_bad_debt(shortfall);
         user_account_state.collateral = 0;

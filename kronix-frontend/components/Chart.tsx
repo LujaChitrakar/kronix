@@ -5,6 +5,7 @@ import { KLineChartPro, Datafeed, SymbolInfo, Period } from '@klinecharts/pro';
 import '@klinecharts/pro/dist/klinecharts-pro.css';
 import { fetchIndexHistory, fetchAssetHistory, createMarketWS, PriceTick } from '@/lib/api';
 import { useStore } from '@/lib/store';
+import { isMarketSymbol, type MarketSymbol } from '@/lib/kronix/config';
 
 // To prevent duplicate charts in React StrictMode/Next.js Dev, 
 // we maintain a module-level reference to the active chart.
@@ -40,22 +41,26 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
   );
 }
 
-const AVAILABLE_SYMBOLS = ['KXI', 'SOL'];
+const AVAILABLE_SYMBOLS: MarketSymbol[] = ['KXI', 'SOL'];
 
 export default function Chart({ symbol = 'KXI' }: ChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [selectedSymbol, setSelectedSymbol] = useState<string>(symbol);
+  const [selectedSymbol, setSelectedSymbol] = useState<MarketSymbol>(
+    isMarketSymbol(symbol) ? symbol : 'KXI',
+  );
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [openPrice24h, setOpenPrice24h] = useState<number | null>(null);
   const activeTickerRef = useRef<string>(symbol);
+  const setSelectedMarket = useStore((s) => s.setSelectedMarket);
 
   useEffect(() => {
-    setSelectedSymbol(symbol);
+    setSelectedSymbol(isMarketSymbol(symbol) ? symbol : 'KXI');
   }, [symbol]);
 
   useEffect(() => {
     activeTickerRef.current = selectedSymbol;
-  }, [selectedSymbol]);
+    setSelectedMarket(selectedSymbol);
+  }, [selectedSymbol, setSelectedMarket]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -193,6 +198,7 @@ export default function Chart({ symbol = 'KXI' }: ChartProps) {
             if (!candle.data) return;
 
             // Round timestamp to current resolution to prevent "future" ghost candles
+            const intervalSecs = lastCandle?.intervalSecs ?? 60;
             const roundedTs = Math.floor(candle.data.timestamp / (intervalSecs * 1000)) * (intervalSecs * 1000);
 
             // Map backend candle to chart format
@@ -702,7 +708,8 @@ export default function Chart({ symbol = 'KXI' }: ChartProps) {
             onChange={(e) => {
               setCurrentPrice(null);
               setOpenPrice24h(null);
-              setSelectedSymbol(e.target.value);
+              const next = e.target.value;
+              if (isMarketSymbol(next)) setSelectedSymbol(next);
             }}
             style={{
               color: '#ffffff',

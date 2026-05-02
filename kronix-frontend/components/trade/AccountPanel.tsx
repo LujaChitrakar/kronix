@@ -10,13 +10,14 @@ import {
   findMarketPda,
 } from "@/lib/kronix/pdas";
 import { fetchUser, fetchOpenOrders } from "@/lib/kronix/state";
-import { MARKET_INDEX, USDC_MINT, USDC_DECIMALS } from "@/lib/kronix/config";
+import { USDC_MINT, USDC_DECIMALS } from "@/lib/kronix/config";
 import {
   sendDeposit,
   sendWithdraw,
   sendCreateOpenOrders,
   sendSetDelegate,
 } from "@/lib/kronix/client";
+import { useStore } from "@/lib/store";
 import { sendTx, formatTxError } from "./tx";
 
 function fmtUsdc(n: bigint): string {
@@ -41,11 +42,12 @@ export function AccountPanel() {
   const [amount, setAmount] = useState("");
   const [delegate, setDelegate] = useState("");
   const [msg, setMsg] = useState("");
+  const marketIndex = useStore((s) => s.selectedMarketIndex);
 
   const refresh = useCallback(async () => {
     if (!owner) return;
     const [userPda] = findUserAccountPda(owner);
-    const [market] = findMarketPda(MARKET_INDEX);
+    const [market] = findMarketPda(marketIndex);
     const [oo] = findOpenOrdersPda(owner, market);
     const ata = getAssociatedTokenAddressSync(USDC_MINT, owner);
 
@@ -63,7 +65,7 @@ export function AccountPanel() {
       | undefined;
     const raw = parsed?.parsed?.info?.tokenAmount?.amount;
     setWalletUsdc(raw ? BigInt(raw) : 0n);
-  }, [connection, owner]);
+  }, [connection, owner, marketIndex]);
 
   useEffect(() => {
     refresh().catch(console.error);
@@ -132,8 +134,11 @@ export function AccountPanel() {
           disabled={!!busy}
           onClick={() =>
             run("Init OO", () =>
-              sendCreateOpenOrders(owner, connection, (ixs, c) =>
-                sendTx(wallet, c, ixs),
+              sendCreateOpenOrders(
+                owner,
+                connection,
+                (ixs, c) => sendTx(wallet, c, ixs),
+                marketIndex,
               ),
             )
           }
@@ -207,8 +212,12 @@ export function AccountPanel() {
                   } catch {
                     throw new Error("invalid pubkey");
                   }
-                  return sendSetDelegate(owner, pk, connection, (ixs, c) =>
-                    sendTx(wallet, c, ixs),
+                  return sendSetDelegate(
+                    owner,
+                    pk,
+                    connection,
+                    (ixs, c) => sendTx(wallet, c, ixs),
+                    marketIndex,
                   );
                 })
               }

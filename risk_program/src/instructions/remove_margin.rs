@@ -9,7 +9,7 @@ use shank::ShankType;
 use crate::{
     errors::RiskProgramError,
     helper::{verify_account_owner, verify_signer, verify_writtable},
-    oracle::validate_pyth_price,
+    oracle::validate_switchboard_price,
     state::{MarketConfig, Position, UserAccount},
 };
 
@@ -52,7 +52,7 @@ pub fn process_remove_margin(accounts: &[AccountView], data: &[u8]) -> ProgramRe
     }
 
     // uncomment during oracle tests
-    let mark_price = validate_pyth_price(oracle, clock.unix_timestamp)?;
+    let mark_price = validate_switchboard_price(oracle, params.market_index, clock.slot)?;
     // let mark_price = validated.price;
     // let mark_price: i64 = 10;
 
@@ -89,6 +89,9 @@ pub fn process_remove_margin(accounts: &[AccountView], data: &[u8]) -> ProgramRe
     let mark_price_lots = mark_price
         .checked_div(market_config_state.quote_lot_size)
         .ok_or(ProgramError::ArithmeticOverflow)?;
+    if mark_price_lots <= 0 {
+        return Err(RiskProgramError::InvalidOraclePrice.into());
+    }
 
     let maintenance_margin =
         market_config_state.required_maintenance_margin(position_state.size, mark_price_lots);

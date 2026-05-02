@@ -149,7 +149,7 @@ export type CoverBadDebtInput<
   fundingState: Address<TAccountFundingState>;
   /** InsuranceFund */
   insuranceFund: Address<TAccountInsuranceFund>;
-  /** Pyth oracle */
+  /** Switchboard oracle */
   oracle: Address<TAccountOracle>;
   marketIndex: CoverBadDebtInstructionDataArgs["marketIndex"];
   padding: CoverBadDebtInstructionDataArgs["padding"];
@@ -251,7 +251,7 @@ export type ParsedCoverBadDebtInstruction<
     fundingState: TAccountMetas[4];
     /** InsuranceFund */
     insuranceFund: TAccountMetas[5];
-    /** Pyth oracle */
+    /** Switchboard oracle */
     oracle: TAccountMetas[6];
   };
   data: CoverBadDebtInstructionData;

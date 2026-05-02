@@ -17,4 +17,4 @@ pub mod tests;
 // pub const ORDERBOOK_PROGRAM_ID: [u8; 32] =
 //     pinocchio_pubkey::from_str("j8VeDggFuwtiCjM8uo7am8i1bWWH2sj7mBRxqTaZniU");
 
-pinocchio_pubkey::declare_id!("C8kAYt7vpmFxhguEJxbg6hMZY3LLNYACrU8mKveZ8eMu");
+pinocchio_pubkey::declare_id!("5ivREpNsjSj4Gr27oxEfyAZ38KCfDDtDLdXQeHDtDpo4");

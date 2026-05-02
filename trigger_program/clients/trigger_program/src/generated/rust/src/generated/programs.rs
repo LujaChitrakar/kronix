@@ -9,5 +9,5 @@ use solana_address::{address, Address};
 
 
   /// `trigger_program` program ID.
-  pub const TRIGGER_PROGRAM_ID: Address = address!("FBux8UY7koXsvDp3GThjvtiMo4GagsDdkPDbU4VbQzV2");
+  pub const TRIGGER_PROGRAM_ID: Address = address!("9KDXQmrMy71pVHTknapcv4jP8aHsr9yF5yXMmGNftUkX");
 

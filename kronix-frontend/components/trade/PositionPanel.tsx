@@ -8,13 +8,14 @@ import {
   findMarketConfigPda,
 } from "@/lib/kronix/pdas";
 import { fetchPosition, fetchMarketConfig, bytesToPubkey } from "@/lib/kronix/state";
-import { MARKET_INDEX } from "@/lib/kronix/config";
 import {
   sendClosePosition,
   sendAddMargin,
   sendRemoveMargin,
   sendSettleFunding,
 } from "@/lib/kronix/client";
+import { getMarketInfoByIndex } from "@/lib/kronix/config";
+import { useStore } from "@/lib/store";
 import { sendTx, formatTxError } from "./tx";
 
 function fmtUsdc(n: bigint): string {
@@ -25,21 +26,29 @@ function fmtUsdc(n: bigint): string {
   return `${sign}${whole}.${frac}`;
 }
 
-// Parse Pyth PriceUpdateV2 → native USDC (6 decimals).
-// Layout: price (i64) at offset 73, exponent (i32) at offset 89.
-function parsePythPriceNative(data: Buffer): bigint | null {
-  if (data.length < 134) return null;
-  const rawPrice = data.readBigInt64LE(73);
-  const exponent = data.readInt32LE(89);
-  const scaleExp = 6 + exponent;
-  if (scaleExp >= 0) return rawPrice * 10n ** BigInt(scaleExp);
-  return rawPrice / 10n ** BigInt(-scaleExp);
+const SWITCHBOARD_DISC = Buffer.from([196, 27, 108, 196, 10, 215, 219, 40]);
+const SWITCHBOARD_VALUE_OFFSET = 2264;
+const SWITCHBOARD_SLOT_OFFSET = 2368;
+const SWITCHBOARD_SCALE = 1_000_000_000_000n;
+
+function readI128LE(data: Buffer, offset: number): bigint {
+  let value = 0n;
+  for (let i = 0; i < 16; i++) value |= BigInt(data[offset + i]) << (8n * BigInt(i));
+  return value & (1n << 127n) ? value - (1n << 128n) : value;
+}
+
+function parseSwitchboardPriceNative(data: Buffer): bigint | null {
+  if (data.length < SWITCHBOARD_SLOT_OFFSET + 8) return null;
+  if (!data.subarray(0, 8).equals(SWITCHBOARD_DISC)) return null;
+  if (data.readBigUInt64LE(SWITCHBOARD_SLOT_OFFSET) === 0n) return null;
+  return readI128LE(data, SWITCHBOARD_VALUE_OFFSET) / SWITCHBOARD_SCALE;
 }
 
 export function PositionPanel() {
   const { connection } = useConnection();
   const wallet = useWallet();
   const owner = wallet.publicKey;
+  const marketIndex = useStore((s) => s.selectedMarketIndex);
 
   const [pos, setPos] = useState<{
     size: bigint;
@@ -59,8 +68,8 @@ export function PositionPanel() {
 
   const refresh = useCallback(async () => {
     if (!owner) return;
-    const [posPda] = findPositionPda(owner, MARKET_INDEX);
-    const [cfgPda] = findMarketConfigPda(MARKET_INDEX);
+    const [posPda] = findPositionPda(owner, marketIndex);
+    const [cfgPda] = findMarketConfigPda(marketIndex);
     const [p, cfg] = await Promise.all([
       fetchPosition(connection, posPda),
       fetchMarketConfig(connection, cfgPda),
@@ -76,7 +85,8 @@ export function PositionPanel() {
       setPos(null);
     }
     if (cfg) {
-      const oraclePk = bytesToPubkey(cfg.oracle);
+      const configuredOracle = getMarketInfoByIndex(marketIndex)?.oracle;
+      const oraclePk = configuredOracle ?? bytesToPubkey(cfg.oracle);
       setOracle(oraclePk);
       setCfg({
         quoteLotSize: cfg.quoteLotSize,
@@ -87,11 +97,11 @@ export function PositionPanel() {
         "confirmed",
       );
       if (oraclePriceAcc) {
-        const px = parsePythPriceNative(oraclePriceAcc.data);
+        const px = parseSwitchboardPriceNative(oraclePriceAcc.data);
         if (px !== null) setMarkPriceNative(px);
       }
     }
-  }, [connection, owner]);
+  }, [connection, owner, marketIndex]);
 
   useEffect(() => {
     refresh().catch(console.error);
@@ -99,7 +109,7 @@ export function PositionPanel() {
     return () => clearInterval(t);
   }, [refresh]);
 
-  // Real-time Pyth — WebSocket push on oracle account change + 1s poll fallback.
+  // Real-time Switchboard — WebSocket push on oracle account change + 1s poll fallback.
   // Dep on base58 string (stable) instead of PublicKey instance (re-created each refresh).
   const oracleKey = oracle?.toBase58() ?? null;
   useEffect(() => {
@@ -109,7 +119,7 @@ export function PositionPanel() {
     const id = connection.onAccountChange(
       pk,
       (acc) => {
-        const px = parsePythPriceNative(acc.data);
+        const px = parseSwitchboardPriceNative(acc.data);
         if (px !== null) setMarkPriceNative(px);
       },
       { commitment: "confirmed" },
@@ -118,7 +128,7 @@ export function PositionPanel() {
       try {
         const acc = await connection.getAccountInfo(pk, "confirmed");
         if (!canceled && acc) {
-          const px = parsePythPriceNative(acc.data);
+          const px = parseSwitchboardPriceNative(acc.data);
           if (px !== null) setMarkPriceNative(px);
         }
       } catch {
@@ -177,6 +187,7 @@ export function PositionPanel() {
 
   const removeExceeds =
     pos !== null && baseUnits > 0n && baseUnits > maxRemovable;
+  const oracleReady = markPriceNative !== null;
 
   return (
     <div className="p-4">
@@ -252,13 +263,23 @@ export function PositionPanel() {
               Reduce or use MAX.
             </div>
           )}
+          {!oracleReady && (
+            <div className="mb-2 text-[10px] font-mono text-[#ffb86b]">
+              Oracle has no current Switchboard result. Update feed before
+              closing/removing margin.
+            </div>
+          )}
           <div className="flex flex-wrap gap-1.5">
             <button
               disabled={!!busy || baseUnits === 0n}
               onClick={() =>
                 run("Add margin", () =>
-                  sendAddMargin(owner, baseUnits, connection, (ixs, c) =>
-                    sendTx(wallet, c, ixs),
+                  sendAddMargin(
+                    owner,
+                    baseUnits,
+                    connection,
+                    (ixs, c) => sendTx(wallet, c, ixs),
+                    marketIndex,
                   ),
                 )
               }
@@ -267,11 +288,16 @@ export function PositionPanel() {
               + Margin
             </button>
             <button
-              disabled={!!busy || baseUnits === 0n || !oracle || removeExceeds}
+              disabled={!!busy || baseUnits === 0n || !oracle || !oracleReady || removeExceeds}
               onClick={() =>
                 run("Remove margin", () =>
-                  sendRemoveMargin(owner, oracle!, baseUnits, connection, (ixs, c) =>
-                    sendTx(wallet, c, ixs),
+                  sendRemoveMargin(
+                    owner,
+                    oracle!,
+                    baseUnits,
+                    connection,
+                    (ixs, c) => sendTx(wallet, c, ixs),
+                    marketIndex,
                   ),
                 )
               }
@@ -280,11 +306,16 @@ export function PositionPanel() {
               − Margin
             </button>
             <button
-              disabled={!!busy || !oracle}
+              disabled={!!busy || !oracle || !oracleReady}
               onClick={() =>
                 run("Close", () =>
-                  sendClosePosition(owner, oracle!, pos.size, connection, (ixs, c) =>
-                    sendTx(wallet, c, ixs),
+                  sendClosePosition(
+                    owner,
+                    oracle!,
+                    pos.size,
+                    connection,
+                    (ixs, c) => sendTx(wallet, c, ixs),
+                    marketIndex,
                   ),
                 )
               }
@@ -296,8 +327,11 @@ export function PositionPanel() {
               disabled={!!busy}
               onClick={() =>
                 run("Settle funding", () =>
-                  sendSettleFunding(owner, connection, (ixs, c) =>
-                    sendTx(wallet, c, ixs),
+                  sendSettleFunding(
+                    owner,
+                    connection,
+                    (ixs, c) => sendTx(wallet, c, ixs),
+                    marketIndex,
                   ),
                 )
               }

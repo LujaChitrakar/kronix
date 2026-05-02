@@ -20,7 +20,7 @@ num_enum = "0.5.1"
 shank = "0.4.8"
 risk_program_cpi = { path = "../crates/risk_program_cpi" }
 orderbook_program_cpi = { path = "../crates/orderbook_program_cpi" }
-pyth-solana-receiver-sdk = "1.1.0"
+switchboard-on-demand = { version = "=0.10.3", features = ["pinocchio", "devnet"] }
 
 [features]
 devnet = []

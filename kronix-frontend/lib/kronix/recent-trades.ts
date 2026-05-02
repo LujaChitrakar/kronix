@@ -51,8 +51,9 @@ function decodeOne(buf: Uint8Array): RecentTrade[] {
 export async function fetchRecentTrades(
   conn: Connection,
   limit = 30,
+  marketIndex = MARKET_INDEX,
 ): Promise<RecentTrade[]> {
-  const [market] = findMarketPda(MARKET_INDEX);
+  const [market] = findMarketPda(marketIndex);
   const accounts = await conn.getProgramAccounts(ORDERBOOK_PROGRAM_ID, {
     commitment: "confirmed",
     filters: [

@@ -170,7 +170,7 @@ export type OpenPositionInput<
   marketConfig: Address<TAccountMarketConfig>;
   /** FundingState */
   fundingState: Address<TAccountFundingState>;
-  /** Pyth oracle */
+  /** Switchboard oracle */
   oracle: Address<TAccountOracle>;
   /** System program */
   systemProgram?: Address<TAccountSystemProgram>;
@@ -283,7 +283,7 @@ export type ParsedOpenPositionInstruction<
     marketConfig: TAccountMetas[3];
     /** FundingState */
     fundingState: TAccountMetas[4];
-    /** Pyth oracle */
+    /** Switchboard oracle */
     oracle: TAccountMetas[5];
     /** System program */
     systemProgram: TAccountMetas[6];

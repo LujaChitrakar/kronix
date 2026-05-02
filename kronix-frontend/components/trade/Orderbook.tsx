@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { findMarketPda, findFillsLogPda } from "@/lib/kronix/pdas";
-import { MARKET_INDEX } from "@/lib/kronix/config";
+import { useStore } from "@/lib/store";
 import {
   scanBook,
   type BookSnapshot,
@@ -59,6 +59,7 @@ export function Orderbook() {
   const [trades, setTrades] = useState<RecentTrade[]>([]);
   const [currentSlot, setCurrentSlot] = useState<bigint>(0n);
   const [err, setErr] = useState<string | null>(null);
+  const marketIndex = useStore((s) => s.selectedMarketIndex);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -67,19 +68,19 @@ export function Orderbook() {
 
   const refreshBook = useCallback(async () => {
     try {
-      const [market] = findMarketPda(MARKET_INDEX);
-      const s = await scanBook(connection, market);
+      const [market] = findMarketPda(marketIndex);
+      const s = await scanBook(connection, market, marketIndex);
       setSnap(s);
       setErr(null);
     } catch (e) {
       setErr((e as Error).message);
     }
-  }, [connection]);
+  }, [connection, marketIndex]);
 
   const refreshTrades = useCallback(async () => {
     try {
       const [t, slot] = await Promise.all([
-        fetchRecentTrades(connection, 40),
+        fetchRecentTrades(connection, 40, marketIndex),
         connection.getSlot("confirmed"),
       ]);
       setTrades(t);
@@ -88,7 +89,7 @@ export function Orderbook() {
     } catch (e) {
       setErr((e as Error).message);
     }
-  }, [connection]);
+  }, [connection, marketIndex]);
 
   useEffect(() => {
     if (tab === "book") {

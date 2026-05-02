@@ -5,9 +5,9 @@ use crate::{
     constants::{POSITION_SEED, USER_ACCOUNT_SEED},
     state::{Position, UserAccount},
     tests::helper::{
-        PROGRAM_ID, add_margin, close_position, cover_bad_debt, create_market, create_mint,
-        deposit, initialize_insurance_fund, initialize_vault, liquidate, open_position,
-        remove_margin, settle_fill, settle_funding, setup, update_funding_rate, withdraw,
+        add_margin, close_position, cover_bad_debt, create_market, create_mint, deposit,
+        initialize_insurance_fund, initialize_vault, liquidate, open_position, remove_margin,
+        settle_fill, settle_funding, setup, update_funding_rate, withdraw, PROGRAM_ID,
     },
 };
 

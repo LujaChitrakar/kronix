@@ -14,7 +14,6 @@ import {
   findMarketConfigPda,
 } from "@/lib/kronix/pdas";
 import { fetchOpenOrders, fetchMarketConfig } from "@/lib/kronix/state";
-import { MARKET_INDEX } from "@/lib/kronix/config";
 import { useStore } from "@/lib/store";
 import { sendTx, formatTxError } from "./tx";
 
@@ -59,6 +58,7 @@ export function OrderForm() {
 
   const [mounted, setMounted] = useState(false);
   const selectedPrice = useStore(s => s.selectedPrice);
+  const marketIndex = useStore(s => s.selectedMarketIndex);
   const lastFocusedInputId = useStore(s => s.lastFocusedInputId);
   const setLastFocusedInputId = useStore(s => s.setLastFocusedInputId);
 
@@ -74,7 +74,7 @@ export function OrderForm() {
   }, [selectedPrice, lastFocusedInputId]);
 
   useEffect(() => {
-    const [cfgPda] = findMarketConfigPda(MARKET_INDEX);
+    const [cfgPda] = findMarketConfigPda(marketIndex);
     fetchMarketConfig(connection, cfgPda)
       .then((c) => {
         if (c)
@@ -84,14 +84,14 @@ export function OrderForm() {
           });
       })
       .catch(() => null);
-  }, [connection]);
+  }, [connection, marketIndex]);
 
   // Live refresh of own resting orders so we can warn before submit.
   useEffect(() => {
     if (!owner) return;
     let alive = true;
     const refresh = async () => {
-      const [market] = findMarketPda(MARKET_INDEX);
+      const [market] = findMarketPda(marketIndex);
       const [oo] = findOpenOrdersPda(owner, market);
       const acct = await fetchOpenOrders(connection, oo);
       if (!alive) return;
@@ -116,7 +116,7 @@ export function OrderForm() {
       alive = false;
       clearInterval(t);
     };
-  }, [connection, owner]);
+  }, [connection, owner, marketIndex]);
 
   const priceLotsParsed = (() => {
     try {
@@ -141,8 +141,12 @@ export function OrderForm() {
     setMsg(`Cancelling ${conflicts.length} own order(s)…`);
     try {
       for (const o of conflicts) {
-        await sendCancelOrderByClientId(owner, o.clientId, connection, (ixs, c) =>
-          sendTx(wallet, c, ixs),
+        await sendCancelOrderByClientId(
+          owner,
+          o.clientId,
+          connection,
+          (ixs, c) => sendTx(wallet, c, ixs),
+          marketIndex,
         );
       }
       setMsg(`Cancelled ${conflicts.length}. Retry place order.`);
@@ -190,6 +194,7 @@ export function OrderForm() {
           clientOrderId,
           expiryTimestamp: 0n,
           limit: 16,
+          marketIndex,
         },
         connection,
         (ixs, c) => sendTx(wallet, c, ixs),

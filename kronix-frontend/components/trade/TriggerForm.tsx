@@ -33,6 +33,7 @@ export function TriggerForm() {
 
   const [mounted, setMounted] = useState(false);
   const selectedPrice = useStore(s => s.selectedPrice);
+  const marketIndex = useStore(s => s.selectedMarketIndex);
   const lastFocusedInputId = useStore(s => s.lastFocusedInputId);
   const setLastFocusedInputId = useStore(s => s.setLastFocusedInputId);
 
@@ -68,6 +69,7 @@ export function TriggerForm() {
           expiry: BigInt(parseInt(expiry || "0", 10)),
           triggerType,
           side,
+          marketIndex,
         },
         connection,
         (ixs, c) => sendTx(wallet, c, ixs),

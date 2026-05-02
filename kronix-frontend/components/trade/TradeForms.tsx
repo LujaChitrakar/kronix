@@ -4,12 +4,15 @@ import { useState } from "react";
 import { OrderForm } from "./OrderForm";
 import { StrategyForm } from "./StrategyForm";
 import { TriggerForm } from "./TriggerForm";
-import { MARKET_NAME } from "@/lib/kronix/config";
+import { getMarketInfo } from "@/lib/kronix/config";
+import { useStore } from "@/lib/store";
 
 type Tab = "order" | "strategy" | "trigger";
 
 export function TradeForms() {
   const [tab, setTab] = useState<Tab>("order");
+  const selectedSymbol = useStore((s) => s.selectedSymbol);
+  const marketName = getMarketInfo(selectedSymbol).name;
 
   return (
     <div className="bg-kx-surface rounded-xl border kx-border overflow-hidden flex flex-col h-full">
@@ -24,7 +27,7 @@ export function TradeForms() {
           Trigger
         </TabBtn>
         <div className="ml-auto pr-3 text-[10px] font-mono text-on-surface-variant/70">
-          {MARKET_NAME}
+          {marketName}
         </div>
       </div>
 

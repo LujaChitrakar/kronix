@@ -97,7 +97,7 @@ export type ExecuteTriggerInstruction<
         ? WritableAccount<TAccountFillsLog>
         : TAccountFillsLog,
       TAccountOracle extends string
-        ? WritableAccount<TAccountOracle>
+        ? ReadonlyAccount<TAccountOracle>
         : TAccountOracle,
       TAccountOrderbookProgram extends string
         ? ReadonlyAccount<TAccountOrderbookProgram>
@@ -189,7 +189,7 @@ export type ExecuteTriggerInput<
   asks: Address<TAccountAsks>;
   /** Fills log PDA */
   fillsLog: Address<TAccountFillsLog>;
-  /** Oracle PDA */
+  /** Switchboard price feed */
   oracle: Address<TAccountOracle>;
   /** Orderbook Program */
   orderbookProgram: Address<TAccountOrderbookProgram>;
@@ -270,7 +270,7 @@ export function getExecuteTriggerInstruction<
     bids: { value: input.bids ?? null, isWritable: true },
     asks: { value: input.asks ?? null, isWritable: true },
     fillsLog: { value: input.fillsLog ?? null, isWritable: true },
-    oracle: { value: input.oracle ?? null, isWritable: true },
+    oracle: { value: input.oracle ?? null, isWritable: false },
     orderbookProgram: {
       value: input.orderbookProgram ?? null,
       isWritable: false,
@@ -352,7 +352,7 @@ export type ParsedExecuteTriggerInstruction<
     asks: TAccountMetas[7];
     /** Fills log PDA */
     fillsLog: TAccountMetas[8];
-    /** Oracle PDA */
+    /** Switchboard price feed */
     oracle: TAccountMetas[9];
     /** Orderbook Program */
     orderbookProgram: TAccountMetas[10];

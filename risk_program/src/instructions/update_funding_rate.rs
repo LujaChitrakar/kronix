@@ -11,7 +11,7 @@ use crate::{
     errors::RiskProgramError,
     helper::{verify_account_owner, verify_signer, verify_writtable},
     math::funding_rate_bps,
-    oracle::validate_pyth_price,
+    oracle::validate_switchboard_price,
     state::{FundingState, MarketConfig},
 };
 
@@ -28,7 +28,7 @@ pub fn process_update_funding_rate(accounts: &[AccountView], data: &[u8]) -> Pro
         cranker, // permissionless — any signer
         market_config,
         funding_state,
-        oracle, // Pyth price feed
+        oracle, // Switchboard price feed
         _remaining @ ..,
     ] = accounts
     else {
@@ -73,7 +73,7 @@ pub fn process_update_funding_rate(accounts: &[AccountView], data: &[u8]) -> Pro
     let clamped_elapsed = elapsed_time.min(FUNDING_INTERVAL_SECS);
 
     // uncomment after oracle integration
-    let index_price = validate_pyth_price(oracle, clock.unix_timestamp)?;
+    let index_price = validate_switchboard_price(oracle, params.market_index, clock.slot)?;
     // let index_price = validated.price;
     // let index_price = 1000;
 

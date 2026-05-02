@@ -335,7 +335,7 @@
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "Pyth oracle"
+            "Switchboard oracle"
           ]
         },
         {
@@ -408,7 +408,7 @@
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "Pyth oracle"
+            "Switchboard oracle"
           ]
         }
       ],
@@ -514,7 +514,7 @@
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "Pyth oracle"
+            "Switchboard oracle"
           ]
         }
       ],
@@ -678,7 +678,7 @@
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "Pyth oracle"
+            "Switchboard oracle"
           ]
         }
       ],
@@ -775,7 +775,7 @@
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "Pyth oracle"
+            "Switchboard oracle"
           ]
         },
         {
@@ -856,7 +856,7 @@
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "Pyth oracle"
+            "Switchboard oracle"
           ]
         }
       ],
@@ -1659,6 +1659,6 @@
   ],
   "metadata": {
     "origin": "shank",
-    "address": "C8kAYt7vpmFxhguEJxbg6hMZY3LLNYACrU8mKveZ8eMu"
+    "address": "5ivREpNsjSj4Gr27oxEfyAZ38KCfDDtDLdXQeHDtDpo4"
   }
 }

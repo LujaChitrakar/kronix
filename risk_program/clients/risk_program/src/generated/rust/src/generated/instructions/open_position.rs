@@ -38,7 +38,7 @@ pub struct OpenPosition {
     
               
           pub funding_state: solana_address::Address,
-                /// Pyth oracle
+                /// Switchboard oracle
 
     
               
@@ -204,7 +204,7 @@ impl OpenPositionBuilder {
                         self.funding_state = Some(funding_state);
                     self
     }
-            /// Pyth oracle
+            /// Switchboard oracle
 #[inline(always)]
     pub fn oracle(&mut self, oracle: solana_address::Address) -> &mut Self {
                         self.oracle = Some(oracle);
@@ -316,7 +316,7 @@ impl OpenPositionBuilder {
       
                     
               pub funding_state: &'b solana_account_info::AccountInfo<'a>,
-                        /// Pyth oracle
+                        /// Switchboard oracle
 
       
                     
@@ -357,7 +357,7 @@ pub struct OpenPositionCpi<'a, 'b> {
     
               
           pub funding_state: &'b solana_account_info::AccountInfo<'a>,
-                /// Pyth oracle
+                /// Switchboard oracle
 
     
               
@@ -541,7 +541,7 @@ impl<'a, 'b> OpenPositionCpiBuilder<'a, 'b> {
                         self.instruction.funding_state = Some(funding_state);
                     self
     }
-      /// Pyth oracle
+      /// Switchboard oracle
 #[inline(always)]
     pub fn oracle(&mut self, oracle: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
                         self.instruction.oracle = Some(oracle);

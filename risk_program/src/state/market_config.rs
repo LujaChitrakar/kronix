@@ -13,7 +13,7 @@ pub struct MarketConfig {
     pub bump: u8,
     pub max_leverage: u8, // e.g. 20 = 20x max
     pub padding: [u8; 6],
-    pub oracle: [u8; 32], // Pyth price feed pubkey
+    pub oracle: [u8; 32], // Switchboard price feed pubkey
     pub reserved: [u8; 32],
 }
 

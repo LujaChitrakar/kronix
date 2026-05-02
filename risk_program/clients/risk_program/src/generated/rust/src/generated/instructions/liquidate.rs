@@ -58,7 +58,7 @@ pub struct Liquidate {
     
               
           pub liquidator_token_account: solana_address::Address,
-                /// Pyth oracle
+                /// Switchboard oracle
 
     
               
@@ -264,7 +264,7 @@ impl LiquidateBuilder {
                         self.liquidator_token_account = Some(liquidator_token_account);
                     self
     }
-            /// Pyth oracle
+            /// Switchboard oracle
 #[inline(always)]
     pub fn oracle(&mut self, oracle: solana_address::Address) -> &mut Self {
                         self.oracle = Some(oracle);
@@ -376,7 +376,7 @@ impl LiquidateBuilder {
       
                     
               pub liquidator_token_account: &'b solana_account_info::AccountInfo<'a>,
-                        /// Pyth oracle
+                        /// Switchboard oracle
 
       
                     
@@ -437,7 +437,7 @@ pub struct LiquidateCpi<'a, 'b> {
     
               
           pub liquidator_token_account: &'b solana_account_info::AccountInfo<'a>,
-                /// Pyth oracle
+                /// Switchboard oracle
 
     
               
@@ -673,7 +673,7 @@ impl<'a, 'b> LiquidateCpiBuilder<'a, 'b> {
                         self.instruction.liquidator_token_account = Some(liquidator_token_account);
                     self
     }
-      /// Pyth oracle
+      /// Switchboard oracle
 #[inline(always)]
     pub fn oracle(&mut self, oracle: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
                         self.instruction.oracle = Some(oracle);

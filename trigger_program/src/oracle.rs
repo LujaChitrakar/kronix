@@ -1,79 +1,69 @@
 use pinocchio::{error::ProgramError, AccountView};
+use switchboard_on_demand::on_demand::accounts::PullFeedAccountData;
 
 use crate::{
-    constants::{
-        FEED_ID, MAX_CONF_RATIO_BPS, MAX_PRICE_AGE_SLOTS, PRICE_ACC_LEN, PRICE_ACC_OFFSET_CONF,
-        PRICE_ACC_OFFSET_EXPONENT, PRICE_ACC_OFFSET_FEED_ID, PRICE_ACC_OFFSET_PRICE,
-    },
+    constants::{KXI_MARKET_INDEX, SWITCHBOARD_KXI_USD_FEED, SWITCHBOARD_SOL_USD_FEED},
     errors::TriggerProgramError,
 };
 
-pub struct ValidatedPrice {
-    pub price: i64, // price in USD * 10^6
-    pub conf: u64,  // confidence interval
-    pub slot: u64,  // slot when published
-}
+const SWITCHBOARD_PULL_FEED_DISCRIMINATOR: [u8; 8] = [196, 27, 108, 196, 10, 215, 219, 40];
+const SWITCHBOARD_PRICE_SCALE: i128 = 1_000_000_000_000; // 1e18 -> 1e6
 
-/// Validate a Pyth price feed account
-/// Must be called before using any price in risk calculations
-pub fn validate_pyth_price(
+/// Read market price from an existing Switchboard On-Demand pull feed.
+/// Returns price in USD * 10^6.
+pub fn validate_switchboard_price(
     price_account: &AccountView,
-    _clock_unix_timestamp: i64,
+    market_index: u16,
+    clock_slot: u64,
 ) -> Result<i64, ProgramError> {
-    let data = price_account.try_borrow()?;
+    let expected_feed = if market_index == KXI_MARKET_INDEX {
+        &SWITCHBOARD_KXI_USD_FEED
+    } else {
+        &SWITCHBOARD_SOL_USD_FEED
+    };
+    if price_account.address().as_array() != expected_feed {
+        return Err(TriggerProgramError::InvalidTriggerPrice.into());
+    }
 
-    if data.len() < PRICE_ACC_LEN {
+    let data = price_account.try_borrow()?;
+    let expected_len = 8 + core::mem::size_of::<PullFeedAccountData>();
+    if data.len() < expected_len {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    if data[..8] != SWITCHBOARD_PULL_FEED_DISCRIMINATOR {
         return Err(ProgramError::InvalidAccountData);
     }
 
-    let feed_id = &data[PRICE_ACC_OFFSET_FEED_ID..PRICE_ACC_OFFSET_FEED_ID + 32];
-    // if feed_id != FEED_ID {
-    //     return Err(MakerError::InvalidFeedId.into());
-    // }
+    let feed = bytemuck::try_from_bytes::<PullFeedAccountData>(&data[8..expected_len])
+        .map_err(|_| ProgramError::InvalidAccountData)?;
 
-    let raw_price = i64::from_le_bytes(
-        data[PRICE_ACC_OFFSET_PRICE..PRICE_ACC_OFFSET_PRICE + 8]
-            .try_into()
-            .map_err(|_| ProgramError::InvalidAccountData)?,
-    );
+    let result_slot = feed
+        .result
+        .result_slot()
+        .ok_or(TriggerProgramError::InvalidTriggerPrice)?;
+    if clock_slot == 0 || result_slot == 0 {
+        return Err(TriggerProgramError::InvalidTriggerPrice.into());
+    }
+    let staleness = clock_slot
+        .checked_sub(result_slot)
+        .ok_or(TriggerProgramError::InvalidTriggerPrice)?;
+    if staleness > feed.max_staleness as u64 {
+        return Err(TriggerProgramError::InvalidTriggerPrice.into());
+    }
 
-    let _ = u64::from_le_bytes(
-        data[PRICE_ACC_OFFSET_CONF..PRICE_ACC_OFFSET_CONF + 8]
-            .try_into()
-            .map_err(|_| ProgramError::InvalidAccountData)?,
-    );
+    let value = feed
+        .result
+        .value()
+        .ok_or(TriggerProgramError::InvalidTriggerPrice)?;
 
-    let exponent = i32::from_le_bytes(
-        data[PRICE_ACC_OFFSET_EXPONENT..PRICE_ACC_OFFSET_EXPONENT + 4]
-            .try_into()
-            .map_err(|_| ProgramError::InvalidAccountData)?,
-    );
+    let normalized = value
+        .mantissa()
+        .checked_div(SWITCHBOARD_PRICE_SCALE)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
 
-    // let publish_time = i64::from_le_bytes(
-    //     data[PRICE_ACC_OFFSET_PUBLISH_TIME..PRICE_ACC_OFFSET_PUBLISH_TIME + 8]
-    //         .try_into()
-    //         .map_err(|_| MakerError::InvalidAccountData)?,
-    // );
-    //
-    // if clock_unix_timestamp.saturating_sub(publish_time) > MAX_PRICE_AGE {
-    //     return Err(MakerError::StalePythPrice.into());
-    // }
+    if normalized <= 0 {
+        return Err(TriggerProgramError::InvalidTriggerPrice.into());
+    }
 
-    let scale_exp: i32 = 6 + exponent; // target expo (6) + pyth expo
-
-    let normalized = if scale_exp >= 0 {
-        // multiply
-        let scale = 10i64.pow(scale_exp as u32);
-        raw_price
-            .checked_mul(scale)
-            .ok_or(ProgramError::ArithmeticOverflow)?
-    } else {
-        // divide
-        let scale = 10i64.pow((-scale_exp) as u32);
-        raw_price
-            .checked_div(scale)
-            .ok_or(ProgramError::ArithmeticOverflow)?
-    };
-
-    Ok(normalized)
+    i64::try_from(normalized).map_err(|_| ProgramError::ArithmeticOverflow)
 }

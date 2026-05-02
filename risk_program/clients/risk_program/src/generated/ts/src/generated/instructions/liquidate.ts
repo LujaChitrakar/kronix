@@ -180,7 +180,7 @@ export type LiquidateInput<
   vaultAuthority: Address<TAccountVaultAuthority>;
   /** Liquidator USDC ATA */
   liquidatorTokenAccount: Address<TAccountLiquidatorTokenAccount>;
-  /** Pyth oracle */
+  /** Switchboard oracle */
   oracle: Address<TAccountOracle>;
   /** Token program */
   tokenProgram?: Address<TAccountTokenProgram>;
@@ -324,7 +324,7 @@ export type ParsedLiquidateInstruction<
     vaultAuthority: TAccountMetas[7];
     /** Liquidator USDC ATA */
     liquidatorTokenAccount: TAccountMetas[8];
-    /** Pyth oracle */
+    /** Switchboard oracle */
     oracle: TAccountMetas[9];
     /** Token program */
     tokenProgram: TAccountMetas[10];

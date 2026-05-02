@@ -11,7 +11,7 @@ use crate::{
     errors::RiskProgramError,
     helper::{verify_account_owner, verify_signer, verify_writtable},
     instructions::settle_funding_internal,
-    oracle::validate_pyth_price,
+    oracle::validate_switchboard_price,
     state::{FundingState, InsuranceFund, MarketConfig, Position, UserAccount},
 };
 
@@ -65,7 +65,13 @@ pub fn process_cover_bad_debt(accounts: &[AccountView], data: &[u8]) -> ProgramR
     }
 
     // uncomment later on oracle validation
-    let mark_price = validate_pyth_price(oracle, clock.unix_timestamp)?;
+    let mark_price_native = validate_switchboard_price(oracle, params.market_index, clock.slot)?;
+    let mark_price = mark_price_native
+        .checked_div(market_config_state.quote_lot_size)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    if mark_price <= 0 {
+        return Err(RiskProgramError::InvalidOraclePrice.into());
+    }
     // let mark_price = validated.price;
     // let mark_price = 100;
 

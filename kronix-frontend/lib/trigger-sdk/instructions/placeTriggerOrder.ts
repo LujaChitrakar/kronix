@@ -8,8 +8,18 @@
 
 import {
   combineCodec,
+  fixDecoderSize,
+  fixEncoderSize,
+  getBytesDecoder,
+  getBytesEncoder,
+  getI64Decoder,
+  getI64Encoder,
   getStructDecoder,
   getStructEncoder,
+  getU16Decoder,
+  getU16Encoder,
+  getU64Decoder,
+  getU64Encoder,
   getU8Decoder,
   getU8Encoder,
   SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
@@ -18,9 +28,9 @@ import {
   type AccountMeta,
   type AccountSignerMeta,
   type Address,
-  type Codec,
-  type Decoder,
-  type Encoder,
+  type FixedSizeCodec,
+  type FixedSizeDecoder,
+  type FixedSizeEncoder,
   type Instruction,
   type InstructionWithAccounts,
   type InstructionWithData,
@@ -35,12 +45,6 @@ import {
   type ResolvedInstructionAccount,
 } from "@solana/program-client-core";
 import { TRIGGER_PROGRAM_PROGRAM_ADDRESS } from "../programs";
-import {
-  getPlaceTriggerOrderParamsDecoder,
-  getPlaceTriggerOrderParamsEncoder,
-  type PlaceTriggerOrderParams,
-  type PlaceTriggerOrderParamsArgs,
-} from "../types";
 
 export const PLACE_TRIGGER_ORDER_DISCRIMINATOR = 0;
 
@@ -95,31 +99,71 @@ export type PlaceTriggerOrderInstruction<
 
 export type PlaceTriggerOrderInstructionData = {
   discriminator: number;
-  placeTriggerOrderParams: PlaceTriggerOrderParams;
+  clientOrderId: bigint;
+  triggerPrice: bigint;
+  sizeLots: bigint;
+  expiry: bigint;
+  marketIndex: number;
+  triggerType: number;
+  side: number;
+  bump: number;
+  bumpAuthority: number;
+  bumpFillsLog: number;
+  padding: ReadonlyUint8Array;
 };
 
 export type PlaceTriggerOrderInstructionDataArgs = {
-  placeTriggerOrderParams: PlaceTriggerOrderParamsArgs;
+  clientOrderId: number | bigint;
+  triggerPrice: number | bigint;
+  sizeLots: number | bigint;
+  expiry: number | bigint;
+  marketIndex: number;
+  triggerType: number;
+  side: number;
+  bump: number;
+  bumpAuthority: number;
+  bumpFillsLog: number;
+  padding: ReadonlyUint8Array;
 };
 
-export function getPlaceTriggerOrderInstructionDataEncoder(): Encoder<PlaceTriggerOrderInstructionDataArgs> {
+export function getPlaceTriggerOrderInstructionDataEncoder(): FixedSizeEncoder<PlaceTriggerOrderInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", getU8Encoder()],
-      ["placeTriggerOrderParams", getPlaceTriggerOrderParamsEncoder()],
+      ["clientOrderId", getU64Encoder()],
+      ["triggerPrice", getI64Encoder()],
+      ["sizeLots", getI64Encoder()],
+      ["expiry", getI64Encoder()],
+      ["marketIndex", getU16Encoder()],
+      ["triggerType", getU8Encoder()],
+      ["side", getU8Encoder()],
+      ["bump", getU8Encoder()],
+      ["bumpAuthority", getU8Encoder()],
+      ["bumpFillsLog", getU8Encoder()],
+      ["padding", fixEncoderSize(getBytesEncoder(), 1)],
     ]),
     (value) => ({ ...value, discriminator: PLACE_TRIGGER_ORDER_DISCRIMINATOR }),
   );
 }
 
-export function getPlaceTriggerOrderInstructionDataDecoder(): Decoder<PlaceTriggerOrderInstructionData> {
+export function getPlaceTriggerOrderInstructionDataDecoder(): FixedSizeDecoder<PlaceTriggerOrderInstructionData> {
   return getStructDecoder([
     ["discriminator", getU8Decoder()],
-    ["placeTriggerOrderParams", getPlaceTriggerOrderParamsDecoder()],
+    ["clientOrderId", getU64Decoder()],
+    ["triggerPrice", getI64Decoder()],
+    ["sizeLots", getI64Decoder()],
+    ["expiry", getI64Decoder()],
+    ["marketIndex", getU16Decoder()],
+    ["triggerType", getU8Decoder()],
+    ["side", getU8Decoder()],
+    ["bump", getU8Decoder()],
+    ["bumpAuthority", getU8Decoder()],
+    ["bumpFillsLog", getU8Decoder()],
+    ["padding", fixDecoderSize(getBytesDecoder(), 1)],
   ]);
 }
 
-export function getPlaceTriggerOrderInstructionDataCodec(): Codec<
+export function getPlaceTriggerOrderInstructionDataCodec(): FixedSizeCodec<
   PlaceTriggerOrderInstructionDataArgs,
   PlaceTriggerOrderInstructionData
 > {
@@ -145,17 +189,27 @@ export type PlaceTriggerOrderInput<
   triggerOrder: Address<TAccountTriggerOrder>;
   /** Open orders account PDA */
   openOrdersAccount: Address<TAccountOpenOrdersAccount>;
-  /** Trigger authority PDA */
+  /** Trigger authority PDA (taker for fills_log + OO delegate) */
   triggerAuthority: Address<TAccountTriggerAuthority>;
-  /** FillsLog PDA */
+  /** FillsLog PDA (initialized via CPI) */
   fillsLog: Address<TAccountFillsLog>;
   /** Market state PDA */
   market: Address<TAccountMarket>;
-  /** Orderbook program */
+  /** Orderbook program (CPI) */
   orderbookProgram: Address<TAccountOrderbookProgram>;
   /** System program */
   systemProgram?: Address<TAccountSystemProgram>;
-  placeTriggerOrderParams: PlaceTriggerOrderInstructionDataArgs["placeTriggerOrderParams"];
+  clientOrderId: PlaceTriggerOrderInstructionDataArgs["clientOrderId"];
+  triggerPrice: PlaceTriggerOrderInstructionDataArgs["triggerPrice"];
+  sizeLots: PlaceTriggerOrderInstructionDataArgs["sizeLots"];
+  expiry: PlaceTriggerOrderInstructionDataArgs["expiry"];
+  marketIndex: PlaceTriggerOrderInstructionDataArgs["marketIndex"];
+  triggerType: PlaceTriggerOrderInstructionDataArgs["triggerType"];
+  side: PlaceTriggerOrderInstructionDataArgs["side"];
+  bump: PlaceTriggerOrderInstructionDataArgs["bump"];
+  bumpAuthority: PlaceTriggerOrderInstructionDataArgs["bumpAuthority"];
+  bumpFillsLog: PlaceTriggerOrderInstructionDataArgs["bumpFillsLog"];
+  padding: PlaceTriggerOrderInstructionDataArgs["padding"];
 };
 
 export function getPlaceTriggerOrderInstruction<
@@ -270,13 +324,13 @@ export type ParsedPlaceTriggerOrderInstruction<
     triggerOrder: TAccountMetas[1];
     /** Open orders account PDA */
     openOrdersAccount: TAccountMetas[2];
-    /** Trigger authority PDA */
+    /** Trigger authority PDA (taker for fills_log + OO delegate) */
     triggerAuthority: TAccountMetas[3];
-    /** FillsLog PDA */
+    /** FillsLog PDA (initialized via CPI) */
     fillsLog: TAccountMetas[4];
     /** Market state PDA */
     market: TAccountMetas[5];
-    /** Orderbook program */
+    /** Orderbook program (CPI) */
     orderbookProgram: TAccountMetas[6];
     /** System program */
     systemProgram: TAccountMetas[7];

@@ -193,10 +193,10 @@
         },
         {
           "name": "oracle",
-          "isMut": true,
+          "isMut": false,
           "isSigner": false,
           "docs": [
-            "Oracle PDA"
+            "Switchboard price feed"
           ]
         },
         {
@@ -531,6 +531,6 @@
   ],
   "metadata": {
     "origin": "shank",
-    "address": "FBux8UY7koXsvDp3GThjvtiMo4GagsDdkPDbU4VbQzV2"
+    "address": "9KDXQmrMy71pVHTknapcv4jP8aHsr9yF5yXMmGNftUkX"
   }
 }

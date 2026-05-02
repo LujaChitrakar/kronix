@@ -28,7 +28,9 @@ import {
   PublicKey,
   SystemProgram,
   Transaction,
+  TransactionMessage,
   TransactionInstruction,
+  VersionedTransaction,
   ComputeBudgetProgram,
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
@@ -37,6 +39,7 @@ import {
   createAssociatedTokenAccountInstruction,
 } from "@solana/spl-token";
 import type { Address } from "@solana/kit";
+import * as sb from "@switchboard-xyz/on-demand";
 
 import {
   getLiquidateInstruction,
@@ -53,6 +56,9 @@ import {
   STRATEGY_PROGRAM_ID,
   USDC_MINT,
   MARKET_INDEX,
+  MARKETS,
+  SOL_SWITCHBOARD_FEED,
+  getMarketInfoByIndex,
   TOKEN_PROGRAM_ID,
   SYSTEM_PROGRAM_ID,
   TriggerStatus,
@@ -90,6 +96,11 @@ const RPC_URL =
 const KEYPAIR_PATH =
   process.env.KEEPER_KEYPAIR_PATH ??
   path.join(os.homedir(), ".config", "solana", "id.json");
+const MARKET_INDEXES = (
+  process.env.NEXT_PUBLIC_MARKET_INDEXES
+    ? process.env.NEXT_PUBLIC_MARKET_INDEXES.split(",").map((s) => Number(s.trim()))
+    : [MARKET_INDEX, MARKETS.KXI.marketIndex]
+).filter((n, i, arr) => Number.isFinite(n) && n >= 0 && arr.indexOf(n) === i);
 
 const POSITION_SIZE = 104;
 const USER_ACCOUNT_SIZE = 88;
@@ -100,6 +111,19 @@ const EXECUTE_TRIGGER_DISC = 2;
 const PRUNE_EXPIRED_TRIGGER_DISC = 4;
 const EXECUTE_STRATEGY_DISC = 2;
 const PRICE_HISTORY_MAX = 200;
+const LIQUIDATION_HEALTH_BUFFER = 1_000n;
+const DEV_SKIP_CORRUPTED_ACCOUNTS =
+  process.env.KEEPER_DEV_SKIP_CORRUPTED_ACCOUNTS === "1" &&
+  !RPC_URL.includes("mainnet-beta");
+const DEV_CORRUPTED_COLLATERAL_FLOOR = BigInt(
+  process.env.KEEPER_DEV_CORRUPTED_COLLATERAL_FLOOR ?? "-100000000000",
+);
+const DEV_CORRUPTED_ACCOUNT_KEYS = new Set(
+  (process.env.KEEPER_DEV_CORRUPTED_ACCOUNTS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
+);
 
 const PADDING_5 = new Uint8Array(5);
 const PADDING_6 = new Uint8Array(6);
@@ -113,7 +137,12 @@ const secret = JSON.parse(fs.readFileSync(KEYPAIR_PATH, "utf8")) as number[];
 const keeper = Keypair.fromSecretKey(Uint8Array.from(secret));
 console.log(`keeper pubkey: ${keeper.publicKey.toBase58()}`);
 console.log(`rpc:           ${RPC_URL}`);
-console.log(`market_index:  ${MARKET_INDEX}`);
+console.log(`market_indexes:${MARKET_INDEXES.join(",")}`);
+if (DEV_SKIP_CORRUPTED_ACCOUNTS) {
+  console.log(
+    `[dev] corrupted-account skip enabled floor=${DEV_CORRUPTED_COLLATERAL_FLOOR}`,
+  );
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -138,8 +167,12 @@ async function send(ixs: TransactionInstruction[], label: string): Promise<strin
     if (msg.includes("0xd")) return null; // FundingNotDue
     if (msg.includes("0x10")) return null; // NotLiquidatable
     if (msg.includes("0x11")) return null; // NotInBadDebt
-    if (msg.includes("0xf") && label.startsWith("cover-bad-debt")) return null; // InsuranceFundDepleted
-    const logs = (e as { logs?: string[] }).logs;
+    if (msg.includes("0xf") && (label.startsWith("cover-bad-debt") || label.startsWith("liquidate"))) {
+      return null; // InsuranceFundDepleted
+    }
+    let logs = (e as { logs?: string[] }).logs;
+    const getLogs = (e as { getLogs?: (connection: Connection) => Promise<string[]> }).getLogs;
+    if (!logs && getLogs) logs = await getLogs.call(e, conn);
     const tail = logs ? "\n" + logs.slice(-12).join("\n") : "";
     console.log(`[${label}] ✗ ${msg}${tail}`);
     return null;
@@ -165,17 +198,118 @@ async function ensureKeeperUsdcAta(): Promise<PublicKey> {
   return ata;
 }
 
-// Decode Pyth PriceUpdateV2 mark price → USDC native (×10⁶).
+const SWITCHBOARD_PULL_FEED_DISCRIMINATOR = Buffer.from([
+  196, 27, 108, 196, 10, 215, 219, 40,
+]);
+const SWITCHBOARD_RESULT_VALUE_OFFSET = 2_264;
+const SWITCHBOARD_RESULT_SLOT_OFFSET = 2_368;
+const SWITCHBOARD_MAX_STALENESS_OFFSET = 2_392;
+const SWITCHBOARD_PRICE_SCALE = 1_000_000_000_000n; // 1e18 -> 1e6
+const SWITCHBOARD_UPDATE_COOLDOWN_MS = 15_000;
+
+function readI128LE(buf: Buffer, offset: number): bigint {
+  let value = 0n;
+  for (let i = 0; i < 16; i++) {
+    value |= BigInt(buf[offset + i]) << (8n * BigInt(i));
+  }
+  return value & (1n << 127n) ? value - (1n << 128n) : value;
+}
+
+// Decode Switchboard On-Demand pull feed mark price → USDC native (x10^6).
 async function fetchMarkPriceNative(oracle: PublicKey): Promise<bigint | null> {
   const acc = await conn.getAccountInfo(oracle, "confirmed");
-  if (!acc || acc.data.length < 134) return null;
+  if (!acc || acc.data.length < SWITCHBOARD_MAX_STALENESS_OFFSET + 4) return null;
   const buf = acc.data;
-  const rawPrice = buf.readBigInt64LE(73);
-  const exponent = buf.readInt32LE(89);
-  const scaleExp = 6 + exponent;
-  return scaleExp >= 0
-    ? rawPrice * 10n ** BigInt(scaleExp)
-    : rawPrice / 10n ** BigInt(-scaleExp);
+  if (!buf.subarray(0, 8).equals(SWITCHBOARD_PULL_FEED_DISCRIMINATOR)) return null;
+
+  const slot = buf.readBigUInt64LE(SWITCHBOARD_RESULT_SLOT_OFFSET);
+  if (slot === 0n) return null;
+  const currentSlot = BigInt(await conn.getSlot("confirmed"));
+  if (slot > currentSlot) return null;
+  const maxStaleness = BigInt(buf.readUInt32LE(SWITCHBOARD_MAX_STALENESS_OFFSET));
+  if (currentSlot - slot > maxStaleness) return null;
+
+  const price = readI128LE(buf, SWITCHBOARD_RESULT_VALUE_OFFSET) / SWITCHBOARD_PRICE_SCALE;
+  return price > 0n ? price : null;
+}
+
+const switchboardWallet = {
+  publicKey: keeper.publicKey,
+  signTransaction: async <T extends { sign: (signers: Keypair[]) => void }>(tx: T) => {
+    tx.sign([keeper]);
+    return tx;
+  },
+  signAllTransactions: async <T extends { sign: (signers: Keypair[]) => void }>(txs: T[]) => {
+    txs.forEach((tx) => tx.sign([keeper]));
+    return txs;
+  },
+};
+
+let switchboardProgramPromise: Promise<unknown> | null = null;
+const switchboardUpdateAt = new Map<string, number>();
+
+async function loadSwitchboardProgram(): Promise<unknown> {
+  switchboardProgramPromise ??= sb.AnchorUtils.loadProgramFromConnection(
+    conn as never,
+    switchboardWallet as never,
+  );
+  return switchboardProgramPromise;
+}
+
+async function updateSwitchboardFeed(oracle: PublicKey): Promise<boolean> {
+  const key = oracle.toBase58();
+  const now = Date.now();
+  const last = switchboardUpdateAt.get(key) ?? 0;
+  if (now - last < SWITCHBOARD_UPDATE_COOLDOWN_MS) return false;
+  switchboardUpdateAt.set(key, now);
+
+  try {
+    const program = await loadSwitchboardProgram();
+    const pullFeed = new sb.PullFeed(program as never, oracle);
+    const configs = await pullFeed.loadConfigs();
+    const numSignatures = Math.max(
+      Number(process.env.NEXT_PUBLIC_SB_NUM_SIGNATURES ?? 0),
+      configs.minSampleSize,
+    );
+    const [ixs, luts] = await sb.PullFeed.fetchUpdateManyIx(program as never, {
+      feeds: [pullFeed],
+      numSignatures,
+      payer: keeper.publicKey,
+      signatureInstructionIdx: 2,
+    });
+    if (!ixs || ixs.length === 0) return false;
+    const updateIxs = (ixs as TransactionInstruction[]).filter(
+      (ix) => !ix.programId.equals(ComputeBudgetProgram.programId),
+    );
+    const { blockhash } = await conn.getLatestBlockhash("confirmed");
+    const msg = new TransactionMessage({
+      payerKey: keeper.publicKey,
+      recentBlockhash: blockhash,
+      instructions: [...priorityFeeIxs(1_400_000), ...updateIxs],
+    }).compileToV0Message(luts);
+    const tx = new VersionedTransaction(msg);
+    tx.sign([keeper]);
+    const sig = await conn.sendTransaction(tx, { skipPreflight: false });
+    await conn.confirmTransaction(sig, "confirmed");
+    console.log(`[switchboard] updated ${key} ${sig.slice(0, 12)}...`);
+    return true;
+  } catch (e) {
+    let logs = (e as { logs?: string[] }).logs;
+    const getLogs = (e as { getLogs?: (connection: Connection) => Promise<string[]> }).getLogs;
+    if (!logs && getLogs) logs = await getLogs.call(e, conn);
+    const tail = logs ? "\n" + logs.slice(-12).join("\n") : "";
+    console.log(`[switchboard] update failed ${key}: ${(e as Error).message}${tail}`);
+    return false;
+  }
+}
+
+async function getMarkPriceNative(m: MarketCtx): Promise<bigint | null> {
+  let mark = await fetchMarkPriceNative(m.oracle);
+  if (mark !== null) return mark;
+  const updated = await updateSwitchboardFeed(m.oracle);
+  if (!updated) return null;
+  mark = await fetchMarkPriceNative(m.oracle);
+  return mark;
 }
 
 type MarketCtx = {
@@ -186,35 +320,58 @@ type MarketCtx = {
   oracle: PublicKey;
   quoteLotSize: bigint;
   maintenanceMarginBps: number;
+  liquidationFeeBps: number;
 };
 
+function feedOverrideForMarket(marketIndex: number): PublicKey | null {
+  const direct = process.env[`NEXT_PUBLIC_MARKET_${marketIndex}_SB_FEED_CONFIG`];
+  if (direct) return new PublicKey(direct);
+  const known = getMarketInfoByIndex(marketIndex);
+  if (known) return known.oracle;
+  if (marketIndex === MARKET_INDEX && process.env.NEXT_PUBLIC_SB_FEED_CONFIG) {
+    return new PublicKey(process.env.NEXT_PUBLIC_SB_FEED_CONFIG);
+  }
+  return SOL_SWITCHBOARD_FEED;
+}
+
+const MARKET_RELOAD_MS = 15_000;
 let cachedMarkets: MarketCtx[] | null = null;
+let lastMarketLoadMs = 0;
+let lastMissingMarketLogMs = 0;
 async function loadMarkets(): Promise<MarketCtx[]> {
-  if (cachedMarkets) return cachedMarkets;
-  // Single-market deployment for now. Extend by scanning MarketConfig PDAs.
-  const idx = MARKET_INDEX;
-  const [marketConfig] = findMarketConfigPda(idx);
-  const [fundingState] = findFundingStatePda(idx);
+  const now = Date.now();
+  if (
+    cachedMarkets &&
+    (cachedMarkets.length === MARKET_INDEXES.length || now - lastMarketLoadMs < MARKET_RELOAD_MS)
+  ) {
+    return cachedMarkets;
+  }
+  lastMarketLoadMs = now;
   const [, bumpAuthority] = findVaultAuthorityPda();
-  const cfgAcc = await conn.getAccountInfo(marketConfig, "confirmed");
-  if (!cfgAcc) throw new Error(`MarketConfig ${marketConfig.toBase58()} missing`);
-  const data = cfgAcc.data;
-  // MarketConfig layout (see risk_program/src/state/market_config.rs):
-  //   base_lot_size i64        @ 0
-  //   quote_lot_size i64       @ 8
-  //   market_index u16         @ 16
-  //   initial_margin_bps u16   @ 18
-  //   maintenance_margin_bps u16 @ 20
-  //   liquidation_fee_bps u16  @ 22
-  //   bump u8                  @ 24
-  //   max_leverage u8          @ 25
-  //   padding [u8;6]           @ 26
-  //   oracle [u8;32]           @ 32
-  const quoteLotSize = data.readBigInt64LE(8);
-  const maintenanceMarginBps = data.readUInt16LE(20);
-  const oracle = new PublicKey(data.subarray(32, 64));
-  cachedMarkets = [
-    {
+  const markets: MarketCtx[] = [];
+  for (const idx of MARKET_INDEXES) {
+    const [marketConfig] = findMarketConfigPda(idx);
+    const [fundingState] = findFundingStatePda(idx);
+    const cfgAcc = await conn.getAccountInfo(marketConfig, "confirmed");
+    if (!cfgAcc) {
+      if (now - lastMissingMarketLogMs > MARKET_RELOAD_MS) {
+        console.log(`[init] market ${idx} missing, skip`);
+        lastMissingMarketLogMs = now;
+      }
+      continue;
+    }
+    const data = cfgAcc.data;
+    // MarketConfig layout (see risk_program/src/state/market_config.rs):
+    //   quote_lot_size i64       @ 8
+    //   maintenance_margin_bps u16 @ 20
+    //   liquidation_fee_bps u16  @ 22
+    //   oracle [u8;32]           @ 32
+    const quoteLotSize = data.readBigInt64LE(8);
+    const maintenanceMarginBps = data.readUInt16LE(20);
+    const liquidationFeeBps = data.readUInt16LE(22);
+    const storedOracle = new PublicKey(data.subarray(32, 64));
+    const oracle = feedOverrideForMarket(idx) ?? storedOracle;
+    markets.push({
       marketIndex: idx,
       marketConfig,
       fundingState,
@@ -222,11 +379,14 @@ async function loadMarkets(): Promise<MarketCtx[]> {
       oracle,
       quoteLotSize,
       maintenanceMarginBps,
-    },
-  ];
-  console.log(
-    `[init] market ${idx} oracle=${oracle.toBase58()} quote_lot=${quoteLotSize} maint_bps=${maintenanceMarginBps}`,
-  );
+      liquidationFeeBps,
+    });
+    console.log(
+      `[init] market ${idx} oracle=${oracle.toBase58()} stored_oracle=${storedOracle.toBase58()} quote_lot=${quoteLotSize} maint_bps=${maintenanceMarginBps} liq_fee_bps=${liquidationFeeBps}`,
+    );
+  }
+  if (markets.length === 0) throw new Error("No MarketConfig accounts found");
+  cachedMarkets = markets;
   return cachedMarkets;
 }
 
@@ -239,6 +399,7 @@ type PositionRow = {
   size: bigint;
   side: number;
   entryPrice: bigint;
+  entryFundingIndex: bigint;
   initialMargin: bigint;
 };
 
@@ -257,6 +418,7 @@ async function scanPositions(): Promise<PositionRow[]> {
       pubkey,
       owner: new PublicKey(d.subarray(40, 72)),
       entryPrice: d.readBigInt64LE(8),
+      entryFundingIndex: d.readBigInt64LE(16),
       initialMargin: d.readBigInt64LE(24),
       marketIndex: d.readUInt16LE(32),
       side: d.readUInt8(35),
@@ -264,6 +426,18 @@ async function scanPositions(): Promise<PositionRow[]> {
     });
   }
   return out;
+}
+
+async function readFundingCumulativeIndex(fundingState: PublicKey): Promise<bigint | null> {
+  const acc = await conn.getAccountInfo(fundingState, "confirmed");
+  if (!acc || acc.data.length < 8) return null;
+  return acc.data.readBigInt64LE(0);
+}
+
+async function readInsuranceBalance(insuranceFund: PublicKey): Promise<bigint | null> {
+  const acc = await conn.getAccountInfo(insuranceFund, "confirmed");
+  if (!acc || acc.data.length < 8) return null;
+  return acc.data.readBigUInt64LE(0);
 }
 
 type UserRow = {
@@ -293,18 +467,56 @@ async function scanUserAccounts(): Promise<Map<string, UserRow>> {
   return out;
 }
 
+const devSkippedAccountsLogged = new Set<string>();
+
+function shouldSkipDevCorruptedAccount(
+  p: PositionRow,
+  ua: UserRow,
+  reason: string,
+  metrics: { equity?: bigint; health?: bigint } = {},
+): boolean {
+  if (!DEV_SKIP_CORRUPTED_ACCOUNTS) return false;
+  const owner = p.owner.toBase58();
+  const user = ua.pubkey.toBase58();
+  const position = p.pubkey.toBase58();
+  const explicit =
+    DEV_CORRUPTED_ACCOUNT_KEYS.has(owner) ||
+    DEV_CORRUPTED_ACCOUNT_KEYS.has(user) ||
+    DEV_CORRUPTED_ACCOUNT_KEYS.has(position);
+  const legacyNegative = ua.collateral <= DEV_CORRUPTED_COLLATERAL_FLOOR;
+  const corrupted =
+    ua.collateral < 0n ||
+    (metrics.equity !== undefined && metrics.equity <= 0n) ||
+    (metrics.health !== undefined && metrics.health <= 0n);
+  if (!explicit && !legacyNegative && !corrupted) return false;
+
+  const key = `${reason}:${position}`;
+  if (!devSkippedAccountsLogged.has(key)) {
+    devSkippedAccountsLogged.add(key);
+    console.log(
+      `[dev-skip:${reason}] owner=${owner.slice(0, 6)} user=${user.slice(0, 6)} ` +
+        `position=${position.slice(0, 6)} collateral=${ua.collateral}` +
+        (metrics.equity !== undefined ? ` equity=${metrics.equity}` : "") +
+        (metrics.health !== undefined ? ` health=${metrics.health}` : ""),
+    );
+  }
+  return true;
+}
+
 // ── Bots ─────────────────────────────────────────────────────────────────
 
 async function runUpdateFundingRate(): Promise<void> {
   const markets = await loadMarkets();
   for (const m of markets) {
-    const markNative = await fetchMarkPriceNative(m.oracle);
+    const markNative = await getMarkPriceNative(m);
     if (markNative === null) {
-      console.log(`[funding-rate] oracle missing for market ${m.marketIndex}`);
+      console.log(
+        `[funding-rate] oracle missing for market ${m.marketIndex} feed=${m.oracle.toBase58()}`,
+      );
       continue;
     }
-    // Program receives mark in same scale validate_pyth_price returns
-    // (native USDC ×10⁶). update_funding_rate.rs converts internally.
+    // Program receives mark in same scale validate_switchboard_price returns
+    // (native USDC x10^6). update_funding_rate.rs converts internally.
     const ix = getUpdateFundingRateInstruction({
       cranker: fakeSigner(keeper.publicKey),
       marketConfig: addr(m.marketConfig),
@@ -349,28 +561,59 @@ async function runLiquidate(): Promise<void> {
   await ensureKeeperUsdcAta();
 
   for (const m of markets) {
-    const markNative = await fetchMarkPriceNative(m.oracle);
+    const markNative = await getMarkPriceNative(m);
     if (markNative === null) continue;
     const markLots = markNative / m.quoteLotSize;
+    const cumulativeFundingIndex = await readFundingCumulativeIndex(m.fundingState);
+    if (cumulativeFundingIndex === null) continue;
+    const [insuranceFund] = findInsuranceFundPda();
+    let insuranceBalance = await readInsuranceBalance(insuranceFund);
+    if (insuranceBalance === null) continue;
 
     for (const p of positions) {
       if (p.marketIndex !== m.marketIndex) continue;
       const ua = users.get(p.owner.toBase58());
       if (!ua) continue;
 
-      // Health = collateral / maintenance_margin × 100. Below 100 → liquidate.
-      const notional = p.size * markLots * m.quoteLotSize;
+      const fundingOwed =
+        (p.size *
+          (cumulativeFundingIndex - p.entryFundingIndex) *
+          m.quoteLotSize) /
+        10_000n;
+      const collateralAfterFunding = ua.collateral - fundingOwed;
+      const priceDiff = markLots - p.entryPrice;
+      const unrealizedPnl =
+        p.side === 0
+          ? p.size * priceDiff * m.quoteLotSize
+          : p.size * -priceDiff * m.quoteLotSize;
+      const equity = collateralAfterFunding + unrealizedPnl;
+      const sizeAbs = p.size < 0n ? -p.size : p.size;
+      const notional = sizeAbs * markLots * m.quoteLotSize;
       const maintenance =
         (notional * BigInt(m.maintenanceMarginBps)) / 10_000n;
       if (maintenance === 0n) continue;
-      const healthFactor = (ua.collateral * 100n) / maintenance;
-      if (healthFactor >= 100n) continue;
+      const health = equity - maintenance;
+      if (shouldSkipDevCorruptedAccount(p, ua, "liquidate", { equity, health })) {
+        continue;
+      }
+      if (health >= -LIQUIDATION_HEALTH_BUFFER) continue;
+      const totalFee =
+        (notional * BigInt(m.liquidationFeeBps)) / 10_000n;
+      const isSolvent = equity >= totalFee;
+      const shortfall = equity < 0n ? -equity : 0n;
+      if (!isSolvent && shortfall > insuranceBalance) {
+        console.log(
+          `[liquidate-skip] ${p.owner.toBase58().slice(0, 6)} shortfall=${shortfall} ` +
+            `insurance=${insuranceBalance} health=${health}`,
+        );
+        continue;
+      }
 
       console.log(
-        `[liquidate] ${p.owner.toBase58().slice(0, 6)} health=${healthFactor} ` +
-          `coll=${ua.collateral} maint=${maintenance}`,
+        `[liquidate] ${p.owner.toBase58().slice(0, 6)} health=${health} ` +
+          `equity=${equity} coll=${collateralAfterFunding} raw_coll=${ua.collateral} ` +
+          `funding=${fundingOwed} pnl=${unrealizedPnl} maint=${maintenance}`,
       );
-      const [insuranceFund] = findInsuranceFundPda();
       const [vault] = findVaultPda();
       const [vaultAuthority] = findVaultAuthorityPda();
       const ata = await ensureKeeperUsdcAta();
@@ -390,10 +633,11 @@ async function runLiquidate(): Promise<void> {
         bumpAuthority: m.bumpAuthority,
         padding: PADDING_5,
       });
-      await send(
+      const sig = await send(
         [...priorityFeeIxs(), toLegacyIx(ix)],
         `liquidate ${p.owner.toBase58().slice(0, 6)}`,
       );
+      if (sig && shortfall > 0n) insuranceBalance -= shortfall;
     }
   }
 }
@@ -406,6 +650,7 @@ async function runCoverBadDebt(): Promise<void> {
     const ua = users.get(p.owner.toBase58());
     if (!ua) continue;
     if (ua.collateral >= 0n) continue; // not in bad debt
+    if (shouldSkipDevCorruptedAccount(p, ua, "bad-debt")) continue;
 
     const m = markets.find((x) => x.marketIndex === p.marketIndex);
     if (!m) continue;
@@ -597,7 +842,7 @@ async function runExecuteTriggers(): Promise<void> {
     if (t.expiry !== 0n && now >= t.expiry) continue; // prune handles
     const m = markets.find((x) => x.marketIndex === t.marketIndex);
     if (!m) continue;
-    const markNative = await fetchMarkPriceNative(m.oracle);
+    const markNative = await getMarkPriceNative(m);
     if (markNative === null) continue;
     if (!shouldTrigger(t.triggerType, t.side, t.triggerPrice, markNative)) {
       continue;
@@ -679,27 +924,29 @@ async function runPruneExpiredTriggers(): Promise<void> {
 }
 
 async function runPruneOrders(): Promise<void> {
-  const [market] = findMarketPda(MARKET_INDEX);
-  const [bids] = findBidsPda(MARKET_INDEX);
-  const [asks] = findAsksPda(MARKET_INDEX);
+  for (const m of await loadMarkets()) {
+    const [market] = findMarketPda(m.marketIndex);
+    const [bids] = findBidsPda(m.marketIndex);
+    const [asks] = findAsksPda(m.marketIndex);
 
-  for (const sideTag of [
-    { side: 0, name: "bids" },
-    { side: 1, name: "asks" },
-  ]) {
-    const ix = getPruneOrdersInstruction({
-      keeper: fakeSigner(keeper.publicKey),
-      market: addr(market),
-      bids: addr(bids),
-      asks: addr(asks),
-      side: sideTag.side,
-      limit: 24,
-      padding: PADDING_6,
-    });
-    await send(
-      [...priorityFeeIxs(300_000), toLegacyIx(ix)],
-      `prune-${sideTag.name}`,
-    );
+    for (const sideTag of [
+      { side: 0, name: "bids" },
+      { side: 1, name: "asks" },
+    ]) {
+      const ix = getPruneOrdersInstruction({
+        keeper: fakeSigner(keeper.publicKey),
+        market: addr(market),
+        bids: addr(bids),
+        asks: addr(asks),
+        side: sideTag.side,
+        limit: 24,
+        padding: PADDING_6,
+      });
+      await send(
+        [...priorityFeeIxs(300_000), toLegacyIx(ix)],
+        `prune-${m.marketIndex}-${sideTag.name}`,
+      );
+    }
   }
 }
 
@@ -748,7 +995,7 @@ async function runRecordPrice(): Promise<void> {
   const markets = await loadMarkets();
   let dirty = false;
   for (const m of markets) {
-    const native = await fetchMarkPriceNative(m.oracle);
+    const native = await getMarkPriceNative(m);
     if (native === null) continue;
     const lots = native / m.quoteLotSize;
     const arr = priceHistory.get(m.marketIndex) ?? [];
@@ -1205,7 +1452,7 @@ async function runExecuteStrategies(): Promise<void> {
 
     const m = markets.find((x) => x.marketIndex === s.marketIndex);
     if (!m) continue;
-    const markNative = await fetchMarkPriceNative(m.oracle);
+    const markNative = await getMarkPriceNative(m);
     if (markNative === null) continue;
     const markLots = markNative / m.quoteLotSize;
 

@@ -44,13 +44,7 @@ impl Position {
                 .checked_mul(quote_lot)?
         };
 
-        if pnl > i64::MAX as i128 {
-            Some(i64::MAX)
-        } else if pnl < i64::MIN as i128 {
-            Some(i64::MIN)
-        } else {
-            Some(pnl as i64)
-        }
+        i64::try_from(pnl).ok()
     }
 
     pub fn liquidation_price(&self, collateral: i64, maintenance_margin_bps: u16) -> Option<i64> {

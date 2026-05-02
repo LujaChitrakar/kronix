@@ -134,7 +134,7 @@ export type UpdateFundingRateInput<
   marketConfig: Address<TAccountMarketConfig>;
   /** FundingState */
   fundingState: Address<TAccountFundingState>;
-  /** Pyth oracle */
+  /** Switchboard oracle */
   oracle: Address<TAccountOracle>;
   markPrice: UpdateFundingRateInstructionDataArgs["markPrice"];
   marketIndex: UpdateFundingRateInstructionDataArgs["marketIndex"];
@@ -213,7 +213,7 @@ export type ParsedUpdateFundingRateInstruction<
     marketConfig: TAccountMetas[1];
     /** FundingState */
     fundingState: TAccountMetas[2];
-    /** Pyth oracle */
+    /** Switchboard oracle */
     oracle: TAccountMetas[3];
   };
   data: UpdateFundingRateInstructionData;

@@ -10,7 +10,7 @@ use crate::{
     errors::RiskProgramError,
     helper::{verify_account_owner, verify_initialized, verify_signer, verify_writtable},
     instructions::settle_funding_internal,
-    oracle::validate_pyth_price,
+    oracle::validate_switchboard_price,
     state::{FundingState, MarketConfig, Position, UserAccount},
 };
 
@@ -57,10 +57,13 @@ pub fn process_close_position(accounts: &[AccountView], data: &[u8]) -> ProgramR
         return Err(ProgramError::InvalidInstructionData);
     }
     // uncomment later on first testing without oracle
-    let mark_price_native = validate_pyth_price(oracle, clock.unix_timestamp)?;
+    let mark_price_native = validate_switchboard_price(oracle, params.market_index, clock.slot)?;
     let mark_price = mark_price_native
         .checked_div(market_config_state.quote_lot_size)
         .ok_or(ProgramError::ArithmeticOverflow)?;
+    if mark_price <= 0 {
+        return Err(RiskProgramError::InvalidOraclePrice.into());
+    }
 
     let mut position_data = position.try_borrow_mut()?;
     let position_state = bytemuck::from_bytes_mut::<Position>(&mut position_data[..Position::LEN]);
@@ -108,21 +111,23 @@ pub fn process_close_position(accounts: &[AccountView], data: &[u8]) -> ProgramR
         .checked_sub(position_state.entry_price)
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
-    let realised_pnl = if position_state.is_long() {
+    let realised_pnl_i128 = if position_state.is_long() {
         // long profit when price go up
         (close_size as i128)
             .checked_mul(price_diff as i128)
             .ok_or(ProgramError::ArithmeticOverflow)?
             .checked_mul(market_config_state.quote_lot_size as i128)
-            .ok_or(ProgramError::ArithmeticOverflow)? as i64
+            .ok_or(ProgramError::ArithmeticOverflow)?
     } else {
         // short profit when price go down
         (close_size as i128)
             .checked_mul(-price_diff as i128)
             .ok_or(ProgramError::ArithmeticOverflow)?
             .checked_mul(market_config_state.quote_lot_size as i128)
-            .ok_or(ProgramError::ArithmeticOverflow)? as i64
+            .ok_or(ProgramError::ArithmeticOverflow)?
     };
+    let realised_pnl =
+        i64::try_from(realised_pnl_i128).map_err(|_| ProgramError::ArithmeticOverflow)?;
 
     // margin to release
     let margin_to_release = if close_size == position_state.size {

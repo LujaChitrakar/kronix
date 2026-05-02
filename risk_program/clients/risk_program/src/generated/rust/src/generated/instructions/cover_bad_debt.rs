@@ -43,7 +43,7 @@ pub struct CoverBadDebt {
     
               
           pub insurance_fund: solana_address::Address,
-                /// Pyth oracle
+                /// Switchboard oracle
 
     
               
@@ -200,7 +200,7 @@ impl CoverBadDebtBuilder {
                         self.insurance_fund = Some(insurance_fund);
                     self
     }
-            /// Pyth oracle
+            /// Switchboard oracle
 #[inline(always)]
     pub fn oracle(&mut self, oracle: solana_address::Address) -> &mut Self {
                         self.oracle = Some(oracle);
@@ -280,7 +280,7 @@ impl CoverBadDebtBuilder {
       
                     
               pub insurance_fund: &'b solana_account_info::AccountInfo<'a>,
-                        /// Pyth oracle
+                        /// Switchboard oracle
 
       
                     
@@ -321,7 +321,7 @@ pub struct CoverBadDebtCpi<'a, 'b> {
     
               
           pub insurance_fund: &'b solana_account_info::AccountInfo<'a>,
-                /// Pyth oracle
+                /// Switchboard oracle
 
     
               
@@ -501,7 +501,7 @@ impl<'a, 'b> CoverBadDebtCpiBuilder<'a, 'b> {
                         self.instruction.insurance_fund = Some(insurance_fund);
                     self
     }
-      /// Pyth oracle
+      /// Switchboard oracle
 #[inline(always)]
     pub fn oracle(&mut self, oracle: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
                         self.instruction.oracle = Some(oracle);

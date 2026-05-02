@@ -59,6 +59,7 @@ export function StrategyForm() {
 
   const [mounted, setMounted] = useState(false);
   const selectedPrice = useStore(s => s.selectedPrice);
+  const marketIndex = useStore(s => s.selectedMarketIndex);
   const lastFocusedInputId = useStore(s => s.lastFocusedInputId);
   const setLastFocusedInputId = useStore(s => s.setLastFocusedInputId);
 
@@ -123,6 +124,7 @@ export function StrategyForm() {
           cooldownSecs: BigInt(parseInt(cooldownSecs || "0", 10)),
           maxExecutionsPerDay: BigInt(parseInt(maxPerDay || "0", 10)),
           params,
+          marketIndex,
         },
         connection,
         (ixs, c) => sendTx(wallet, c, ixs),

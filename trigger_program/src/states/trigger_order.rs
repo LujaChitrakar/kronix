@@ -1,5 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use shank::{ShankAccount};
+use shank::ShankAccount;
 
 #[derive(Pod, Zeroable, Copy, Clone, ShankAccount)]
 #[repr(C)]

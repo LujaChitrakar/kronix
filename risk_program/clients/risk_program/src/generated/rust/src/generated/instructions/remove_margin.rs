@@ -33,7 +33,7 @@ pub struct RemoveMargin {
     
               
           pub market_config: solana_address::Address,
-                /// Pyth oracle
+                /// Switchboard oracle
 
     
               
@@ -168,7 +168,7 @@ impl RemoveMarginBuilder {
                         self.market_config = Some(market_config);
                     self
     }
-            /// Pyth oracle
+            /// Switchboard oracle
 #[inline(always)]
     pub fn oracle(&mut self, oracle: solana_address::Address) -> &mut Self {
                         self.oracle = Some(oracle);
@@ -242,7 +242,7 @@ impl RemoveMarginBuilder {
       
                     
               pub market_config: &'b solana_account_info::AccountInfo<'a>,
-                        /// Pyth oracle
+                        /// Switchboard oracle
 
       
                     
@@ -273,7 +273,7 @@ pub struct RemoveMarginCpi<'a, 'b> {
     
               
           pub market_config: &'b solana_account_info::AccountInfo<'a>,
-                /// Pyth oracle
+                /// Switchboard oracle
 
     
               
@@ -426,7 +426,7 @@ impl<'a, 'b> RemoveMarginCpiBuilder<'a, 'b> {
                         self.instruction.market_config = Some(market_config);
                     self
     }
-      /// Pyth oracle
+      /// Switchboard oracle
 #[inline(always)]
     pub fn oracle(&mut self, oracle: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
                         self.instruction.oracle = Some(oracle);

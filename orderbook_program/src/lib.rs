@@ -16,7 +16,7 @@ pub mod utils;
 pub mod tests;
 
 pub const RISK_PROGRAM_ID: [u8; 32] =
-    pinocchio_pubkey::from_str("C8kAYt7vpmFxhguEJxbg6hMZY3LLNYACrU8mKveZ8eMu");
+    pinocchio_pubkey::from_str("5ivREpNsjSj4Gr27oxEfyAZ38KCfDDtDLdXQeHDtDpo4");
 
 pinocchio_pubkey::declare_id!("j8VeDggFuwtiCjM8uo7am8i1bWWH2sj7mBRxqTaZniU");
 

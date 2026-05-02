@@ -4,13 +4,13 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { findOpenOrdersPda, findMarketPda } from "@/lib/kronix/pdas";
 import { fetchOpenOrders } from "@/lib/kronix/state";
-import { MARKET_INDEX } from "@/lib/kronix/config";
 import {
   sendCancelOrderByClientId,
   sendCancelAllOrders,
   sendEditOrder,
 } from "@/lib/kronix/client";
 import { PlaceOrderType } from "@/lib/kronix/config";
+import { useStore } from "@/lib/store";
 import { sendTx, formatTxError } from "./tx";
 
 type Row = {
@@ -33,13 +33,14 @@ export function OpenOrders() {
   const [msg, setMsg] = useState("");
   const [editing, setEditing] = useState<bigint | null>(null);
   const [draft, setDraft] = useState<EditDraft>({ price: "", size: "" });
+  const marketIndex = useStore((s) => s.selectedMarketIndex);
 
   const refresh = useCallback(async () => {
     if (!owner) {
       setRows([]);
       return;
     }
-    const [market] = findMarketPda(MARKET_INDEX);
+    const [market] = findMarketPda(marketIndex);
     const [oo] = findOpenOrdersPda(owner, market);
     const acct = await fetchOpenOrders(connection, oo);
     if (!acct) {
@@ -59,7 +60,7 @@ export function OpenOrders() {
       });
     });
     setRows(list);
-  }, [connection, owner]);
+  }, [connection, owner, marketIndex]);
 
   useEffect(() => {
     refresh().catch(console.error);
@@ -77,6 +78,7 @@ export function OpenOrders() {
         clientId,
         connection,
         (ixs, c) => sendTx(wallet, c, ixs),
+        marketIndex,
       );
       setMsg(`Cancel → ${sig.slice(0, 8)}…`);
       await refresh();
@@ -97,6 +99,7 @@ export function OpenOrders() {
         { sideFilter, limit: 24 },
         connection,
         (ixs, c) => sendTx(wallet, c, ixs),
+        marketIndex,
       );
       setMsg(`Cancel-all → ${sig.slice(0, 8)}…`);
       await refresh();
@@ -131,6 +134,7 @@ export function OpenOrders() {
           side: r.side,
           orderType: PlaceOrderType.Limit,
           limit: 16,
+          marketIndex,
         },
         connection,
         (ixs, c) => sendTx(wallet, c, ixs),

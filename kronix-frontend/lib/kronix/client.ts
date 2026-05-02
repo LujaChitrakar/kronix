@@ -103,8 +103,9 @@ function priorityFeeIxs(): TransactionInstruction[] {
 
 export function buildCreateOpenOrdersIx(
   owner: PublicKey,
+  marketIndex = MARKET_INDEX,
 ): TransactionInstruction {
-  const [market] = findMarketPda(MARKET_INDEX);
+  const [market] = findMarketPda(marketIndex);
   const [oo, bump] = findOpenOrdersPda(owner, market);
   const ix = getCreateOpenOrdersAccountInstruction({
     payer: fakeSigner(owner),
@@ -121,12 +122,13 @@ export async function sendCreateOpenOrders(
   owner: PublicKey,
   conn: Connection,
   send: Send,
+  marketIndex = MARKET_INDEX,
 ) {
-  const [market] = findMarketPda(MARKET_INDEX);
+  const [market] = findMarketPda(marketIndex);
   const [oo] = findOpenOrdersPda(owner, market);
   const exists = await conn.getAccountInfo(oo, "confirmed");
   if (exists) return null;
-  return send([...priorityFeeIxs(), buildCreateOpenOrdersIx(owner)], conn);
+  return send([...priorityFeeIxs(), buildCreateOpenOrdersIx(owner, marketIndex)], conn);
 }
 
 // ───────── Collateral ─────────
@@ -193,11 +195,12 @@ export async function sendOpenPosition(
   leverageBps: number,
   conn: Connection,
   send: Send,
+  marketIndex = MARKET_INDEX,
 ): Promise<string> {
   const [userAccount, bumpUser] = findUserAccountPda(owner);
-  const [position, bumpPosition] = findPositionPda(owner, MARKET_INDEX);
-  const [marketConfig] = findMarketConfigPda(MARKET_INDEX);
-  const [fundingState] = findFundingStatePda(MARKET_INDEX);
+  const [position, bumpPosition] = findPositionPda(owner, marketIndex);
+  const [marketConfig] = findMarketConfigPda(marketIndex);
+  const [fundingState] = findFundingStatePda(marketIndex);
 
   const ix = getOpenPositionInstruction({
     signer: fakeSigner(owner),
@@ -209,7 +212,7 @@ export async function sendOpenPosition(
     systemProgram: addr(SYSTEM_PROGRAM_ID),
     sizeLots,
     leverageBps,
-    marketIndex: MARKET_INDEX,
+    marketIndex,
     side,
     bumpPosition,
     bumpUser,
@@ -224,11 +227,12 @@ export async function sendClosePosition(
   sizeLots: bigint,
   conn: Connection,
   send: Send,
+  marketIndex = MARKET_INDEX,
 ): Promise<string> {
   const [userAccount] = findUserAccountPda(owner);
-  const [position] = findPositionPda(owner, MARKET_INDEX);
-  const [marketConfig] = findMarketConfigPda(MARKET_INDEX);
-  const [fundingState] = findFundingStatePda(MARKET_INDEX);
+  const [position] = findPositionPda(owner, marketIndex);
+  const [marketConfig] = findMarketConfigPda(marketIndex);
+  const [fundingState] = findFundingStatePda(marketIndex);
 
   const ix = getClosePositionInstruction({
     signer: fakeSigner(owner),
@@ -238,7 +242,7 @@ export async function sendClosePosition(
     fundingState: addr(fundingState),
     oracle: addr(oracle),
     sizeLots,
-    marketIndex: MARKET_INDEX,
+    marketIndex,
     padding: PADDING_6,
   });
   return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
@@ -249,10 +253,11 @@ export async function sendAddMargin(
   amount: bigint,
   conn: Connection,
   send: Send,
+  marketIndex = MARKET_INDEX,
 ): Promise<string> {
   const [userAccount] = findUserAccountPda(owner);
-  const [position] = findPositionPda(owner, MARKET_INDEX);
-  const [marketConfig] = findMarketConfigPda(MARKET_INDEX);
+  const [position] = findPositionPda(owner, marketIndex);
+  const [marketConfig] = findMarketConfigPda(marketIndex);
 
   const ix = getAddMarginInstruction({
     signer: fakeSigner(owner),
@@ -260,7 +265,7 @@ export async function sendAddMargin(
     position: addr(position),
     marketConfig: addr(marketConfig),
     amount,
-    marketIndex: MARKET_INDEX,
+    marketIndex,
     padding: PADDING_6,
   });
   return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
@@ -272,10 +277,11 @@ export async function sendRemoveMargin(
   amount: bigint,
   conn: Connection,
   send: Send,
+  marketIndex = MARKET_INDEX,
 ): Promise<string> {
   const [userAccount] = findUserAccountPda(owner);
-  const [position] = findPositionPda(owner, MARKET_INDEX);
-  const [marketConfig] = findMarketConfigPda(MARKET_INDEX);
+  const [position] = findPositionPda(owner, marketIndex);
+  const [marketConfig] = findMarketConfigPda(marketIndex);
 
   const ix = getRemoveMarginInstruction({
     signer: fakeSigner(owner),
@@ -284,7 +290,7 @@ export async function sendRemoveMargin(
     marketConfig: addr(marketConfig),
     oracle: addr(oracle),
     amount,
-    marketIndex: MARKET_INDEX,
+    marketIndex,
     padding: PADDING_6,
   });
   return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
@@ -294,11 +300,12 @@ export async function sendSettleFunding(
   owner: PublicKey,
   conn: Connection,
   send: Send,
+  marketIndex = MARKET_INDEX,
 ): Promise<string> {
   const [userAccount] = findUserAccountPda(owner);
-  const [position] = findPositionPda(owner, MARKET_INDEX);
-  const [marketConfig] = findMarketConfigPda(MARKET_INDEX);
-  const [fundingState] = findFundingStatePda(MARKET_INDEX);
+  const [position] = findPositionPda(owner, marketIndex);
+  const [marketConfig] = findMarketConfigPda(marketIndex);
+  const [fundingState] = findFundingStatePda(marketIndex);
 
   const ix = getSettleFundingInstruction({
     signer: fakeSigner(owner),
@@ -323,13 +330,15 @@ export async function sendPlaceOrder(
     clientOrderId: bigint;
     expiryTimestamp: bigint;
     limit: number;
+    marketIndex?: number;
   },
   conn: Connection,
   send: Send,
 ): Promise<string> {
-  const [market] = findMarketPda(MARKET_INDEX);
-  const [bids] = findBidsPda(MARKET_INDEX);
-  const [asks] = findAsksPda(MARKET_INDEX);
+  const marketIndex = args.marketIndex ?? MARKET_INDEX;
+  const [market] = findMarketPda(marketIndex);
+  const [bids] = findBidsPda(marketIndex);
+  const [asks] = findAsksPda(marketIndex);
   const [oo] = findOpenOrdersPda(owner, market);
   const [fillsLog, bumpFillsLog] = findFillsLogPda(owner, args.clientOrderId);
 
@@ -407,6 +416,7 @@ export async function sendPlaceOrderAndSettle(
     clientOrderId: bigint;
     expiryTimestamp: bigint;
     limit: number;
+    marketIndex?: number;
   },
   conn: Connection,
   send: Send,
@@ -434,7 +444,7 @@ export async function sendPlaceOrderAndSettle(
     const end = Math.min(log.fillCount, start + MAX_FILLS_PER_TX);
     const ix = buildSettleFillsIx(
       owner,
-      MARKET_INDEX,
+      args.marketIndex ?? MARKET_INDEX,
       fillsLog,
       log.fills,
       start,
@@ -449,7 +459,7 @@ export async function sendPlaceOrderAndSettle(
       settleSigs.push(sig);
     } catch (err) {
       console.error("❌ settle_fills FAILED:", err);
-      // this is where your tx is dying — err will show missing accounts
+      throw err;
     }
   }
   return { placeSig, settleSigs, fillCount: log.fillCount };
@@ -460,10 +470,11 @@ export async function sendCancelOrderByClientId(
   clientId: bigint,
   conn: Connection,
   send: Send,
+  marketIndex = MARKET_INDEX,
 ): Promise<string> {
-  const [market] = findMarketPda(MARKET_INDEX);
-  const [bids] = findBidsPda(MARKET_INDEX);
-  const [asks] = findAsksPda(MARKET_INDEX);
+  const [market] = findMarketPda(marketIndex);
+  const [bids] = findBidsPda(marketIndex);
+  const [asks] = findAsksPda(marketIndex);
   const [oo] = findOpenOrdersPda(owner, market);
 
   const ix = getCancelOrderByClientIdInstruction({
@@ -486,10 +497,11 @@ export async function sendCancelAllOrders(
   },
   conn: Connection,
   send: Send,
+  marketIndex = MARKET_INDEX,
 ): Promise<string> {
-  const [market] = findMarketPda(MARKET_INDEX);
-  const [bids] = findBidsPda(MARKET_INDEX);
-  const [asks] = findAsksPda(MARKET_INDEX);
+  const [market] = findMarketPda(marketIndex);
+  const [bids] = findBidsPda(marketIndex);
+  const [asks] = findAsksPda(marketIndex);
   const [oo] = findOpenOrdersPda(owner, market);
 
   const ix = getCancelAllOrdersInstruction({
@@ -519,13 +531,15 @@ export async function sendEditOrder(
     side: number;
     orderType: number;
     limit: number;
+    marketIndex?: number;
   },
   conn: Connection,
   send: Send,
 ): Promise<string> {
-  const [market] = findMarketPda(MARKET_INDEX);
-  const [bids] = findBidsPda(MARKET_INDEX);
-  const [asks] = findAsksPda(MARKET_INDEX);
+  const marketIndex = args.marketIndex ?? MARKET_INDEX;
+  const [market] = findMarketPda(marketIndex);
+  const [bids] = findBidsPda(marketIndex);
+  const [asks] = findAsksPda(marketIndex);
   const [oo] = findOpenOrdersPda(owner, market);
   const [fillsLog, bumpFillsLog] = findFillsLogPda(owner, args.clientOrderId);
 
@@ -572,8 +586,9 @@ export async function sendSetDelegate(
   delegate: PublicKey,
   conn: Connection,
   send: Send,
+  marketIndex = MARKET_INDEX,
 ): Promise<string> {
-  const [market] = findMarketPda(MARKET_INDEX);
+  const [market] = findMarketPda(marketIndex);
   const [oo] = findOpenOrdersPda(owner, market);
   const ix = getSetDelegateInstruction({
     signer: fakeSigner(owner),
@@ -594,11 +609,13 @@ export async function sendPlaceTriggerOrder(
     expiry: bigint;
     triggerType: number; // 0=StopLoss, 1=TakeProfit
     side: number; // 0=Buy, 1=Sell
+    marketIndex?: number;
   },
   conn: Connection,
   send: Send,
 ): Promise<string> {
-  const [market] = findMarketPda(MARKET_INDEX);
+  const marketIndex = args.marketIndex ?? MARKET_INDEX;
+  const [market] = findMarketPda(marketIndex);
   const [oo] = findOpenOrdersPda(owner, market);
   const [triggerOrder, bump] = findTriggerOrderPda(owner, args.clientOrderId);
   const [triggerAuthority, bumpAuthority] = findTriggerAuthorityPda(owner);
@@ -616,19 +633,17 @@ export async function sendPlaceTriggerOrder(
     market: addr(market),
     orderbookProgram: addr(ORDERBOOK_PROGRAM_ID),
     systemProgram: addr(SYSTEM_PROGRAM_ID),
-    placeTriggerOrderParams: {
-      clientOrderId: args.clientOrderId,
-      triggerPrice: args.triggerPrice,
-      sizeLots: args.sizeLots,
-      expiry: args.expiry,
-      marketIndex: MARKET_INDEX,
-      triggerType: args.triggerType,
-      side: args.side,
-      bump,
-      bumpAuthority,
-      bumpFillsLog,
-      padding: new Uint8Array(1),
-    },
+    clientOrderId: args.clientOrderId,
+    triggerPrice: args.triggerPrice,
+    sizeLots: args.sizeLots,
+    expiry: args.expiry,
+    marketIndex,
+    triggerType: args.triggerType,
+    side: args.side,
+    bump,
+    bumpAuthority,
+    bumpFillsLog,
+    padding: new Uint8Array(1),
   });
   return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
 }
@@ -704,12 +719,10 @@ export async function sendEditTrigger(
   const ix = getEditTriggerInstruction({
     signer: fakeSigner(owner),
     triggerOrder: addr(triggerOrder),
-    editTriggerParams: {
-      newTriggerPrice: args.newTriggerPrice,
-      newSizeLots: args.newSizeLots,
-      newExpiry: args.newExpiry,
-      padding: new Uint8Array(8),
-    },
+    newTriggerPrice: args.newTriggerPrice,
+    newSizeLots: args.newSizeLots,
+    newExpiry: args.newExpiry,
+    padding: new Uint8Array(8),
   });
   return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
 }
@@ -869,15 +882,17 @@ export async function sendCreateStrategy(
     cooldownSecs: bigint;
     maxExecutionsPerDay: bigint;
     params?: StrategyParamsArgs; // strategy-specific
+    marketIndex?: number;
   },
   conn: Connection,
   send: Send,
 ): Promise<string> {
-  const [market] = findMarketPda(MARKET_INDEX);
+  const marketIndex = args.marketIndex ?? MARKET_INDEX;
+  const [market] = findMarketPda(marketIndex);
   const [oo] = findOpenOrdersPda(owner, market);
   const [strategyAccount, bump] = findStrategyPda(
     owner,
-    MARKET_INDEX,
+    marketIndex,
     args.strategyType,
   );
   const [strategyAuthority, bumpAuthority] = findStrategyAuthorityPda(owner);
@@ -903,7 +918,7 @@ export async function sendCreateStrategy(
       stopLossPrice: args.stopLossPrice,
       cooldownSecs: args.cooldownSecs,
       maxExecutionsPerDay: args.maxExecutionsPerDay,
-      marketIndex: MARKET_INDEX,
+      marketIndex,
       bump,
       strategyType: args.strategyType,
       side: args.side,
@@ -930,10 +945,11 @@ export async function sendEditStrategy(
   },
   conn: Connection,
   send: Send,
+  marketIndex = MARKET_INDEX,
 ): Promise<string> {
   const [strategyAccount] = findStrategyPda(
     owner,
-    MARKET_INDEX,
+    marketIndex,
     args.strategyType,
   );
   const ix = getEditStrategyInstruction({
@@ -958,8 +974,9 @@ export async function sendPauseStrategy(
   strategyType: number,
   conn: Connection,
   send: Send,
+  marketIndex = MARKET_INDEX,
 ): Promise<string> {
-  const [strategyAccount] = findStrategyPda(owner, MARKET_INDEX, strategyType);
+  const [strategyAccount] = findStrategyPda(owner, marketIndex, strategyType);
   const ix = getPauseStrategyInstruction({
     signer: fakeSigner(owner),
     strategyAccount: addr(strategyAccount),
@@ -972,8 +989,9 @@ export async function sendResumeStrategy(
   strategyType: number,
   conn: Connection,
   send: Send,
+  marketIndex = MARKET_INDEX,
 ): Promise<string> {
-  const [strategyAccount] = findStrategyPda(owner, MARKET_INDEX, strategyType);
+  const [strategyAccount] = findStrategyPda(owner, marketIndex, strategyType);
   const ix = getResumeStrategyInstruction({
     signer: fakeSigner(owner),
     strategyAccount: addr(strategyAccount),
@@ -986,8 +1004,9 @@ export async function sendCloseStrategy(
   strategyType: number,
   conn: Connection,
   send: Send,
+  marketIndex = MARKET_INDEX,
 ): Promise<string> {
-  const [strategyAccount] = findStrategyPda(owner, MARKET_INDEX, strategyType);
+  const [strategyAccount] = findStrategyPda(owner, marketIndex, strategyType);
   const ix = getCloseStrategyInstruction({
     signer: fakeSigner(owner),
     strategyAccount: addr(strategyAccount),

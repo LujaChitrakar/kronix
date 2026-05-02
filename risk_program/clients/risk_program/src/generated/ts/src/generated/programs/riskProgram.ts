@@ -111,7 +111,7 @@ import {
 } from "../instructions";
 
 export const RISK_PROGRAM_PROGRAM_ADDRESS =
-  "C8kAYt7vpmFxhguEJxbg6hMZY3LLNYACrU8mKveZ8eMu" as Address<"C8kAYt7vpmFxhguEJxbg6hMZY3LLNYACrU8mKveZ8eMu">;
+  "5ivREpNsjSj4Gr27oxEfyAZ38KCfDDtDLdXQeHDtDpo4" as Address<"5ivREpNsjSj4Gr27oxEfyAZ38KCfDDtDLdXQeHDtDpo4">;
 
 export enum RiskProgramAccount {
   FundingState,
@@ -195,7 +195,7 @@ export function identifyRiskProgramInstruction(
 }
 
 export type ParsedRiskProgramInstruction<
-  TProgram extends string = "C8kAYt7vpmFxhguEJxbg6hMZY3LLNYACrU8mKveZ8eMu",
+  TProgram extends string = "5ivREpNsjSj4Gr27oxEfyAZ38KCfDDtDLdXQeHDtDpo4",
 > =
   | ({
       instructionType: RiskProgramInstruction.CreateRiskMarket;

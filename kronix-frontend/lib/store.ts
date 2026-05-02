@@ -2,6 +2,7 @@
  * store.ts — Global zustand store for wallet, positions, margin, triggers, strategies
  */
 import { create } from 'zustand';
+import { DEFAULT_MARKET_SYMBOL, getMarketInfo, type MarketSymbol } from './kronix/config';
 
 export interface MarginData {
   mark_price: string;
@@ -39,6 +40,11 @@ export interface StrategyRecord {
 }
 
 interface AppStore {
+  // Selected perp market
+  selectedSymbol: MarketSymbol;
+  selectedMarketIndex: number;
+  setSelectedMarket: (symbol: MarketSymbol) => void;
+
   // Wallet
   wallet: string | null;
   setWallet: (w: string | null) => void;
@@ -74,6 +80,15 @@ interface AppStore {
 }
 
 export const useStore = create<AppStore>((set) => ({
+  selectedSymbol: DEFAULT_MARKET_SYMBOL,
+  selectedMarketIndex: getMarketInfo(DEFAULT_MARKET_SYMBOL).marketIndex,
+  setSelectedMarket: (symbol) =>
+    set({
+      selectedSymbol: symbol,
+      selectedMarketIndex: getMarketInfo(symbol).marketIndex,
+      selectedPrice: null,
+    }),
+
   wallet: null,
   setWallet: (wallet) => set({ wallet }),
 

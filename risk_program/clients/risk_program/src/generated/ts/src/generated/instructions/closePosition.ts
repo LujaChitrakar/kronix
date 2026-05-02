@@ -148,7 +148,7 @@ export type ClosePositionInput<
   marketConfig: Address<TAccountMarketConfig>;
   /** FundingState */
   fundingState: Address<TAccountFundingState>;
-  /** Pyth oracle */
+  /** Switchboard oracle */
   oracle: Address<TAccountOracle>;
   sizeLots: ClosePositionInstructionDataArgs["sizeLots"];
   marketIndex: ClosePositionInstructionDataArgs["marketIndex"];
@@ -243,7 +243,7 @@ export type ParsedClosePositionInstruction<
     marketConfig: TAccountMetas[3];
     /** FundingState */
     fundingState: TAccountMetas[4];
-    /** Pyth oracle */
+    /** Switchboard oracle */
     oracle: TAccountMetas[5];
   };
   data: ClosePositionInstructionData;

@@ -66,7 +66,7 @@ import {
 } from "../instructions";
 
 export const TRIGGER_PROGRAM_PROGRAM_ADDRESS =
-  "FBux8UY7koXsvDp3GThjvtiMo4GagsDdkPDbU4VbQzV2" as Address<"FBux8UY7koXsvDp3GThjvtiMo4GagsDdkPDbU4VbQzV2">;
+  "9KDXQmrMy71pVHTknapcv4jP8aHsr9yF5yXMmGNftUkX" as Address<"9KDXQmrMy71pVHTknapcv4jP8aHsr9yF5yXMmGNftUkX">;
 
 export enum TriggerProgramAccount {
   TriggerOrder,
@@ -114,7 +114,7 @@ export function identifyTriggerProgramInstruction(
 }
 
 export type ParsedTriggerProgramInstruction<
-  TProgram extends string = "FBux8UY7koXsvDp3GThjvtiMo4GagsDdkPDbU4VbQzV2",
+  TProgram extends string = "9KDXQmrMy71pVHTknapcv4jP8aHsr9yF5yXMmGNftUkX",
 > =
   | ({
       instructionType: TriggerProgramInstruction.PlaceTriggerOrder;

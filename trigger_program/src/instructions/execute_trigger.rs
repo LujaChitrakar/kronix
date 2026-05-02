@@ -15,7 +15,7 @@ use crate::{
         close_account, verify_account_owner, verify_pda, verify_program_id, verify_signer,
         verify_writtable,
     },
-    oracle::validate_pyth_price,
+    oracle::validate_switchboard_price,
     states::TriggerOrder,
 };
 
@@ -39,7 +39,7 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
             bids,
             asks,
             fills_log,
-            oracle,              // Pyth — for price validation
+            oracle,              // Switchboard price feed
             orderbook_program,   // CPI target
             system_program,
             _remaining @ ..,
@@ -85,7 +85,7 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
         &crate::ID,
     )?;
 
-    let mark_price = validate_pyth_price(oracle, clock.unix_timestamp)?;
+    let mark_price = validate_switchboard_price(oracle, params.market_index, clock.slot)?;
 
     if !order.should_trigger(mark_price) {
         return Err(TriggerProgramError::TriggerConditionNotMet.into());

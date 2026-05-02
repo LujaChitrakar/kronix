@@ -257,19 +257,21 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
                 .checked_sub(position_state.entry_price)
                 .ok_or(ProgramError::ArithmeticOverflow)?;
 
-            let realized_pnl = if position_state.is_long() {
+            let realized_pnl_i128 = if position_state.is_long() {
                 (close_size as i128)
                     .checked_mul(price_diff as i128)
                     .ok_or(ProgramError::ArithmeticOverflow)?
                     .checked_mul(market_config_state.quote_lot_size as i128)
-                    .ok_or(ProgramError::ArithmeticOverflow)? as i64
+                    .ok_or(ProgramError::ArithmeticOverflow)?
             } else {
                 (close_size as i128)
                     .checked_mul(-price_diff as i128)
                     .ok_or(ProgramError::ArithmeticOverflow)?
                     .checked_mul(market_config_state.quote_lot_size as i128)
-                    .ok_or(ProgramError::ArithmeticOverflow)? as i64
+                    .ok_or(ProgramError::ArithmeticOverflow)?
             };
+            let realized_pnl =
+                i64::try_from(realized_pnl_i128).map_err(|_| ProgramError::ArithmeticOverflow)?;
 
             let margin_to_release = if close_size == position_state.size {
                 position_state.initial_margin

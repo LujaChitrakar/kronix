@@ -5,12 +5,12 @@ export const ORDERBOOK_PROGRAM_ID = new PublicKey(
 );
 
 export const RISK_PROGRAM_ID = new PublicKey(
-  "C8kAYt7vpmFxhguEJxbg6hMZY3LLNYACrU8mKveZ8eMu",
+  "5ivREpNsjSj4Gr27oxEfyAZ38KCfDDtDLdXQeHDtDpo4",
 );
 
 export const TRIGGER_PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_TRIGGER_PROGRAM_ID ??
-    "FBux8UY7koXsvDp3GThjvtiMo4GagsDdkPDbU4VbQzV2",
+    "9KDXQmrMy71pVHTknapcv4jP8aHsr9yF5yXMmGNftUkX",
 );
 
 export const STRATEGY_PROGRAM_ID = new PublicKey(
@@ -60,9 +60,61 @@ export const USDC_MINT = new PublicKey(
     "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
 );
 
-export const MARKET_INDEX = Number(process.env.NEXT_PUBLIC_MARKET_INDEX ?? 12);
+export type MarketSymbol = "SOL" | "KXI";
 
-export const MARKET_NAME = process.env.NEXT_PUBLIC_MARKET_NAME ?? "SOL-PERP";
+export type MarketInfo = {
+  symbol: MarketSymbol;
+  marketIndex: number;
+  name: string;
+  oracle: PublicKey;
+};
+
+export const SOL_SWITCHBOARD_FEED = new PublicKey(
+  process.env.NEXT_PUBLIC_SOL_SB_FEED_CONFIG ??
+    process.env.NEXT_PUBLIC_SB_FEED_CONFIG ??
+    "GgGVgSLWAyL9Xf4fGaAQQCkmWetBjX7PCNz8kTK97DKB",
+);
+
+export const KXI_SWITCHBOARD_FEED = new PublicKey(
+  process.env.NEXT_PUBLIC_KXI_SB_FEED_CONFIG ??
+    "8C9ZsFqtNSLwCeqcFDW1WL4qB8XugkQec6VNsKv3fos8",
+);
+
+export const MARKETS: Record<MarketSymbol, MarketInfo> = {
+  SOL: {
+    symbol: "SOL",
+    marketIndex: Number(process.env.NEXT_PUBLIC_SOL_MARKET_INDEX ?? process.env.NEXT_PUBLIC_MARKET_INDEX ?? 12),
+    name: "SOL-PERP",
+    oracle: SOL_SWITCHBOARD_FEED,
+  },
+  KXI: {
+    symbol: "KXI",
+    marketIndex: Number(process.env.NEXT_PUBLIC_KXI_MARKET_INDEX ?? 100),
+    name: "KXI-PERP",
+    oracle: KXI_SWITCHBOARD_FEED,
+  },
+};
+
+export function isMarketSymbol(symbol: string | null | undefined): symbol is MarketSymbol {
+  return symbol === "SOL" || symbol === "KXI";
+}
+
+const defaultMarketSymbolEnv = process.env.NEXT_PUBLIC_DEFAULT_MARKET_SYMBOL;
+export const DEFAULT_MARKET_SYMBOL: MarketSymbol = isMarketSymbol(defaultMarketSymbolEnv)
+  ? defaultMarketSymbolEnv
+  : "KXI";
+
+export function getMarketInfo(symbol: string | null | undefined): MarketInfo {
+  return isMarketSymbol(symbol ?? "") ? MARKETS[symbol as MarketSymbol] : MARKETS[DEFAULT_MARKET_SYMBOL];
+}
+
+export function getMarketInfoByIndex(marketIndex: number): MarketInfo | null {
+  return Object.values(MARKETS).find((m) => m.marketIndex === marketIndex) ?? null;
+}
+
+export const MARKET_INDEX = MARKETS[DEFAULT_MARKET_SYMBOL].marketIndex;
+
+export const MARKET_NAME = MARKETS[DEFAULT_MARKET_SYMBOL].name;
 
 export const USDC_DECIMALS = 6;
 

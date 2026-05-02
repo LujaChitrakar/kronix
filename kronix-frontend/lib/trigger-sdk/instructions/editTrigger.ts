@@ -8,6 +8,12 @@
 
 import {
   combineCodec,
+  fixDecoderSize,
+  fixEncoderSize,
+  getBytesDecoder,
+  getBytesEncoder,
+  getI64Decoder,
+  getI64Encoder,
   getStructDecoder,
   getStructEncoder,
   getU8Decoder,
@@ -18,9 +24,9 @@ import {
   type AccountMeta,
   type AccountSignerMeta,
   type Address,
-  type Codec,
-  type Decoder,
-  type Encoder,
+  type FixedSizeCodec,
+  type FixedSizeDecoder,
+  type FixedSizeEncoder,
   type Instruction,
   type InstructionWithAccounts,
   type InstructionWithData,
@@ -34,12 +40,6 @@ import {
   type ResolvedInstructionAccount,
 } from "@solana/program-client-core";
 import { TRIGGER_PROGRAM_PROGRAM_ADDRESS } from "../programs";
-import {
-  getEditTriggerParamsDecoder,
-  getEditTriggerParamsEncoder,
-  type EditTriggerParams,
-  type EditTriggerParamsArgs,
-} from "../types";
 
 export const EDIT_TRIGGER_DISCRIMINATOR = 1;
 
@@ -69,31 +69,43 @@ export type EditTriggerInstruction<
 
 export type EditTriggerInstructionData = {
   discriminator: number;
-  editTriggerParams: EditTriggerParams;
+  newTriggerPrice: bigint;
+  newSizeLots: bigint;
+  newExpiry: bigint;
+  padding: ReadonlyUint8Array;
 };
 
 export type EditTriggerInstructionDataArgs = {
-  editTriggerParams: EditTriggerParamsArgs;
+  newTriggerPrice: number | bigint;
+  newSizeLots: number | bigint;
+  newExpiry: number | bigint;
+  padding: ReadonlyUint8Array;
 };
 
-export function getEditTriggerInstructionDataEncoder(): Encoder<EditTriggerInstructionDataArgs> {
+export function getEditTriggerInstructionDataEncoder(): FixedSizeEncoder<EditTriggerInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", getU8Encoder()],
-      ["editTriggerParams", getEditTriggerParamsEncoder()],
+      ["newTriggerPrice", getI64Encoder()],
+      ["newSizeLots", getI64Encoder()],
+      ["newExpiry", getI64Encoder()],
+      ["padding", fixEncoderSize(getBytesEncoder(), 8)],
     ]),
     (value) => ({ ...value, discriminator: EDIT_TRIGGER_DISCRIMINATOR }),
   );
 }
 
-export function getEditTriggerInstructionDataDecoder(): Decoder<EditTriggerInstructionData> {
+export function getEditTriggerInstructionDataDecoder(): FixedSizeDecoder<EditTriggerInstructionData> {
   return getStructDecoder([
     ["discriminator", getU8Decoder()],
-    ["editTriggerParams", getEditTriggerParamsDecoder()],
+    ["newTriggerPrice", getI64Decoder()],
+    ["newSizeLots", getI64Decoder()],
+    ["newExpiry", getI64Decoder()],
+    ["padding", fixDecoderSize(getBytesDecoder(), 8)],
   ]);
 }
 
-export function getEditTriggerInstructionDataCodec(): Codec<
+export function getEditTriggerInstructionDataCodec(): FixedSizeCodec<
   EditTriggerInstructionDataArgs,
   EditTriggerInstructionData
 > {
@@ -111,7 +123,10 @@ export type EditTriggerInput<
   signer: TransactionSigner<TAccountSigner>;
   /** Trigger order PDA */
   triggerOrder: Address<TAccountTriggerOrder>;
-  editTriggerParams: EditTriggerInstructionDataArgs["editTriggerParams"];
+  newTriggerPrice: EditTriggerInstructionDataArgs["newTriggerPrice"];
+  newSizeLots: EditTriggerInstructionDataArgs["newSizeLots"];
+  newExpiry: EditTriggerInstructionDataArgs["newExpiry"];
+  padding: EditTriggerInstructionDataArgs["padding"];
 };
 
 export function getEditTriggerInstruction<

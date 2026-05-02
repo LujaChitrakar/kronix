@@ -53,6 +53,7 @@ import {
   getCoverBadDebtInstruction,
   getCreateRiskMarketInstruction,
   getDepositInstruction,
+  getDepositInsuranceInstruction,
   getInitializeInsuranceFundInstruction,
   getInitializeVaultInstruction,
   getLiquidateInstruction,
@@ -67,6 +68,7 @@ import {
   parseCoverBadDebtInstruction,
   parseCreateRiskMarketInstruction,
   parseDepositInstruction,
+  parseDepositInsuranceInstruction,
   parseInitializeInsuranceFundInstruction,
   parseInitializeVaultInstruction,
   parseLiquidateInstruction,
@@ -81,6 +83,7 @@ import {
   type CoverBadDebtInput,
   type CreateRiskMarketInput,
   type DepositInput,
+  type DepositInsuranceInput,
   type InitializeInsuranceFundInput,
   type InitializeVaultInput,
   type LiquidateInput,
@@ -90,6 +93,7 @@ import {
   type ParsedCoverBadDebtInstruction,
   type ParsedCreateRiskMarketInstruction,
   type ParsedDepositInstruction,
+  type ParsedDepositInsuranceInstruction,
   type ParsedInitializeInsuranceFundInstruction,
   type ParsedInitializeVaultInstruction,
   type ParsedLiquidateInstruction,
@@ -107,7 +111,7 @@ import {
 } from "../instructions";
 
 export const RISK_PROGRAM_PROGRAM_ADDRESS =
-  "C8kAYt7vpmFxhguEJxbg6hMZY3LLNYACrU8mKveZ8eMu" as Address<"C8kAYt7vpmFxhguEJxbg6hMZY3LLNYACrU8mKveZ8eMu">;
+  "5ivREpNsjSj4Gr27oxEfyAZ38KCfDDtDLdXQeHDtDpo4" as Address<"5ivREpNsjSj4Gr27oxEfyAZ38KCfDDtDLdXQeHDtDpo4">;
 
 export enum RiskProgramAccount {
   FundingState,
@@ -132,6 +136,7 @@ export enum RiskProgramInstruction {
   UpdateFundingRate,
   Liquidate,
   CoverBadDebt,
+  DepositInsurance,
 }
 
 export function identifyRiskProgramInstruction(
@@ -180,6 +185,9 @@ export function identifyRiskProgramInstruction(
   if (containsBytes(data, getU8Encoder().encode(13), 0)) {
     return RiskProgramInstruction.CoverBadDebt;
   }
+  if (containsBytes(data, getU8Encoder().encode(14), 0)) {
+    return RiskProgramInstruction.DepositInsurance;
+  }
   throw new SolanaError(
     SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_INSTRUCTION,
     { instructionData: data, programName: "riskProgram" },
@@ -187,7 +195,7 @@ export function identifyRiskProgramInstruction(
 }
 
 export type ParsedRiskProgramInstruction<
-  TProgram extends string = "C8kAYt7vpmFxhguEJxbg6hMZY3LLNYACrU8mKveZ8eMu",
+  TProgram extends string = "5ivREpNsjSj4Gr27oxEfyAZ38KCfDDtDLdXQeHDtDpo4",
 > =
   | ({
       instructionType: RiskProgramInstruction.CreateRiskMarket;
@@ -230,7 +238,10 @@ export type ParsedRiskProgramInstruction<
     } & ParsedLiquidateInstruction<TProgram>)
   | ({
       instructionType: RiskProgramInstruction.CoverBadDebt;
-    } & ParsedCoverBadDebtInstruction<TProgram>);
+    } & ParsedCoverBadDebtInstruction<TProgram>)
+  | ({
+      instructionType: RiskProgramInstruction.DepositInsurance;
+    } & ParsedDepositInsuranceInstruction<TProgram>);
 
 export function parseRiskProgramInstruction<TProgram extends string>(
   instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
@@ -335,6 +346,13 @@ export function parseRiskProgramInstruction<TProgram extends string>(
         ...parseCoverBadDebtInstruction(instruction),
       };
     }
+    case RiskProgramInstruction.DepositInsurance: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: RiskProgramInstruction.DepositInsurance,
+        ...parseDepositInsuranceInstruction(instruction),
+      };
+    }
     default:
       throw new SolanaError(
         SOLANA_ERROR__PROGRAM_CLIENTS__UNRECOGNIZED_INSTRUCTION_TYPE,
@@ -397,7 +415,7 @@ export type RiskProgramPluginInstructions = {
     input: RemoveMarginInput,
   ) => ReturnType<typeof getRemoveMarginInstruction> & SelfPlanAndSendFunctions;
   settleFill: (
-    input: SettleFillInput,
+    input: MakeOptional<SettleFillInput, "payer">,
   ) => ReturnType<typeof getSettleFillInstruction> & SelfPlanAndSendFunctions;
   settleFunding: (
     input: SettleFundingInput,
@@ -413,6 +431,10 @@ export type RiskProgramPluginInstructions = {
   coverBadDebt: (
     input: CoverBadDebtInput,
   ) => ReturnType<typeof getCoverBadDebtInstruction> & SelfPlanAndSendFunctions;
+  depositInsurance: (
+    input: DepositInsuranceInput,
+  ) => ReturnType<typeof getDepositInsuranceInstruction> &
+    SelfPlanAndSendFunctions;
 };
 
 export type RiskProgramPluginRequirements = ClientWithRpc<
@@ -483,7 +505,10 @@ export function riskProgramProgram() {
           settleFill: (input) =>
             addSelfPlanAndSendFunctions(
               client,
-              getSettleFillInstruction(input),
+              getSettleFillInstruction({
+                ...input,
+                payer: input.payer ?? client.payer,
+              }),
             ),
           settleFunding: (input) =>
             addSelfPlanAndSendFunctions(
@@ -501,6 +526,11 @@ export function riskProgramProgram() {
             addSelfPlanAndSendFunctions(
               client,
               getCoverBadDebtInstruction(input),
+            ),
+          depositInsurance: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getDepositInsuranceInstruction(input),
             ),
         },
       },

@@ -14,7 +14,7 @@ use crate::{
     helper::{
         verify_account_owner, verify_initialized, verify_pda, verify_program_id, verify_signer,
     },
-    oracle::validate_pyth_price,
+    oracle::validate_switchboard_price,
     state::{FundingState, MarketConfig, Position, UserAccount},
 };
 
@@ -69,10 +69,13 @@ pub fn process_open_position(accounts: &[AccountView], data: &[u8]) -> ProgramRe
         return Err(RiskProgramError::InvalidMarketIndex.into());
     }
 
-    let mark_price_native = validate_pyth_price(oracle, clock.unix_timestamp)?;
+    let mark_price_native = validate_switchboard_price(oracle, params.market_index, clock.slot)?;
     let mark_price = mark_price_native
         .checked_div(market_config_state.quote_lot_size)
         .ok_or(ProgramError::ArithmeticOverflow)?;
+    if mark_price <= 0 {
+        return Err(RiskProgramError::InvalidOraclePrice.into());
+    }
 
     // calculate required margin
     let required_margin = market_config_state.required_initial_margin(params.size_lots, mark_price);

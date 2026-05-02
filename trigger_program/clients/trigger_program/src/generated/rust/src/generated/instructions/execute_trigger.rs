@@ -58,7 +58,7 @@ pub struct ExecuteTrigger {
     
               
           pub fills_log: solana_address::Address,
-                /// Oracle PDA
+                /// Switchboard price feed
 
     
               
@@ -119,7 +119,7 @@ impl ExecuteTrigger {
             self.fills_log,
             false
           ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.oracle,
             false
           ));
@@ -195,7 +195,7 @@ impl ExecuteTriggerInstructionArgs {
                 ///   6. `[writable]` bids
                 ///   7. `[writable]` asks
                 ///   8. `[writable]` fills_log
-                ///   9. `[writable]` oracle
+          ///   9. `[]` oracle
           ///   10. `[]` orderbook_program
                 ///   11. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
@@ -277,7 +277,7 @@ impl ExecuteTriggerBuilder {
                         self.fills_log = Some(fills_log);
                     self
     }
-            /// Oracle PDA
+            /// Switchboard price feed
 #[inline(always)]
     pub fn oracle(&mut self, oracle: solana_address::Address) -> &mut Self {
                         self.oracle = Some(oracle);
@@ -402,7 +402,7 @@ impl ExecuteTriggerBuilder {
       
                     
               pub fills_log: &'b solana_account_info::AccountInfo<'a>,
-                        /// Oracle PDA
+                        /// Switchboard price feed
 
       
                     
@@ -468,7 +468,7 @@ pub struct ExecuteTriggerCpi<'a, 'b> {
     
               
           pub fills_log: &'b solana_account_info::AccountInfo<'a>,
-                /// Oracle PDA
+                /// Switchboard price feed
 
     
               
@@ -567,7 +567,7 @@ impl<'a, 'b> ExecuteTriggerCpi<'a, 'b> {
             *self.fills_log.key,
             false
           ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.oracle.key,
             false
           ));
@@ -632,7 +632,7 @@ impl<'a, 'b> ExecuteTriggerCpi<'a, 'b> {
                 ///   6. `[writable]` bids
                 ///   7. `[writable]` asks
                 ///   8. `[writable]` fills_log
-                ///   9. `[writable]` oracle
+          ///   9. `[]` oracle
           ///   10. `[]` orderbook_program
           ///   11. `[]` system_program
 #[derive(Clone, Debug)]
@@ -718,7 +718,7 @@ impl<'a, 'b> ExecuteTriggerCpiBuilder<'a, 'b> {
                         self.instruction.fills_log = Some(fills_log);
                     self
     }
-      /// Oracle PDA
+      /// Switchboard price feed
 #[inline(always)]
     pub fn oracle(&mut self, oracle: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
                         self.instruction.oracle = Some(oracle);

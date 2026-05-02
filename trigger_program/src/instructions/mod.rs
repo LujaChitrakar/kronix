@@ -18,9 +18,23 @@ use shank::ShankInstruction;
 pub enum TriggerInstruction {
     #[account(0, name = "signer", desc = "Fee payer", signer, writable)]
     #[account(1, name = "trigger_order", desc = "Trigger order PDA", writable)]
-    #[account(2, name = "open_orders_account", desc = "Open orders account PDA", writable)]
-    #[account(3, name = "trigger_authority", desc = "Trigger authority PDA (taker for fills_log + OO delegate)")]
-    #[account(4, name = "fills_log", desc = "FillsLog PDA (initialized via CPI)", writable)]
+    #[account(
+        2,
+        name = "open_orders_account",
+        desc = "Open orders account PDA",
+        writable
+    )]
+    #[account(
+        3,
+        name = "trigger_authority",
+        desc = "Trigger authority PDA (taker for fills_log + OO delegate)"
+    )]
+    #[account(
+        4,
+        name = "fills_log",
+        desc = "FillsLog PDA (initialized via CPI)",
+        writable
+    )]
     #[account(5, name = "market", desc = "Market state PDA")]
     #[account(6, name = "orderbook_program", desc = "Orderbook program (CPI)")]
     #[account(7, name = "system_program", desc = "System program")]
@@ -37,7 +51,12 @@ pub enum TriggerInstruction {
         desc = "Trigger order authority PDA",
         writable
     )]
-    #[account(2, name = "trigger_order_owner", desc = "Trigger order owner PDA",writable)]
+    #[account(
+        2,
+        name = "trigger_order_owner",
+        desc = "Trigger order owner PDA",
+        writable
+    )]
     #[account(3, name = "trigger_order", desc = "Trigger order PDA", writable)]
     #[account(4, name = "market", desc = "Market PDA", writable)]
     #[account(
@@ -49,7 +68,7 @@ pub enum TriggerInstruction {
     #[account(6, name = "bids", desc = "Bids PDA", writable)]
     #[account(7, name = "asks", desc = "Asks PDA", writable)]
     #[account(8, name = "fills_log", desc = "Fills log PDA", writable)]
-    #[account(9, name = "oracle", desc = "Oracle PDA", writable)]
+    #[account(9, name = "oracle", desc = "Switchboard price feed")]
     #[account(10, name = "orderbook_program", desc = "Orderbook Program")]
     #[account(11, name = "system_program", desc = "System program")]
     ExecuteTrigger(ExecuteTriggerParams),

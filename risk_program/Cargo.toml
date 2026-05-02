@@ -18,7 +18,6 @@ num-derive = "0.4.2"
 solana-clock = "3.0.1"
 num_enum = "0.5.1"
 shank = "0.4.8"
-pyth-solana-receiver-sdk = "1.1.0"
 switchboard-on-demand = { version = "=0.10.3", features = ["pinocchio", "devnet"] }
 
 [features]
