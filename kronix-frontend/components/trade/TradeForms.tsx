@@ -20,12 +20,12 @@ export function TradeForms() {
         <TabBtn active={tab === "strategy"} onClick={() => setTab("strategy")}>
           Strategy
         </TabBtn>
-        <TabBtn active={tab === "trigger"} onClick={() => setTab("trigger")}>
+        {/*<TabBtn active={tab === "trigger"} onClick={() => setTab("trigger")}>
           Trigger
         </TabBtn>
         <div className="ml-auto pr-3 text-[10px] font-mono text-on-surface-variant/70">
           {MARKET_NAME}
-        </div>
+        </div>*/}
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto">
