@@ -40,7 +40,8 @@ pub struct PlaceOrderParams {
     pub order_type: u8,
     pub limit: u8,
     pub bump_fills_log: u8,
-    pub padding: [u8; 4],
+    pub leverage: u8,
+    pub padding: [u8; 3],
 }
 
 #[derive(Pod, Zeroable, Clone, Copy)]
@@ -54,5 +55,6 @@ pub struct PlaceTakeOrderParams {
     pub order_type: u8,
     pub limit: u8,
     pub bump_fills_log: u8,
-    pub padding: [u8; 4],
+    pub leverage: u8,
+    pub padding: [u8; 3],
 }

@@ -1602,8 +1602,16 @@
             "type": "i64"
           },
           {
+            "name": "marginAmount",
+            "type": "i64"
+          },
+          {
             "name": "marketIndex",
             "type": "u16"
+          },
+          {
+            "name": "leverage",
+            "type": "u8"
           },
           {
             "name": "bumpUser",
@@ -1614,7 +1622,7 @@
             "type": {
               "array": [
                 "u8",
-                5
+                4
               ]
             }
           },
@@ -1666,6 +1674,18 @@
           },
           {
             "name": "baseLots",
+            "type": "i64"
+          },
+          {
+            "name": "reservedMargin",
+            "type": "i64"
+          },
+          {
+            "name": "filledBaseLots",
+            "type": "i64"
+          },
+          {
+            "name": "originalBaseLots",
             "type": "i64"
           },
           {

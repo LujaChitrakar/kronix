@@ -12,7 +12,7 @@ use borsh::BorshDeserialize;
 pub struct OpenOrder {
 pub id: [u8; 16],
 pub client_id: u64,
-pub locked_price: i64,
+pub reserved_margin: i64,
 pub is_free: u8,
 pub side: u8,
 pub maker_out: u8,

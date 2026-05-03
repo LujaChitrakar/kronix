@@ -30,6 +30,8 @@ export type OpenOrder = {
   id: ReadonlyUint8Array;
   clientId: bigint;
   lockedPrice: bigint;
+  originalBaseLots: bigint;
+  filledBaseLots: bigint;
   isFree: number;
   side: number;
   makerOut: number;
@@ -40,6 +42,8 @@ export type OpenOrderArgs = {
   id: ReadonlyUint8Array;
   clientId: number | bigint;
   lockedPrice: number | bigint;
+  originalBaseLots: number | bigint;
+  filledBaseLots: number | bigint;
   isFree: number;
   side: number;
   makerOut: number;
@@ -51,6 +55,8 @@ export function getOpenOrderEncoder(): FixedSizeEncoder<OpenOrderArgs> {
     ["id", fixEncoderSize(getBytesEncoder(), 16)],
     ["clientId", getU64Encoder()],
     ["lockedPrice", getI64Encoder()],
+    ["originalBaseLots", getI64Encoder()],
+    ["filledBaseLots", getI64Encoder()],
     ["isFree", getU8Encoder()],
     ["side", getU8Encoder()],
     ["makerOut", getU8Encoder()],
@@ -63,6 +69,8 @@ export function getOpenOrderDecoder(): FixedSizeDecoder<OpenOrder> {
     ["id", fixDecoderSize(getBytesDecoder(), 16)],
     ["clientId", getU64Decoder()],
     ["lockedPrice", getI64Decoder()],
+    ["originalBaseLots", getI64Decoder()],
+    ["filledBaseLots", getI64Decoder()],
     ["isFree", getU8Decoder()],
     ["side", getU8Decoder()],
     ["makerOut", getU8Decoder()],

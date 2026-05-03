@@ -17,12 +17,20 @@ type Row = {
   slot: number;
   clientId: bigint;
   lockedPrice: bigint;
+  reservedMargin: bigint;
   side: number;
   isFilled: boolean;
   id: Uint8Array;
 };
 
-type EditDraft = { price: string; size: string };
+type EditDraft = { price: string; size: string; leverage: string };
+
+function priceFromOrderId(id: Uint8Array | ArrayLike<number>): bigint {
+  const bytes = Uint8Array.from(id);
+  let out = 0n;
+  for (let i = 15; i >= 8; i--) out = (out << 8n) + BigInt(bytes[i] ?? 0);
+  return out;
+}
 
 export function OpenOrders() {
   const { connection } = useConnection();
@@ -32,7 +40,7 @@ export function OpenOrders() {
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
   const [editing, setEditing] = useState<bigint | null>(null);
-  const [draft, setDraft] = useState<EditDraft>({ price: "", size: "" });
+  const [draft, setDraft] = useState<EditDraft>({ price: "", size: "", leverage: "1" });
   const marketIndex = useStore((s) => s.selectedMarketIndex);
 
   const refresh = useCallback(async () => {
@@ -53,7 +61,8 @@ export function OpenOrders() {
       list.push({
         slot: i,
         clientId: o.clientId,
-        lockedPrice: o.lockedPrice,
+        lockedPrice: priceFromOrderId(o.id),
+        reservedMargin: o.lockedPrice,
         side: o.side,
         isFilled: o.makerOut === 1,
         id: Uint8Array.from(o.id),
@@ -134,6 +143,7 @@ export function OpenOrders() {
           side: r.side,
           orderType: PlaceOrderType.Limit,
           limit: 16,
+          leverage: Math.max(1, Math.min(10, parseInt(draft.leverage || "1", 10) || 1)),
           marketIndex,
         },
         connection,
@@ -141,7 +151,7 @@ export function OpenOrders() {
       );
       setMsg(`Edit → ${sig.slice(0, 8)}…`);
       setEditing(null);
-      setDraft({ price: "", size: "" });
+      setDraft({ price: "", size: "", leverage: "1" });
       await refresh();
     } catch (e) {
       setMsg(`Edit failed:\n${formatTxError(e)}`);
@@ -220,6 +230,7 @@ export function OpenOrders() {
                             setDraft({
                               price: String(r.lockedPrice),
                               size: "",
+                              leverage: "1",
                             });
                           }
                         }}
@@ -262,6 +273,19 @@ export function OpenOrders() {
                             value={draft.size}
                             onChange={(e) =>
                               setDraft({ ...draft, size: e.target.value })
+                            }
+                            inputMode="numeric"
+                            className="w-full bg-kx-surface border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface"
+                          />
+                        </div>
+                        <div className="w-24">
+                          <div className="text-[11px] uppercase tracking-wider text-on-surface-variant/70 mb-1">
+                            lev
+                          </div>
+                          <input
+                            value={draft.leverage}
+                            onChange={(e) =>
+                              setDraft({ ...draft, leverage: e.target.value })
                             }
                             inputMode="numeric"
                             className="w-full bg-kx-surface border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface"

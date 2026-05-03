@@ -14,9 +14,10 @@ use crate::{
         verify_account_owner, verify_initialized, verify_pda, verify_program_id, verify_signer,
         verify_writtable,
     },
+    instructions::place_order::apply_maker_open_order_fill,
     states::{
-        BookSide, FillEntry, FillsLog, MarketState, OpenOrdersAccount, Order, OrderParams,
-        Orderbook, PlaceOrderType, Side,
+        margin_from_quote_lots, BookSide, FillEntry, FillsLog, MarketState, OpenOrdersAccount,
+        Order, OrderParams, Orderbook, PlaceOrderType, Side,
     },
 };
 
@@ -31,7 +32,8 @@ pub struct PlaceTakeOrderParams {
     pub order_type: u8,
     pub limit: u8,
     pub bump_fills_log: u8,
-    pub padding: [u8; 4],
+    pub leverage: u8,
+    pub padding: [u8; 3],
 }
 
 pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
@@ -180,11 +182,16 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
         )?;
     }
 
+    let leverage = params.leverage;
+    let reserved_margin = margin_from_quote_lots(params.max_quote_lots, leverage)?;
+
     let order = Order {
         side,
         max_base_lots: params.max_base_lots,
         max_quote_lots: params.max_quote_lots,
         client_order_id: params.client_order_id,
+        leverage,
+        reserved_margin,
         time_in_force: 0,
         params: order_params,
     };
@@ -195,7 +202,9 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
         user_account,
         market_config,
         order.max_quote_lots,
+        0,
         market_state.market_index,
+        leverage,
         0,
         true,
     )?;
@@ -211,7 +220,7 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
         asks: asks_state,
     };
 
-    let result = order_book.new_order(
+    let mut result = order_book.new_order(
         &order,
         market_state,
         oo_account_state,
@@ -219,31 +228,29 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
         params.limit.min(MAX_FILLS_PER_ORDER as u8),
     )?;
 
+    for i in 0..result.fill_count as usize {
+        apply_maker_open_order_fill(
+            &_remaining[3..],
+            *market.address().as_array(),
+            &mut result.fills[i],
+        )?;
+    }
+
     // verify order did not post to book
     if result.order_id.is_some() {
         return Err(OrderBookError::InvalidOrderType.into());
     }
 
-    let mut used_quote_lots = 0_i64;
-    for i in 0..result.fill_count as usize {
-        let fill_quote_lots = result.fills[i]
-            .quantity
-            .checked_mul(result.fills[i].price)
-            .ok_or(ProgramError::ArithmeticOverflow)?;
-        used_quote_lots = used_quote_lots
-            .checked_add(fill_quote_lots)
-            .ok_or(ProgramError::ArithmeticOverflow)?;
-    }
-
-    let unused_quote_lots = order.max_quote_lots.saturating_sub(used_quote_lots);
-    if unused_quote_lots > 0 {
+    if result.unused_reserved_margin > 0 {
         order_margin_cpi(
             risk_program,
             signer,
             user_account,
             market_config,
-            unused_quote_lots,
+            0,
+            result.unused_reserved_margin,
             market_state.market_index,
+            leverage,
             0,
             false,
         )?;
@@ -268,6 +275,12 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
                 maker_client_id: fill.maker_client_order_id,
                 price: fill.price,
                 quantity: fill.quantity,
+                taker_reserved_margin: fill.taker_reserved_margin,
+                taker_filled_base_lots: fill.taker_filled_base_lots,
+                taker_original_base_lots: fill.taker_original_base_lots,
+                maker_reserved_margin: fill.maker_reserved_margin,
+                maker_filled_base_lots: fill.maker_filled_base_lots,
+                maker_original_base_lots: fill.maker_original_base_lots,
                 taker_side: fill.taker_side,
                 maker_slot: fill.maker_slot,
                 maker_out: fill.maker_out as u8,

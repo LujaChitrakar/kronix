@@ -1,4 +1,5 @@
 use bytemuck::{Pod, Zeroable};
+use margin_math::consumed_margin;
 use pinocchio::error::ProgramError;
 use shank::{ShankAccount, ShankType};
 
@@ -11,13 +12,13 @@ use crate::{
 #[derive(Pod, Zeroable, Clone, Copy, ShankAccount)]
 #[repr(C)]
 pub struct OpenOrdersAccount {
-    pub owner: [u8; 32],              // 32
-    pub market: [u8; 32],             // 32
-    pub delegate: [u8; 32],           // 32 — [0;32] = no delegate
-    pub bump: u8,                     // 1
-    pub padding: [u8; 7],             // 7
-    pub open_orders: [OpenOrder; 24], // 24 * 40 = 960
-    pub reserved: [u8; 32],           // 32
+    pub owner: [u8; 32],    // 32
+    pub market: [u8; 32],   // 32
+    pub delegate: [u8; 32], // 32 — [0;32] = no delegate
+    pub bump: u8,           // 1
+    pub padding: [u8; 7],   // 7
+    pub open_orders: [OpenOrder; 24],
+    pub reserved: [u8; 32], // 32
 }
 
 const _: () = assert!(
@@ -79,7 +80,9 @@ impl OpenOrdersAccount {
         side: Side,
         order: &LeafNode,
         client_order_id: u64,
-        locked_price: i64,
+        reserved_margin: i64,
+        original_base_lots: i64,
+        filled_base_lots: i64,
         slot: usize,
     ) {
         let oo = self.open_order_mut_by_raw_index(slot);
@@ -88,7 +91,9 @@ impl OpenOrdersAccount {
         oo.side = side as u8;
         oo.id = order.key;
         oo.client_id = client_order_id;
-        oo.locked_price = locked_price;
+        oo.reserved_margin = reserved_margin;
+        oo.original_base_lots = original_base_lots;
+        oo.filled_base_lots = filled_base_lots;
         // oo.filled_qty = 0;
         // oo.fill_price = 0;
         // oo.is_filled = 0;
@@ -123,6 +128,7 @@ impl OpenOrdersAccount {
         // }
 
         // oo.is_filled = 1;
+        oo.filled_base_lots = oo.filled_base_lots.saturating_add(filled_qty);
         oo.maker_out = maker_out as u8;
     }
 
@@ -152,7 +158,9 @@ impl OpenOrdersAccount {
 pub struct OpenOrder {
     pub id: [u8; 16],
     pub client_id: u64,
-    pub locked_price: i64,
+    pub reserved_margin: i64,
+    pub original_base_lots: i64,
+    pub filled_base_lots: i64,
     // pub filled_qty: i64, // base lots filled, pending claim
     // pub fill_price: i64, // fill price, pending claim
     pub is_free: u8, // 1 = free slot
@@ -162,7 +170,7 @@ pub struct OpenOrder {
     pub padding: [u8; 5],
 }
 
-const _: () = assert!(size_of::<OpenOrder>() == 16 + 8 + 8 + 1 + 1 + 1 + 5);
+const _: () = assert!(size_of::<OpenOrder>() == 16 + 8 + 8 + 8 + 8 + 1 + 1 + 1 + 5);
 const _: () = assert!(size_of::<OpenOrder>() % 8 == 0);
 
 impl Default for OpenOrder {
@@ -171,7 +179,9 @@ impl Default for OpenOrder {
             is_free: 1,
             side: Side::Bid as u8,
             client_id: 0,
-            locked_price: 0,
+            reserved_margin: 0,
+            original_base_lots: 0,
+            filled_base_lots: 0,
             id: [0u8; 16],
             // filled_qty: 0,
             // fill_price: 0,
@@ -192,6 +202,21 @@ impl OpenOrder {
             0 => Side::Bid,
             _ => Side::Ask,
         }
+    }
+
+    pub fn consumed_margin(&self) -> Result<i64, ProgramError> {
+        consumed_margin(
+            self.reserved_margin,
+            self.filled_base_lots,
+            self.original_base_lots,
+        )
+        .map_err(|_| ProgramError::InvalidArgument)
+    }
+
+    pub fn releasable_margin(&self) -> Result<i64, ProgramError> {
+        self.reserved_margin
+            .checked_sub(self.consumed_margin()?)
+            .ok_or(ProgramError::ArithmeticOverflow)
     }
 
     // pub fn has_pending_fill(&self) -> bool {
@@ -294,7 +319,7 @@ mod tests {
         let slot = oo.open_order_by_raw_index(0);
         assert!(!slot.is_free());
         assert_eq!(slot.client_id, 99);
-        assert_eq!(slot.locked_price, 200);
+        assert_eq!(slot.reserved_margin, 200);
         assert_eq!(slot.side(), Side::Ask);
         assert_eq!(u128::from_le_bytes(slot.id), 42);
     }

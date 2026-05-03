@@ -15,22 +15,46 @@ use crate::{
 #[repr(C)]
 pub struct OrderMarginParams {
     pub quote_lots: i64,
+    pub margin_amount: i64,
     pub market_index: u16,
+    pub leverage: u8,
     pub bump_user: u8,
-    pub padding: [u8; 5],
+    pub padding: [u8; 4],
     pub owner: [u8; 32],
 }
 
-fn order_margin_amount(_market: &MarketConfig, quote_lots: i64) -> Result<i64, ProgramError> {
+fn div_ceil_i128(numerator: i128, denominator: i128) -> Result<i128, ProgramError> {
+    numerator
+        .checked_add(denominator - 1)
+        .ok_or(ProgramError::ArithmeticOverflow)?
+        .checked_div(denominator)
+        .ok_or(ProgramError::ArithmeticOverflow)
+}
+
+fn order_margin_amount(
+    market: &MarketConfig,
+    quote_lots: i64,
+    leverage: u8,
+) -> Result<i64, ProgramError> {
     if quote_lots <= 0 {
         return Err(RiskProgramError::InvalidAmount.into());
+    }
+    let max_leverage = market.max_leverage.min(10);
+    if leverage == 0 || max_leverage == 0 || leverage > max_leverage {
+        return Err(RiskProgramError::ExceedsMaxLeverage.into());
     }
 
     let notional = (quote_lots as i128)
         .checked_mul(QUOTE_NATIVE_UNIT)
         .ok_or(RiskProgramError::InsufficientCollateral)?;
 
-    i64::try_from(notional).map_err(|_| RiskProgramError::InsufficientCollateral.into())
+    let required = div_ceil_i128(notional, leverage as i128)?;
+    let minimum = div_ceil_i128(notional, max_leverage as i128)?;
+    if required < minimum || required <= 0 {
+        return Err(RiskProgramError::InsufficientCollateral.into());
+    }
+
+    i64::try_from(required).map_err(|_| RiskProgramError::InsufficientCollateral.into())
 }
 
 fn load_accounts<'a>(
@@ -100,7 +124,8 @@ pub fn process_reserve_order_margin(accounts: &[AccountView], data: &[u8]) -> Pr
         return Err(RiskProgramError::InvalidMarketIndex.into());
     }
 
-    let required_margin = order_margin_amount(market_config_state, params.quote_lots)?;
+    let required_margin =
+        order_margin_amount(market_config_state, params.quote_lots, params.leverage)?;
 
     let mut user_account_data = user_account.try_borrow_mut()?;
     let user_account_state =
@@ -124,12 +149,14 @@ pub fn process_release_order_margin(accounts: &[AccountView], data: &[u8]) -> Pr
         return Err(RiskProgramError::InvalidMarketIndex.into());
     }
 
-    let release_margin = order_margin_amount(market_config_state, params.quote_lots)?;
+    if params.margin_amount <= 0 {
+        return Err(RiskProgramError::InvalidAmount.into());
+    }
 
     let mut user_account_data = user_account.try_borrow_mut()?;
     let user_account_state =
         bytemuck::from_bytes_mut::<UserAccount>(&mut user_account_data[..UserAccount::LEN]);
 
-    user_account_state.release_order_margin(release_margin);
+    user_account_state.release_order_margin(params.margin_amount);
     Ok(())
 }

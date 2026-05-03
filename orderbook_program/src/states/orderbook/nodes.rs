@@ -139,6 +139,14 @@ impl LeafNode {
         }
     }
 
+    pub fn reserved_margin(&self) -> i64 {
+        i64::from_le_bytes(self.reserved)
+    }
+
+    pub fn set_reserved_margin(&mut self, reserved_margin: i64) {
+        self.reserved = reserved_margin.to_le_bytes();
+    }
+
     // orders price data is stored in the top bits of the key
     #[inline(always)]
     pub fn price_data(&self) -> u64 {

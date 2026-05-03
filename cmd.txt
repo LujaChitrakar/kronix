@@ -1,3 +1,6 @@
 shank idl \
   --crate-root . \
   --out-dir clients/risk_program/src/generated
+
+  SOL-USD market oracle:GgGVgSLWAyL9Xf4fGaAQQCkmWetBjX7PCNz8kTK97DKB
+  KXI market oracle: 8C9ZsFqtNSLwCeqcFDW1WL4qB8XugkQec6VNsKv3fos8

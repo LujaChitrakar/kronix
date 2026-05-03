@@ -1,4 +1,5 @@
 use bytemuck::{Pod, Zeroable};
+use margin_math::fill_margin;
 use pinocchio::{
     cpi::{Seed, Signer},
     error::ProgramError,
@@ -23,6 +24,9 @@ use crate::{
 pub struct SettleFillParams {
     pub price_lots: i64, // fill price in price lots
     pub base_lots: i64,  // base lots filled
+    pub reserved_margin: i64,
+    pub filled_base_lots: i64,
+    pub original_base_lots: i64,
     pub market_index: u16,
     pub is_taker: u8,      // 1 = taker, 0 = maker
     pub taker_side: u8,    // 0=bid, 1=ask — taker's side
@@ -72,6 +76,28 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
     if params.price_lots <= 0 {
         return Err(RiskProgramError::InvalidAmount.into());
     }
+    if params.reserved_margin <= 0
+        || params.original_base_lots <= 0
+        || params.filled_base_lots < 0
+        || params
+            .filled_base_lots
+            .checked_add(params.base_lots)
+            .ok_or(ProgramError::ArithmeticOverflow)?
+            > params.original_base_lots
+    {
+        return Err(RiskProgramError::InvalidAmount.into());
+    }
+    let after_filled = params
+        .filled_base_lots
+        .checked_add(params.base_lots)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    let margin_used = fill_margin(
+        params.reserved_margin,
+        params.filled_base_lots,
+        after_filled,
+        params.original_base_lots,
+    )
+    .map_err(|_| RiskProgramError::InvalidAmount)?;
 
     let market_config_data = market_config.try_borrow()?;
     let market_config_state =
@@ -180,8 +206,7 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
         bytemuck::from_bytes_mut::<UserAccount>(&mut user_account_data[..UserAccount::LEN]);
 
     if position_is_new {
-        let required_margin =
-            market_config_state.notional_value(params.base_lots, params.price_lots);
+        let required_margin = margin_used;
 
         let mut position_data = position.try_borrow_mut()?;
         let position_state =
@@ -232,8 +257,7 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
                 .checked_div(new_size as i128)
                 .ok_or(ProgramError::ArithmeticOverflow)? as i64;
 
-            let additional_margin =
-                market_config_state.notional_value(params.base_lots, params.price_lots);
+            let additional_margin = margin_used;
 
             position_state.size = new_size;
             position_state.entry_price = new_entry_price;
@@ -295,8 +319,14 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
                     .ok_or(ProgramError::ArithmeticOverflow)?;
 
                 if flip_size > 0 {
-                    let new_margin =
-                        market_config_state.notional_value(flip_size, params.price_lots);
+                    let new_margin = ((margin_used as i128)
+                        .checked_mul(flip_size as i128)
+                        .ok_or(ProgramError::ArithmeticOverflow)?
+                        .checked_add(params.base_lots as i128 - 1)
+                        .ok_or(ProgramError::ArithmeticOverflow)?
+                        .checked_div(params.base_lots as i128)
+                        .ok_or(ProgramError::ArithmeticOverflow)?)
+                        as i64;
                     position_state.side = position_side;
                     position_state.size = flip_size;
                     position_state.entry_price = params.price_lots;
@@ -304,11 +334,16 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
                     position_state.entry_funding_index = funding.cumulative_index;
 
                     user_account_state.consume_reserved_order_margin(new_margin)?;
+                    let release_order_margin = margin_used.saturating_sub(new_margin);
+                    if release_order_margin > 0 {
+                        user_account_state.release_order_margin(release_order_margin);
+                    }
                 } else {
                     position_state.size = 0;
                     position_state.initial_margin = 0;
                     user_account_state.position_count =
                         user_account_state.position_count.saturating_sub(1);
+                    user_account_state.release_order_margin(margin_used);
                 }
             } else {
                 position_state.size = remaining_size;
@@ -316,6 +351,7 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
                     .initial_margin
                     .checked_sub(margin_to_release)
                     .ok_or(ProgramError::ArithmeticOverflow)?;
+                user_account_state.release_order_margin(margin_used);
             }
         }
     }

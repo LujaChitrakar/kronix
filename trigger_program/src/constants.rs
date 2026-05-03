@@ -4,7 +4,7 @@ pub const TRIGGER_AUTHORITY_SEED: &[u8] = b"trigger_authority";
 pub const FUNDING_INTERVAL_SECS: i64 = 3_600;
 pub const FUNDING_PERIOD_SECS: i64 = 28_800;
 
-pub const KXI_MARKET_INDEX: u16 = 100;
+pub const KXI_MARKET_INDEX: u16 = 23;
 
 // Switchboard SOL/USD pull feed: GgGVgSLWAyL9Xf4fGaAQQCkmWetBjX7PCNz8kTK97DKB
 pub const SWITCHBOARD_SOL_USD_FEED: [u8; 32] = [

@@ -52,7 +52,9 @@ Required env vars (read from `.env.local`):
 | `KEEPER_KEYPAIR_PATH`            | `~/.config/solana/id.json`           | JSON keypair file the keeper signs with         |
 | `NEXT_PUBLIC_RPC_URL`            | `https://api.devnet.solana.com`      | Solana RPC endpoint                              |
 | `NEXT_PUBLIC_USDC_MINT`          | devnet test mint                     | USDC mint for vault / liquidator ATA            |
-| `NEXT_PUBLIC_MARKET_INDEX`       | `12`                                 | Single-market deployment index                  |
+| `NEXT_PUBLIC_MARKET_INDEX`       | `24`                                 | SOL market index                                |
+| `NEXT_PUBLIC_KXI_MARKET_INDEX`   | `23`                                 | KXI market index                                |
+| `NEXT_PUBLIC_MARKET_INDEXES`     | `24,23`                              | Markets keeper scans                            |
 | `NEXT_PUBLIC_TRIGGER_PROGRAM_ID` | hardcoded                            | Override deployed trigger program               |
 | `NEXT_PUBLIC_STRATEGY_PROGRAM_ID`| hardcoded                            | Override deployed strategy program              |
 | `KEEPER_PRICE_HISTORY_PATH`      | sibling of keypair file              | JSON file persisting mark-price samples         |
@@ -84,8 +86,7 @@ does not throw away the warmup window.
 
 ## Notes
 
-- Single-market for now (`MARKET_INDEX` env). To support multiple markets,
-  loop over a `MarketConfig` PDA scan in `loadMarkets()`.
+- Multi-market via `NEXT_PUBLIC_MARKET_INDEXES`; defaults to SOL/KXI.
 - Liquidator USDC ATA is created on first run (covers the liquidation fee
   payout).
 - All jobs are skipped on a tick if the previous run hasn't finished, so

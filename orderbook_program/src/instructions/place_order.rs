@@ -15,8 +15,8 @@ use crate::{
         verify_writtable,
     },
     states::{
-        BookSide, FillEntry, FillsLog, MarketState, OpenOrdersAccount, Order, OrderParams,
-        Orderbook, PlaceOrderType, PostOrderType, Side,
+        margin_from_quote_lots, BookSide, FillEntry, FillEvent, FillsLog, MarketState,
+        OpenOrdersAccount, Order, OrderParams, Orderbook, PlaceOrderType, PostOrderType, Side,
     },
 };
 
@@ -32,7 +32,63 @@ pub struct PlaceOrderParams {
     pub order_type: u8,
     pub limit: u8,
     pub bump_fills_log: u8,
-    pub padding: [u8; 4],
+    pub leverage: u8,
+    pub padding: [u8; 3],
+}
+
+pub(crate) fn apply_maker_open_order_fill(
+    remaining_accounts: &[AccountView],
+    market_key: [u8; 32],
+    fill: &mut FillEvent,
+) -> ProgramResult {
+    for account in remaining_accounts {
+        unsafe {
+            if verify_account_owner(account, &crate::ID).is_err() {
+                continue;
+            }
+        }
+        if verify_writtable(account).is_err() {
+            continue;
+        }
+
+        let mut data = account.try_borrow_mut()?;
+        if data.len() < OpenOrdersAccount::LEN {
+            continue;
+        }
+        let oo_account =
+            bytemuck::from_bytes_mut::<OpenOrdersAccount>(&mut data[..OpenOrdersAccount::LEN]);
+        if oo_account.owner != fill.maker_pubkey || oo_account.market != market_key {
+            continue;
+        }
+
+        let slot = fill.maker_slot as usize;
+        let oo = oo_account.open_order_by_raw_index(slot);
+        if oo.is_free()
+            || oo.client_id != fill.maker_client_order_id
+            || oo.reserved_margin <= 0
+            || oo.original_base_lots <= 0
+            || oo.filled_base_lots < 0
+            || oo
+                .filled_base_lots
+                .checked_add(fill.quantity)
+                .ok_or(ProgramError::ArithmeticOverflow)?
+                > oo.original_base_lots
+        {
+            return Err(OrderBookError::InvalidMakerAccount.into());
+        }
+
+        fill.maker_reserved_margin = oo.reserved_margin;
+        fill.maker_filled_base_lots = oo.filled_base_lots;
+        fill.maker_original_base_lots = oo.original_base_lots;
+
+        oo_account.record_fill(slot, fill.quantity, fill.price, fill.maker_out());
+        if fill.maker_out() {
+            oo_account.remove_order(slot);
+        }
+        return Ok(());
+    }
+
+    Err(OrderBookError::InvalidMakerAccount.into())
 }
 
 pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
@@ -173,11 +229,16 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
     let time_in_force = Order::tif_from_expiry(params.expiry_timestamp, now_ts as u64)
         .ok_or(OrderBookError::OrderAlreadyExpired)?;
 
+    let leverage = params.leverage;
+    let reserved_margin = margin_from_quote_lots(params.max_quote_lots, leverage)?;
+
     let order = Order {
         side,
         max_base_lots: params.max_base_lots,
         max_quote_lots: params.max_quote_lots,
         client_order_id: params.client_order_id,
+        leverage,
+        reserved_margin,
         time_in_force,
         params: order_params,
     };
@@ -192,7 +253,9 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
         user_account,
         market_config,
         order.max_quote_lots,
+        0,
         market_state.market_index,
+        leverage,
         0,
         true,
     )?;
@@ -216,7 +279,7 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
         asks: asks_state,
     };
 
-    let result = order_book.new_order(
+    let mut result = order_book.new_order(
         &order,
         market_state,
         oo_account_state,
@@ -224,29 +287,24 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
         params.limit.min(MAX_FILLS_PER_ORDER as u8),
     )?;
 
-    let mut used_quote_lots = result
-        .posted_base_lots
-        .checked_mul(result.posted_price)
-        .ok_or(ProgramError::ArithmeticOverflow)?;
     for i in 0..result.fill_count as usize {
-        let fill_quote_lots = result.fills[i]
-            .quantity
-            .checked_mul(result.fills[i].price)
-            .ok_or(ProgramError::ArithmeticOverflow)?;
-        used_quote_lots = used_quote_lots
-            .checked_add(fill_quote_lots)
-            .ok_or(ProgramError::ArithmeticOverflow)?;
+        apply_maker_open_order_fill(
+            &_remaining[3..],
+            *market.address().as_array(),
+            &mut result.fills[i],
+        )?;
     }
 
-    let unused_quote_lots = order.max_quote_lots.saturating_sub(used_quote_lots);
-    if unused_quote_lots > 0 {
+    if result.unused_reserved_margin > 0 {
         order_margin_cpi(
             risk_program,
             signer,
             user_account,
             market_config,
-            unused_quote_lots,
+            0,
+            result.unused_reserved_margin,
             market_state.market_index,
+            leverage,
             0,
             false,
         )?;
@@ -271,6 +329,12 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
                 maker_client_id: fill.maker_client_order_id,
                 price: fill.price,
                 quantity: fill.quantity,
+                taker_reserved_margin: fill.taker_reserved_margin,
+                taker_filled_base_lots: fill.taker_filled_base_lots,
+                taker_original_base_lots: fill.taker_original_base_lots,
+                maker_reserved_margin: fill.maker_reserved_margin,
+                maker_filled_base_lots: fill.maker_filled_base_lots,
+                maker_original_base_lots: fill.maker_original_base_lots,
                 taker_side: fill.taker_side,
                 maker_slot: fill.maker_slot,
                 maker_out: fill.maker_out as u8,

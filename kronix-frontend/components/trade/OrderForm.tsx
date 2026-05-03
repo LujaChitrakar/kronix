@@ -20,6 +20,13 @@ import { sendTx, formatTxError } from "./tx";
 
 type OwnOrder = { clientId: bigint; priceLots: bigint; side: number };
 
+function priceFromOrderId(id: Uint8Array | ArrayLike<number>): bigint {
+  const bytes = Uint8Array.from(id);
+  let out = 0n;
+  for (let i = 15; i >= 8; i--) out = (out << 8n) + BigInt(bytes[i] ?? 0);
+  return out;
+}
+
 function crossesOwn(
   myOrders: OwnOrder[],
   takerSide: number,
@@ -47,6 +54,7 @@ export function OrderForm() {
 
   const [side, setSide] = useState<number>(Side.Bid);
   const [orderType, setOrderType] = useState<number>(PlaceOrderType.Limit);
+  const [leverage, setLeverage] = useState(1);
   const [price, setPrice] = useState("");
   const [size, setSize] = useState("");
   const [busy, setBusy] = useState(false);
@@ -105,7 +113,7 @@ export function OrderForm() {
         if (o.isFree === 1) return;
         list.push({
           clientId: o.clientId,
-          priceLots: o.lockedPrice,
+          priceLots: priceFromOrderId(o.id),
           side: o.side,
         });
       });
@@ -182,7 +190,7 @@ export function OrderForm() {
             const user = await fetchUser(connection, userPda);
             if (!user) return 0n;
             const freeNative = user.collateral - user.marginUsed;
-            return freeNative > 0n ? freeNative / 1_000_000n : 0n;
+            return freeNative > 0n ? (freeNative / 1_000_000n) * BigInt(leverage) : 0n;
           })()
         : priceLots * maxBaseLots;
 
@@ -204,6 +212,7 @@ export function OrderForm() {
           clientOrderId,
           expiryTimestamp: 0n,
           limit: 16,
+          leverage,
           marketIndex,
         },
         connection,
@@ -286,6 +295,22 @@ export function OrderForm() {
         />
       </div>
 
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-[10px] font-mono uppercase text-on-surface-variant">
+          <span>Leverage</span>
+          <span className="text-[#4dffb4] font-bold">{leverage}x</span>
+        </div>
+        <input
+          type="range"
+          min={1}
+          max={10}
+          step={1}
+          value={leverage}
+          onChange={(e) => setLeverage(Number(e.target.value))}
+          className="w-full accent-[#4dffb4]"
+        />
+      </div>
+
       {cfg && (() => {
         let sz = 0n;
         let pr = 0n;
@@ -294,8 +319,8 @@ export function OrderForm() {
           pr = BigInt(parseInt(price || "0", 10));
         } catch {}
         if (sz <= 0n || pr <= 0n) return null;
-        const notional = sz * pr * cfg.quoteLotSize;
-        const margin = (notional * BigInt(cfg.initialMarginBps)) / 10_000n;
+        const notional = sz * pr * 1_000_000n;
+        const margin = (notional + BigInt(leverage - 1)) / BigInt(leverage);
         const fmt = (n: bigint) => {
           const w = n / 1_000_000n;
           const f = (n % 1_000_000n).toString().padStart(6, "0").slice(0, 4);

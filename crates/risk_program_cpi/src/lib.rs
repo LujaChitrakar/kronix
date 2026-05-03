@@ -9,6 +9,9 @@ pub const RELEASE_ORDER_MARGIN_IX: u8 = 16;
 pub struct SettleFillParams {
     pub price_lots: i64, // fill price in price lots
     pub base_lots: i64,  // base lots filled
+    pub reserved_margin: i64,
+    pub filled_base_lots: i64,
+    pub original_base_lots: i64,
     pub market_index: u16,
     pub is_taker: u8,      // 1 = taker, 0 = maker
     pub taker_side: u8,    // 0=bid, 1=ask — taker's side
@@ -23,8 +26,10 @@ pub struct SettleFillParams {
 #[repr(C)]
 pub struct OrderMarginParams {
     pub quote_lots: i64,
+    pub margin_amount: i64,
     pub market_index: u16,
+    pub leverage: u8,
     pub bump_user: u8,
-    pub padding: [u8; 5],
+    pub padding: [u8; 4],
     pub owner: [u8; 32],
 }

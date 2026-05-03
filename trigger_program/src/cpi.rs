@@ -118,7 +118,8 @@ pub fn place_take_order_cpi(
         order_type,
         limit,
         bump_fills_log,
-        padding: [0; 4],
+        leverage: 1,
+        padding: [0; 3],
     };
 
     let params_bytes = bytemuck::bytes_of(&params);

@@ -14,9 +14,10 @@ use crate::{
         verify_account_owner, verify_initialized, verify_owner_or_delegate, verify_pda,
         verify_program_id, verify_signer, verify_writtable,
     },
+    instructions::place_order::apply_maker_open_order_fill,
     states::{
-        BookSide, FillEntry, FillsLog, MarketState, OpenOrdersAccount, Order, OrderParams,
-        Orderbook, PlaceOrderType, PostOrderType, Side,
+        margin_from_quote_lots, BookSide, FillEntry, FillsLog, MarketState, OpenOrdersAccount,
+        Order, OrderParams, Orderbook, PlaceOrderType, PostOrderType, Side,
     },
 };
 
@@ -32,7 +33,8 @@ pub struct EditOrderParams {
     pub order_type: u8,
     pub limit: u8,
     pub bump_fills_log: u8,
-    pub padding: [u8; 4],
+    pub leverage: u8,
+    pub padding: [u8; 3],
     pub order_id: [u8; 16],
 }
 
@@ -159,10 +161,11 @@ pub fn process_edit_order(accounts: &[AccountView], data: &[u8]) -> ProgramResul
         )?;
     }
 
-    let old_locked_price = oo_account_state
-        .find_order_with_order_id(order_id)
-        .ok_or(OrderBookError::OrderIdNotFound)?
-        .locked_price;
+    let old_order_slot = oo_account_state
+        .open_orders
+        .iter()
+        .position(|oo| !oo.is_free() && u128::from_le_bytes(oo.id) == order_id)
+        .ok_or(OrderBookError::OrderIdNotFound)?;
 
     let time_in_force = Order::tif_from_expiry(params.expiry_timestamp, now_ts as u64)
         .ok_or(OrderBookError::OrderAlreadyExpired)?;
@@ -183,11 +186,16 @@ pub fn process_edit_order(accounts: &[AccountView], data: &[u8]) -> ProgramResul
         _ => return Err(OrderBookError::InvalidOrderType.into()),
     };
 
+    let leverage = params.leverage;
+    let reserved_margin = margin_from_quote_lots(params.new_quote_lots, leverage)?;
+
     let new_order = Order {
         side,
         max_base_lots: params.new_base_lots,
         max_quote_lots: params.new_quote_lots,
         client_order_id: params.client_order_id,
+        leverage,
+        reserved_margin,
         time_in_force,
         params: order_params,
     };
@@ -211,25 +219,26 @@ pub fn process_edit_order(accounts: &[AccountView], data: &[u8]) -> ProgramResul
     }
 
     // cancel existing order
+    let release_margin = oo_account_state
+        .open_order_by_raw_index(old_order_slot)
+        .releasable_margin()?;
     match order_book.cancel_order(
         oo_account_state,
         order_id,
         side,
         Some(*signer.address().as_array()),
     ) {
-        Ok(old_leaf) => {
-            let old_quote_lots = old_leaf
-                .quantity
-                .checked_mul(old_locked_price)
-                .ok_or(ProgramError::ArithmeticOverflow)?;
-            if old_quote_lots > 0 {
+        Ok(_old_leaf) => {
+            if release_margin > 0 {
                 order_margin_cpi(
                     risk_program,
                     signer,
                     user_account,
                     market_config,
-                    old_quote_lots,
+                    0,
+                    release_margin,
                     market_state.market_index,
+                    0,
                     0,
                     false,
                 )?;
@@ -256,12 +265,14 @@ pub fn process_edit_order(accounts: &[AccountView], data: &[u8]) -> ProgramResul
         user_account,
         market_config,
         new_order.max_quote_lots,
+        0,
         market_state.market_index,
+        leverage,
         0,
         true,
     )?;
 
-    let result = order_book.new_order(
+    let mut result = order_book.new_order(
         &new_order,
         market_state,
         oo_account_state,
@@ -269,29 +280,24 @@ pub fn process_edit_order(accounts: &[AccountView], data: &[u8]) -> ProgramResul
         params.limit.min(MAX_FILLS_PER_ORDER as u8),
     )?;
 
-    let mut used_quote_lots = result
-        .posted_base_lots
-        .checked_mul(result.posted_price)
-        .ok_or(ProgramError::ArithmeticOverflow)?;
     for i in 0..result.fill_count as usize {
-        let fill_quote_lots = result.fills[i]
-            .quantity
-            .checked_mul(result.fills[i].price)
-            .ok_or(ProgramError::ArithmeticOverflow)?;
-        used_quote_lots = used_quote_lots
-            .checked_add(fill_quote_lots)
-            .ok_or(ProgramError::ArithmeticOverflow)?;
+        apply_maker_open_order_fill(
+            &_remaining[3..],
+            *market.address().as_array(),
+            &mut result.fills[i],
+        )?;
     }
 
-    let unused_quote_lots = new_order.max_quote_lots.saturating_sub(used_quote_lots);
-    if unused_quote_lots > 0 {
+    if result.unused_reserved_margin > 0 {
         order_margin_cpi(
             risk_program,
             signer,
             user_account,
             market_config,
-            unused_quote_lots,
+            0,
+            result.unused_reserved_margin,
             market_state.market_index,
+            leverage,
             0,
             false,
         )?;
@@ -316,6 +322,12 @@ pub fn process_edit_order(accounts: &[AccountView], data: &[u8]) -> ProgramResul
                 maker_client_id: fill.maker_client_order_id,
                 price: fill.price,
                 quantity: fill.quantity,
+                taker_reserved_margin: fill.taker_reserved_margin,
+                taker_filled_base_lots: fill.taker_filled_base_lots,
+                taker_original_base_lots: fill.taker_original_base_lots,
+                maker_reserved_margin: fill.maker_reserved_margin,
+                maker_filled_base_lots: fill.maker_filled_base_lots,
+                maker_original_base_lots: fill.maker_original_base_lots,
                 taker_side: fill.taker_side,
                 maker_slot: fill.maker_slot,
                 maker_out: fill.maker_out as u8,

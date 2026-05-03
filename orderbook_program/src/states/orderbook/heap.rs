@@ -25,9 +25,14 @@ pub struct FillEvent {
     pub taker_client_order_id: u64,
     pub price: i64,
     pub quantity: i64, //no of base lots
+    pub taker_reserved_margin: i64,
+    pub taker_filled_base_lots: i64,
+    pub taker_original_base_lots: i64,
+    pub maker_reserved_margin: i64,
+    pub maker_filled_base_lots: i64,
+    pub maker_original_base_lots: i64,
     pub maker_pubkey: [u8; 32],
     pub taker_pubkey: [u8; 32],
-    pub reserved: [u8; 16],
 }
 impl Default for FillEvent {
     fn default() -> Self {
@@ -50,6 +55,9 @@ impl FillEvent {
         taker_client_order_id: u64,
         price: i64,
         quantity: i64,
+        taker_reserved_margin: i64,
+        taker_filled_base_lots: i64,
+        taker_original_base_lots: i64,
         maker_pubkey: [u8; 32],
         taker_pubkey: [u8; 32],
     ) -> Self {
@@ -65,10 +73,15 @@ impl FillEvent {
             taker_client_order_id,
             price,
             quantity,
+            taker_reserved_margin,
+            taker_filled_base_lots,
+            taker_original_base_lots,
+            maker_reserved_margin: 0,
+            maker_filled_base_lots: 0,
+            maker_original_base_lots: 0,
             maker_pubkey,
             taker_pubkey,
             _padding: [0u8; 4],
-            reserved: [0u8; 16],
         }
     }
 

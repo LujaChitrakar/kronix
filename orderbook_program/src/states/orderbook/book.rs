@@ -1,11 +1,31 @@
 use crate::{
-    constants::{DROP_EXPIRED_ORDER_LIMIT, MAX_FILLS_PER_ORDER},
+    constants::{DROP_EXPIRED_ORDER_LIMIT, MAX_FILLS_PER_ORDER, QUOTE_NATIVE_UNIT},
     errors::OrderBookError,
     states::{
         BookSide, FillEvent, LeafNode, MarketState, OpenOrdersAccount, Order, OrderTreeType, Side,
     },
 };
+use margin_math::consumed_margin;
 use pinocchio::error::ProgramError;
+
+pub fn margin_from_quote_lots(quote_lots: i64, leverage: u8) -> Result<i64, ProgramError> {
+    if quote_lots <= 0 || leverage == 0 {
+        return Err(OrderBookError::InvalidInputLots.into());
+    }
+    let notional = (quote_lots as i128)
+        .checked_mul(QUOTE_NATIVE_UNIT)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    let leverage = leverage as i128;
+    let margin = notional
+        .checked_add(leverage - 1)
+        .ok_or(ProgramError::ArithmeticOverflow)?
+        .checked_div(leverage)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    if margin <= 0 {
+        return Err(OrderBookError::InvalidInputLots.into());
+    }
+    i64::try_from(margin).map_err(|_| ProgramError::ArithmeticOverflow)
+}
 
 pub struct Orderbook<'a> {
     pub bids: &'a mut BookSide,
@@ -17,6 +37,8 @@ pub struct MatchResults {
     pub fill_count: u8,
     pub filled_base_lots: i64,
     pub posted_base_lots: i64,
+    pub posted_reserved_margin: i64,
+    pub unused_reserved_margin: i64,
     pub posted_price: i64,
     pub fills: [FillEvent; MAX_FILLS_PER_ORDER],
 }
@@ -28,6 +50,8 @@ impl Default for MatchResults {
             fill_count: 0,
             filled_base_lots: 0,
             posted_base_lots: 0,
+            posted_reserved_margin: 0,
+            unused_reserved_margin: 0,
             posted_price: 0,
             fills: [FillEvent::default(); MAX_FILLS_PER_ORDER],
         }
@@ -143,6 +167,10 @@ impl<'a> Orderbook<'a> {
                     .min(best_opposing.node.quantity)
                     .min(max_match_by_quote);
                 let match_quote_lots = match_base_lots * best_opposing_price;
+                let taker_filled_before = order
+                    .max_base_lots
+                    .checked_sub(remaining_base_lots)
+                    .ok_or(ProgramError::ArithmeticOverflow)?;
 
                 remaining_base_lots = remaining_base_lots
                     .checked_sub(match_base_lots)
@@ -184,6 +212,9 @@ impl<'a> Orderbook<'a> {
                         order.client_order_id,              // taker_client_order_id: u64
                         best_opposing_price,                // price: i64
                         match_base_lots,                    // quantity: i64
+                        order.reserved_margin,              // taker_reserved_margin: i64
+                        taker_filled_before,                // taker_filled_base_lots: i64
+                        order.max_base_lots,                // taker_original_base_lots: i64
                         best_opposing.node.owner,           // maker_pubkey: [u8;32]
                         open_orders.owner,                  // taker_pubkey: [u8;32]
                     );
@@ -254,7 +285,18 @@ impl<'a> Orderbook<'a> {
 
             let owner_slot = open_orders.next_order_slot()?;
 
-            let new_leaf = LeafNode::new(
+            let consumed = consumed_margin(
+                order.reserved_margin,
+                result.filled_base_lots,
+                order.max_base_lots,
+            )
+            .map_err(|_| OrderBookError::InvalidInputLots)?;
+            let posted_reserved_margin = order
+                .reserved_margin
+                .checked_sub(consumed)
+                .ok_or(ProgramError::ArithmeticOverflow)?;
+
+            let mut new_leaf = LeafNode::new(
                 owner_slot as u8,
                 order.time_in_force,
                 order.client_order_id,
@@ -263,6 +305,7 @@ impl<'a> Orderbook<'a> {
                 order_id,
                 open_orders.owner,
             );
+            new_leaf.set_reserved_margin(posted_reserved_margin);
 
             bookside.insert_leaf(&new_leaf)?;
 
@@ -270,16 +313,35 @@ impl<'a> Orderbook<'a> {
                 side,
                 &new_leaf,
                 order.client_order_id,
-                price_lots,
+                posted_reserved_margin,
+                order.max_base_lots,
+                result.filled_base_lots,
                 owner_slot,
             );
 
             posted_price = price_lots;
             result.posted_base_lots = book_base_quantity_lots;
+            result.posted_reserved_margin = posted_reserved_margin;
             result.order_id = Some(order_id.to_le_bytes());
         }
 
         result.posted_price = posted_price;
+        if result.posted_base_lots == 0 {
+            let consumed = if result.filled_base_lots == 0 {
+                0
+            } else {
+                consumed_margin(
+                    order.reserved_margin,
+                    result.filled_base_lots,
+                    order.max_base_lots,
+                )
+                .map_err(|_| OrderBookError::InvalidInputLots)?
+            };
+            result.unused_reserved_margin = order
+                .reserved_margin
+                .checked_sub(consumed)
+                .ok_or(ProgramError::ArithmeticOverflow)?;
+        }
 
         Ok(result)
     }

@@ -113,10 +113,10 @@ pub fn process_cancel_order(accounts: &[AccountView], data: &[u8]) -> ProgramRes
         )?;
     }
 
-    let locked_price = oo_account_state
+    let open_order = oo_account_state
         .find_order_with_order_id(order_id)
-        .ok_or(OrderBookError::OpenOrderNotFound)?
-        .locked_price;
+        .ok_or(OrderBookError::OpenOrderNotFound)?;
+    let release_margin = open_order.releasable_margin()?;
 
     let mut bids_data = bids.try_borrow_mut()?;
     let bids_state = bytemuck::from_bytes_mut::<BookSide>(&mut bids_data[..BookSide::LEN]);
@@ -128,24 +128,22 @@ pub fn process_cancel_order(accounts: &[AccountView], data: &[u8]) -> ProgramRes
         bids: bids_state,
         asks: asks_state,
     };
-    let canceled = order_book.cancel_order(
+    let _canceled = order_book.cancel_order(
         oo_account_state,
         order_id,
         side,
         Some(*signer.address().as_array()), // may also be Some(*open_orders_account.address().as_array()),
     )?;
-    let quote_lots = canceled
-        .quantity
-        .checked_mul(locked_price)
-        .ok_or(ProgramError::ArithmeticOverflow)?;
-    if quote_lots > 0 {
+    if release_margin > 0 {
         order_margin_cpi(
             risk_program,
             signer,
             user_account,
             market_config,
-            quote_lots,
+            0,
+            release_margin,
             market_state.market_index,
+            0,
             0,
             false,
         )?;

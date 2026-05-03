@@ -1,7 +1,7 @@
 pub const NODE_SIZE: usize = 88;
 pub const MAX_ORDERTREE_NODES: usize = 100;
 pub const MAX_NUM_EVENTS: u16 = 600;
-pub const EVENT_SIZE: usize = 144;
+pub const EVENT_SIZE: usize = 176;
 pub const NO_NODE: u16 = u16::MAX;
 
 // book
@@ -21,6 +21,7 @@ pub const MAX_OPEN_ORDERS: usize = 24;
 // oracle
 pub const MAX_ORACLE_AGE_SECS: i64 = 10; // max 10 seconds stale
 pub const MAX_CONF_RATIO_BPS: u64 = 200; // max 2% uncertainty
+pub const QUOTE_NATIVE_UNIT: i128 = 1_000_000;
 
 // SEEDS
 pub const MARKET_SEED: &[u8] = b"market";

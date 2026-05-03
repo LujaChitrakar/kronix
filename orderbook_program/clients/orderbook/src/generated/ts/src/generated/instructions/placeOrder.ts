@@ -102,6 +102,7 @@ export type PlaceOrderInstructionData = {
   orderType: number;
   limit: number;
   bumpFillsLog: number;
+  leverage: number;
   padding: ReadonlyUint8Array;
 };
 
@@ -115,6 +116,7 @@ export type PlaceOrderInstructionDataArgs = {
   orderType: number;
   limit: number;
   bumpFillsLog: number;
+  leverage: number;
   padding: ReadonlyUint8Array;
 };
 
@@ -131,7 +133,8 @@ export function getPlaceOrderInstructionDataEncoder(): FixedSizeEncoder<PlaceOrd
       ["orderType", getU8Encoder()],
       ["limit", getU8Encoder()],
       ["bumpFillsLog", getU8Encoder()],
-      ["padding", fixEncoderSize(getBytesEncoder(), 4)],
+      ["leverage", getU8Encoder()],
+      ["padding", fixEncoderSize(getBytesEncoder(), 3)],
     ]),
     (value) => ({ ...value, discriminator: PLACE_ORDER_DISCRIMINATOR }),
   );
@@ -149,7 +152,8 @@ export function getPlaceOrderInstructionDataDecoder(): FixedSizeDecoder<PlaceOrd
     ["orderType", getU8Decoder()],
     ["limit", getU8Decoder()],
     ["bumpFillsLog", getU8Decoder()],
-    ["padding", fixDecoderSize(getBytesDecoder(), 4)],
+    ["leverage", getU8Decoder()],
+    ["padding", fixDecoderSize(getBytesDecoder(), 3)],
   ]);
 }
 
@@ -195,6 +199,7 @@ export type PlaceOrderInput<
   orderType: PlaceOrderInstructionDataArgs["orderType"];
   limit: PlaceOrderInstructionDataArgs["limit"];
   bumpFillsLog: PlaceOrderInstructionDataArgs["bumpFillsLog"];
+  leverage: PlaceOrderInstructionDataArgs["leverage"];
   padding: PlaceOrderInstructionDataArgs["padding"];
 };
 

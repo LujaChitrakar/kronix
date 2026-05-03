@@ -28,7 +28,9 @@ import {
 
 export type OrderMarginParams = {
   quoteLots: bigint;
+  marginAmount: bigint;
   marketIndex: number;
+  leverage: number;
   bumpUser: number;
   padding: ReadonlyUint8Array;
   owner: ReadonlyUint8Array;
@@ -36,7 +38,9 @@ export type OrderMarginParams = {
 
 export type OrderMarginParamsArgs = {
   quoteLots: number | bigint;
+  marginAmount: number | bigint;
   marketIndex: number;
+  leverage: number;
   bumpUser: number;
   padding: ReadonlyUint8Array;
   owner: ReadonlyUint8Array;
@@ -45,9 +49,11 @@ export type OrderMarginParamsArgs = {
 export function getOrderMarginParamsEncoder(): FixedSizeEncoder<OrderMarginParamsArgs> {
   return getStructEncoder([
     ["quoteLots", getI64Encoder()],
+    ["marginAmount", getI64Encoder()],
     ["marketIndex", getU16Encoder()],
+    ["leverage", getU8Encoder()],
     ["bumpUser", getU8Encoder()],
-    ["padding", fixEncoderSize(getBytesEncoder(), 5)],
+    ["padding", fixEncoderSize(getBytesEncoder(), 4)],
     ["owner", fixEncoderSize(getBytesEncoder(), 32)],
   ]);
 }
@@ -55,9 +61,11 @@ export function getOrderMarginParamsEncoder(): FixedSizeEncoder<OrderMarginParam
 export function getOrderMarginParamsDecoder(): FixedSizeDecoder<OrderMarginParams> {
   return getStructDecoder([
     ["quoteLots", getI64Decoder()],
+    ["marginAmount", getI64Decoder()],
     ["marketIndex", getU16Decoder()],
+    ["leverage", getU8Decoder()],
     ["bumpUser", getU8Decoder()],
-    ["padding", fixDecoderSize(getBytesDecoder(), 5)],
+    ["padding", fixDecoderSize(getBytesDecoder(), 4)],
     ["owner", fixDecoderSize(getBytesDecoder(), 32)],
   ]);
 }

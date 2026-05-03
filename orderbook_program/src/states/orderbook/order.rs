@@ -13,6 +13,8 @@ pub struct Order {
     pub max_quote_lots: i64,
     // arbitrary client order id
     pub client_order_id: u64,
+    pub leverage: u8,
+    pub reserved_margin: i64,
     /// Number of seconds the order shall live, 0 meaning forever
     pub time_in_force: u16,
     // Order type specific params

@@ -5,6 +5,12 @@ export type FillEntry = {
   makerClientId: bigint;
   price: bigint;
   quantity: bigint;
+  takerReservedMargin: bigint;
+  takerFilledBaseLots: bigint;
+  takerOriginalBaseLots: bigint;
+  makerReservedMargin: bigint;
+  makerFilledBaseLots: bigint;
+  makerOriginalBaseLots: bigint;
   takerSide: number;
   makerSlot: number;
   makerOut: number;
@@ -25,7 +31,7 @@ export type FillsLog = {
   fills: FillEntry[];
 };
 
-const FILL_ENTRY_LEN = 104;
+const FILL_ENTRY_LEN = 152;
 const HEADER_LEN = 8 + 8 + 1 + 1 + 1 + 5; // 24
 const FILLS_LEN = 8 * FILL_ENTRY_LEN; // 832
 
@@ -45,13 +51,19 @@ export function decodeFillsLog(buf: Uint8Array): FillsLog {
       makerClientId: dv.getBigUint64(o + 8, true),
       price: dv.getBigInt64(o + 16, true),
       quantity: dv.getBigInt64(o + 24, true),
-      takerSide: dv.getUint8(o + 32),
-      makerSlot: dv.getUint8(o + 33),
-      makerOut: dv.getUint8(o + 34),
-      settled: dv.getUint8(o + 35),
-      marketIndex: dv.getUint16(o + 36, true),
-      takerPubkey: new PublicKey(buf.subarray(o + 40, o + 72)),
-      makerPubkey: new PublicKey(buf.subarray(o + 72, o + 104)),
+      takerReservedMargin: dv.getBigInt64(o + 32, true),
+      takerFilledBaseLots: dv.getBigInt64(o + 40, true),
+      takerOriginalBaseLots: dv.getBigInt64(o + 48, true),
+      makerReservedMargin: dv.getBigInt64(o + 56, true),
+      makerFilledBaseLots: dv.getBigInt64(o + 64, true),
+      makerOriginalBaseLots: dv.getBigInt64(o + 72, true),
+      takerSide: dv.getUint8(o + 80),
+      makerSlot: dv.getUint8(o + 81),
+      makerOut: dv.getUint8(o + 82),
+      settled: dv.getUint8(o + 83),
+      marketIndex: dv.getUint16(o + 84, true),
+      takerPubkey: new PublicKey(buf.subarray(o + 88, o + 120)),
+      makerPubkey: new PublicKey(buf.subarray(o + 120, o + 152)),
     });
   }
 

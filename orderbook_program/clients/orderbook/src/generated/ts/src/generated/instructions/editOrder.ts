@@ -102,6 +102,7 @@ export type EditOrderInstructionData = {
   orderType: number;
   limit: number;
   bumpFillsLog: number;
+  leverage: number;
   padding: ReadonlyUint8Array;
   orderId: ReadonlyUint8Array;
 };
@@ -116,6 +117,7 @@ export type EditOrderInstructionDataArgs = {
   orderType: number;
   limit: number;
   bumpFillsLog: number;
+  leverage: number;
   padding: ReadonlyUint8Array;
   orderId: ReadonlyUint8Array;
 };
@@ -133,7 +135,8 @@ export function getEditOrderInstructionDataEncoder(): FixedSizeEncoder<EditOrder
       ["orderType", getU8Encoder()],
       ["limit", getU8Encoder()],
       ["bumpFillsLog", getU8Encoder()],
-      ["padding", fixEncoderSize(getBytesEncoder(), 4)],
+      ["leverage", getU8Encoder()],
+      ["padding", fixEncoderSize(getBytesEncoder(), 3)],
       ["orderId", fixEncoderSize(getBytesEncoder(), 16)],
     ]),
     (value) => ({ ...value, discriminator: EDIT_ORDER_DISCRIMINATOR }),
@@ -152,7 +155,8 @@ export function getEditOrderInstructionDataDecoder(): FixedSizeDecoder<EditOrder
     ["orderType", getU8Decoder()],
     ["limit", getU8Decoder()],
     ["bumpFillsLog", getU8Decoder()],
-    ["padding", fixDecoderSize(getBytesDecoder(), 4)],
+    ["leverage", getU8Decoder()],
+    ["padding", fixDecoderSize(getBytesDecoder(), 3)],
     ["orderId", fixDecoderSize(getBytesDecoder(), 16)],
   ]);
 }
@@ -199,6 +203,7 @@ export type EditOrderInput<
   orderType: EditOrderInstructionDataArgs["orderType"];
   limit: EditOrderInstructionDataArgs["limit"];
   bumpFillsLog: EditOrderInstructionDataArgs["bumpFillsLog"];
+  leverage: EditOrderInstructionDataArgs["leverage"];
   padding: EditOrderInstructionDataArgs["padding"];
   orderId: EditOrderInstructionDataArgs["orderId"];
 };

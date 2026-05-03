@@ -11,9 +11,11 @@ use borsh::BorshDeserialize;
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 pub struct OrderMarginParams {
 pub quote_lots: i64,
+pub margin_amount: i64,
 pub market_index: u16,
+pub leverage: u8,
 pub bump_user: u8,
-pub padding: [u8; 5],
+pub padding: [u8; 4],
 pub owner: [u8; 32],
 }
 

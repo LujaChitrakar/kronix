@@ -13,15 +13,19 @@ pub fn order_margin_cpi(
     user_account: &AccountView,
     market_config: &AccountView,
     quote_lots: i64,
+    margin_amount: i64,
     market_index: u16,
+    leverage: u8,
     bump_user: u8,
     reserve: bool,
 ) -> ProgramResult {
     let params = OrderMarginParams {
         quote_lots,
+        margin_amount,
         market_index,
+        leverage,
         bump_user,
-        padding: [0; 5],
+        padding: [0; 4],
         owner: *signer.address().as_array(),
     };
 
@@ -71,6 +75,21 @@ pub fn settle_fill_cpi(
     let params = SettleFillParams {
         price_lots: fill.price,
         base_lots: fill.quantity,
+        reserved_margin: if is_taker {
+            fill.taker_reserved_margin
+        } else {
+            fill.maker_reserved_margin
+        },
+        filled_base_lots: if is_taker {
+            fill.taker_filled_base_lots
+        } else {
+            fill.maker_filled_base_lots
+        },
+        original_base_lots: if is_taker {
+            fill.taker_original_base_lots
+        } else {
+            fill.maker_original_base_lots
+        },
         market_index,
         is_taker: is_taker as u8,
         taker_side: fill.taker_side,

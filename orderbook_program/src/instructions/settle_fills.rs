@@ -200,27 +200,8 @@ pub fn process_settle_fills(accounts: &[AccountView], data: &[u8]) -> ProgramRes
             fp.maker_bump_position,
             fp.maker_bump_user,
         )?;
-        {
-            unsafe {
-                verify_account_owner(maker_oo, &crate::ID)?;
-            }
-            verify_writtable(maker_oo)?;
-
-            let mut maker_oo_data = maker_oo.try_borrow_mut()?;
-            let maker_oo_state = bytemuck::from_bytes_mut::<OpenOrdersAccount>(
-                &mut maker_oo_data[..OpenOrdersAccount::LEN],
-            );
-
-            if maker_oo_state.owner != fill.maker_pubkey {
-                return Err(OrderBookError::InvalidMakerAccount.into());
-            }
-
-            if fill.maker_out == 1 {
-                // Fully consumed — free the slot
-                maker_oo_state.remove_order(fill.maker_slot as usize);
-            }
-            // Partial fill — slot stays in book with reduced quantity
-            // critbit tree already updated during matching
+        unsafe {
+            verify_account_owner(maker_oo, &crate::ID)?;
         }
 
         // ── Mark as settled LAST ──────────────────────────────────

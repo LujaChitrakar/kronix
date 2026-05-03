@@ -77,6 +77,7 @@ import {
 import { toLegacyIx, fakeSigner } from "./ix-bridge";
 import { fetchFillsLog } from "./fills-log";
 import { buildSettleFillsIx, MAX_FILLS_PER_TX } from "./settle-fills";
+import { scanBook } from "./book-scan";
 
 type Send = (
   ixs: TransactionInstruction[],
@@ -98,6 +99,39 @@ function priorityFeeIxs(): TransactionInstruction[] {
     ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 }),
     ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 10_000 }),
   ];
+}
+
+async function makerOpenOrdersForMatch(
+  conn: Connection,
+  market: PublicKey,
+  owner: PublicKey,
+  side: number,
+  priceLots: bigint,
+  orderType: number,
+  limit: number,
+  marketIndex: number,
+): Promise<PublicKey[]> {
+  const snap = await scanBook(conn, market, marketIndex);
+  const opposing = side === 0 ? snap.asks : snap.bids;
+  const isMarket = orderType === 0;
+  const owners: PublicKey[] = [];
+  const seen = new Set<string>();
+
+  for (const order of opposing) {
+    if (owners.length >= limit) break;
+    if (order.owner.equals(owner)) continue;
+    if (!isMarket) {
+      const crosses = side === 0 ? order.priceLots <= priceLots : order.priceLots >= priceLots;
+      if (!crosses) break;
+    }
+    const key = order.owner.toBase58();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const [makerOo] = findOpenOrdersPda(order.owner, market);
+    owners.push(makerOo);
+  }
+
+  return owners;
 }
 
 // ───────── Onboarding ─────────
@@ -331,6 +365,7 @@ export async function sendPlaceOrder(
     clientOrderId: bigint;
     expiryTimestamp: bigint;
     limit: number;
+    leverage?: number;
     marketIndex?: number;
   },
   conn: Connection,
@@ -373,7 +408,7 @@ export async function sendPlaceOrder(
     orderType: args.orderType,
     limit: args.limit,
     bumpFillsLog,
-    padding: PADDING_4,
+    padding: new Uint8Array([args.leverage ?? 1, 0, 0, 0]),
   });
 
   console.log("📤 placing order:", {
@@ -387,10 +422,21 @@ export async function sendPlaceOrder(
   });
 
   const placeIx = toLegacyIx(place);
+  const makerOos = await makerOpenOrdersForMatch(
+    conn,
+    market,
+    owner,
+    args.side,
+    args.priceLots,
+    args.orderType,
+    args.limit,
+    marketIndex,
+  );
   placeIx.keys.push(
     { pubkey: userAccount, isSigner: false, isWritable: true },
     { pubkey: marketConfig, isSigner: false, isWritable: false },
     { pubkey: RISK_PROGRAM_ID, isSigner: false, isWritable: false },
+    ...makerOos.map((pubkey) => ({ pubkey, isSigner: false, isWritable: true })),
   );
 
   return send([...priorityFeeIxs(), toLegacyIx(initFillsLog), placeIx], conn);
@@ -423,6 +469,7 @@ export async function sendPlaceOrderAndSettle(
     clientOrderId: bigint;
     expiryTimestamp: bigint;
     limit: number;
+    leverage?: number;
     marketIndex?: number;
   },
   conn: Connection,
@@ -554,6 +601,7 @@ export async function sendEditOrder(
     side: number;
     orderType: number;
     limit: number;
+    leverage?: number;
     marketIndex?: number;
   },
   conn: Connection,
@@ -596,15 +644,26 @@ export async function sendEditOrder(
     orderType: args.orderType,
     limit: args.limit,
     bumpFillsLog,
-    padding: PADDING_4,
+    padding: new Uint8Array([args.leverage ?? 1, 0, 0, 0]),
     orderId: args.orderId,
   });
 
   const editIx = toLegacyIx(edit);
+  const makerOos = await makerOpenOrdersForMatch(
+    conn,
+    market,
+    owner,
+    args.side,
+    args.newPriceLots,
+    args.orderType,
+    args.limit,
+    marketIndex,
+  );
   editIx.keys.push(
     { pubkey: userAccount, isSigner: false, isWritable: true },
     { pubkey: marketConfig, isSigner: false, isWritable: false },
     { pubkey: RISK_PROGRAM_ID, isSigner: false, isWritable: false },
+    ...makerOos.map((pubkey) => ({ pubkey, isSigner: false, isWritable: true })),
   );
 
   return send([...priorityFeeIxs(), toLegacyIx(initFillsLog), editIx], conn);

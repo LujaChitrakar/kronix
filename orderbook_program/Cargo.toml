@@ -21,6 +21,7 @@ solana-clock = "3.0.1"
 num_enum = "0.5.1"
 shank = "0.4.8"
 risk_program_cpi = { path = "../crates/risk_program_cpi" }
+margin_math = { path = "../crates/margin_math" }
 
 [features]
 devnet = []

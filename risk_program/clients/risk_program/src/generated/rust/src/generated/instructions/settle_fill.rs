@@ -93,13 +93,13 @@ impl SettleFill {
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
  pub struct SettleFillInstructionData {
             discriminator: u8,
-                                                                  }
+                                                                                    }
 
 impl SettleFillInstructionData {
   pub fn new() -> Self {
     Self {
                         discriminator: 9,
-                                                                                                                                                              }
+                                                                                                                                                                                                        }
   }
 
     pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
@@ -117,6 +117,9 @@ impl Default for SettleFillInstructionData {
  pub struct SettleFillInstructionArgs {
                   pub price_lots: i64,
                 pub base_lots: i64,
+                pub reserved_margin: i64,
+                pub filled_base_lots: i64,
+                pub original_base_lots: i64,
                 pub market_index: u16,
                 pub is_taker: u8,
                 pub taker_side: u8,
@@ -154,6 +157,9 @@ pub struct SettleFillBuilder {
                 payer: Option<solana_address::Address>,
                         price_lots: Option<i64>,
                 base_lots: Option<i64>,
+                reserved_margin: Option<i64>,
+                filled_base_lots: Option<i64>,
+                original_base_lots: Option<i64>,
                 market_index: Option<u16>,
                 is_taker: Option<u8>,
                 taker_side: Option<u8>,
@@ -214,6 +220,21 @@ impl SettleFillBuilder {
                 #[inline(always)]
       pub fn base_lots(&mut self, base_lots: i64) -> &mut Self {
         self.base_lots = Some(base_lots);
+        self
+      }
+                #[inline(always)]
+      pub fn reserved_margin(&mut self, reserved_margin: i64) -> &mut Self {
+        self.reserved_margin = Some(reserved_margin);
+        self
+      }
+                #[inline(always)]
+      pub fn filled_base_lots(&mut self, filled_base_lots: i64) -> &mut Self {
+        self.filled_base_lots = Some(filled_base_lots);
+        self
+      }
+                #[inline(always)]
+      pub fn original_base_lots(&mut self, original_base_lots: i64) -> &mut Self {
+        self.original_base_lots = Some(original_base_lots);
         self
       }
                 #[inline(always)]
@@ -281,6 +302,9 @@ impl SettleFillBuilder {
           let args = SettleFillInstructionArgs {
                                                               price_lots: self.price_lots.clone().expect("price_lots is not set"),
                                                                   base_lots: self.base_lots.clone().expect("base_lots is not set"),
+                                                                  reserved_margin: self.reserved_margin.clone().expect("reserved_margin is not set"),
+                                                                  filled_base_lots: self.filled_base_lots.clone().expect("filled_base_lots is not set"),
+                                                                  original_base_lots: self.original_base_lots.clone().expect("original_base_lots is not set"),
                                                                   market_index: self.market_index.clone().expect("market_index is not set"),
                                                                   is_taker: self.is_taker.clone().expect("is_taker is not set"),
                                                                   taker_side: self.taker_side.clone().expect("taker_side is not set"),
@@ -490,6 +514,9 @@ impl<'a, 'b> SettleFillCpiBuilder<'a, 'b> {
               payer: None,
                                             price_lots: None,
                                 base_lots: None,
+                                reserved_margin: None,
+                                filled_base_lots: None,
+                                original_base_lots: None,
                                 market_index: None,
                                 is_taker: None,
                                 taker_side: None,
@@ -546,6 +573,21 @@ impl<'a, 'b> SettleFillCpiBuilder<'a, 'b> {
                 #[inline(always)]
       pub fn base_lots(&mut self, base_lots: i64) -> &mut Self {
         self.instruction.base_lots = Some(base_lots);
+        self
+      }
+                #[inline(always)]
+      pub fn reserved_margin(&mut self, reserved_margin: i64) -> &mut Self {
+        self.instruction.reserved_margin = Some(reserved_margin);
+        self
+      }
+                #[inline(always)]
+      pub fn filled_base_lots(&mut self, filled_base_lots: i64) -> &mut Self {
+        self.instruction.filled_base_lots = Some(filled_base_lots);
+        self
+      }
+                #[inline(always)]
+      pub fn original_base_lots(&mut self, original_base_lots: i64) -> &mut Self {
+        self.instruction.original_base_lots = Some(original_base_lots);
         self
       }
                 #[inline(always)]
@@ -613,6 +655,9 @@ impl<'a, 'b> SettleFillCpiBuilder<'a, 'b> {
           let args = SettleFillInstructionArgs {
                                                               price_lots: self.instruction.price_lots.clone().expect("price_lots is not set"),
                                                                   base_lots: self.instruction.base_lots.clone().expect("base_lots is not set"),
+                                                                  reserved_margin: self.instruction.reserved_margin.clone().expect("reserved_margin is not set"),
+                                                                  filled_base_lots: self.instruction.filled_base_lots.clone().expect("filled_base_lots is not set"),
+                                                                  original_base_lots: self.instruction.original_base_lots.clone().expect("original_base_lots is not set"),
                                                                   market_index: self.instruction.market_index.clone().expect("market_index is not set"),
                                                                   is_taker: self.instruction.is_taker.clone().expect("is_taker is not set"),
                                                                   taker_side: self.instruction.taker_side.clone().expect("taker_side is not set"),
@@ -653,6 +698,9 @@ struct SettleFillCpiBuilderInstruction<'a, 'b> {
                 payer: Option<&'b solana_account_info::AccountInfo<'a>>,
                         price_lots: Option<i64>,
                 base_lots: Option<i64>,
+                reserved_margin: Option<i64>,
+                filled_base_lots: Option<i64>,
+                original_base_lots: Option<i64>,
                 market_index: Option<u16>,
                 is_taker: Option<u8>,
                 taker_side: Option<u8>,

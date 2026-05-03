@@ -52,6 +52,12 @@ pub struct FillEntry {
     pub maker_client_id: u64,
     pub price: i64,
     pub quantity: i64,
+    pub taker_reserved_margin: i64,
+    pub taker_filled_base_lots: i64,
+    pub taker_original_base_lots: i64,
+    pub maker_reserved_margin: i64,
+    pub maker_filled_base_lots: i64,
+    pub maker_original_base_lots: i64,
     pub taker_side: u8,
     pub maker_slot: u8,
     pub maker_out: u8,
@@ -62,5 +68,6 @@ pub struct FillEntry {
     pub maker_pubkey: [u8; 32],
 }
 
-const _: () = assert!(size_of::<FillEntry>() == 8 + 8 + 8 + 8 + 1 + 1 + 1 + 1 + 2 + 2 + 32 + 32);
+const _: () =
+    assert!(size_of::<FillEntry>() == 8 + 8 + 8 + 8 + (8 * 6) + 1 + 1 + 1 + 1 + 2 + 2 + 32 + 32);
 const _: () = assert!(size_of::<FillEntry>() % 8 == 0);

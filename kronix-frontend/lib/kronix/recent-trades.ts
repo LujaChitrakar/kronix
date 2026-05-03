@@ -13,11 +13,11 @@ export type RecentTrade = {
   maker: PublicKey;
 };
 
-const FILL_ENTRY_LEN = 104;
+const FILL_ENTRY_LEN = 152;
 const HEADER_LEN = 24;
-const FILLS_LEN = 8 * FILL_ENTRY_LEN; // 832
-const TAIL = HEADER_LEN + FILLS_LEN; // 856
-const FILLS_LOG_LEN = TAIL + 32 + 32 + 32; // 952
+const FILLS_LEN = 8 * FILL_ENTRY_LEN;
+const TAIL = HEADER_LEN + FILLS_LEN;
+const FILLS_LOG_LEN = TAIL + 32 + 32 + 32;
 
 function decodeOne(buf: Uint8Array): RecentTrade[] {
   const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
@@ -31,8 +31,8 @@ function decodeOne(buf: Uint8Array): RecentTrade[] {
     const makerClientId = dv.getBigUint64(o + 8, true);
     const price = dv.getBigInt64(o + 16, true);
     const qty = dv.getBigInt64(o + 24, true);
-    const takerSide = dv.getUint8(o + 32);
-    const makerPk = new PublicKey(buf.subarray(o + 72, o + 104));
+    const takerSide = dv.getUint8(o + 80);
+    const makerPk = new PublicKey(buf.subarray(o + 120, o + 152));
     if (qty <= 0n || price <= 0n) continue;
     out.push({
       takerSide,

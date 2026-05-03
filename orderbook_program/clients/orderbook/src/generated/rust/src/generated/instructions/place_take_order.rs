@@ -102,13 +102,13 @@ impl PlaceTakeOrder {
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
  pub struct PlaceTakeOrderInstructionData {
             discriminator: u8,
-                                                            }
+                                                                  }
 
 impl PlaceTakeOrderInstructionData {
   pub fn new() -> Self {
     Self {
                         discriminator: 4,
-                                                                                                                                                }
+                                                                                                                                                              }
   }
 
     pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
@@ -132,7 +132,8 @@ impl Default for PlaceTakeOrderInstructionData {
                 pub order_type: u8,
                 pub limit: u8,
                 pub bump_fills_log: u8,
-                pub padding: [u8; 4],
+                pub leverage: u8,
+                pub padding: [u8; 3],
       }
 
 impl PlaceTakeOrderInstructionArgs {
@@ -170,7 +171,8 @@ pub struct PlaceTakeOrderBuilder {
                 order_type: Option<u8>,
                 limit: Option<u8>,
                 bump_fills_log: Option<u8>,
-                padding: Option<[u8; 4]>,
+                leverage: Option<u8>,
+                padding: Option<[u8; 3]>,
         __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
@@ -262,7 +264,12 @@ impl PlaceTakeOrderBuilder {
         self
       }
                 #[inline(always)]
-      pub fn padding(&mut self, padding: [u8; 4]) -> &mut Self {
+      pub fn leverage(&mut self, leverage: u8) -> &mut Self {
+        self.leverage = Some(leverage);
+        self
+      }
+                #[inline(always)]
+      pub fn padding(&mut self, padding: [u8; 3]) -> &mut Self {
         self.padding = Some(padding);
         self
       }
@@ -298,6 +305,7 @@ impl PlaceTakeOrderBuilder {
                                                                   order_type: self.order_type.clone().expect("order_type is not set"),
                                                                   limit: self.limit.clone().expect("limit is not set"),
                                                                   bump_fills_log: self.bump_fills_log.clone().expect("bump_fills_log is not set"),
+                                                                  leverage: self.leverage.clone().expect("leverage is not set"),
                                                                   padding: self.padding.clone().expect("padding is not set"),
                                     };
     
@@ -524,6 +532,7 @@ impl<'a, 'b> PlaceTakeOrderCpiBuilder<'a, 'b> {
                                 order_type: None,
                                 limit: None,
                                 bump_fills_log: None,
+                                leverage: None,
                                 padding: None,
                     __remaining_accounts: Vec::new(),
     });
@@ -612,7 +621,12 @@ impl<'a, 'b> PlaceTakeOrderCpiBuilder<'a, 'b> {
         self
       }
                 #[inline(always)]
-      pub fn padding(&mut self, padding: [u8; 4]) -> &mut Self {
+      pub fn leverage(&mut self, leverage: u8) -> &mut Self {
+        self.instruction.leverage = Some(leverage);
+        self
+      }
+                #[inline(always)]
+      pub fn padding(&mut self, padding: [u8; 3]) -> &mut Self {
         self.instruction.padding = Some(padding);
         self
       }
@@ -647,6 +661,7 @@ impl<'a, 'b> PlaceTakeOrderCpiBuilder<'a, 'b> {
                                                                   order_type: self.instruction.order_type.clone().expect("order_type is not set"),
                                                                   limit: self.instruction.limit.clone().expect("limit is not set"),
                                                                   bump_fills_log: self.instruction.bump_fills_log.clone().expect("bump_fills_log is not set"),
+                                                                  leverage: self.instruction.leverage.clone().expect("leverage is not set"),
                                                                   padding: self.instruction.padding.clone().expect("padding is not set"),
                                     };
         let instruction = PlaceTakeOrderCpi {
@@ -689,7 +704,8 @@ struct PlaceTakeOrderCpiBuilderInstruction<'a, 'b> {
                 order_type: Option<u8>,
                 limit: Option<u8>,
                 bump_fills_log: Option<u8>,
-                padding: Option<[u8; 4]>,
+                leverage: Option<u8>,
+                padding: Option<[u8; 3]>,
         /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
   __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }

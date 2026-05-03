@@ -116,7 +116,7 @@ pub fn process_cancel_order_by_client_id(accounts: &[AccountView], data: &[u8]) 
 
     let order_id = u128::from_le_bytes(oo.id);
     let side = oo.side();
-    let locked_price = oo.locked_price;
+    let release_margin = oo.releasable_margin()?;
 
     let mut bids_data = bids.try_borrow_mut()?;
     let bids_state = bytemuck::from_bytes_mut::<BookSide>(&mut bids_data[..BookSide::LEN]);
@@ -128,24 +128,22 @@ pub fn process_cancel_order_by_client_id(accounts: &[AccountView], data: &[u8]) 
         bids: bids_state,
         asks: asks_state,
     };
-    let canceled = orderbook.cancel_order(
+    let _canceled = orderbook.cancel_order(
         oo_account_state,
         order_id,
         side,
         Some(*signer.address().as_array()),
     )?;
-    let quote_lots = canceled
-        .quantity
-        .checked_mul(locked_price)
-        .ok_or(ProgramError::ArithmeticOverflow)?;
-    if quote_lots > 0 {
+    if release_margin > 0 {
         order_margin_cpi(
             risk_program,
             signer,
             user_account,
             market_config,
-            quote_lots,
+            0,
+            release_margin,
             market_state.market_index,
+            0,
             0,
             false,
         )?;

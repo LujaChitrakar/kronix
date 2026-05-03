@@ -1451,6 +1451,14 @@
             "type": "i64"
           },
           {
+            "name": "originalBaseLots",
+            "type": "i64"
+          },
+          {
+            "name": "filledBaseLots",
+            "type": "i64"
+          },
+          {
             "name": "isFree",
             "type": "u8"
           },

@@ -91,6 +91,9 @@ export type SettleFillInstructionData = {
   discriminator: number;
   priceLots: bigint;
   baseLots: bigint;
+  reservedMargin: bigint;
+  filledBaseLots: bigint;
+  originalBaseLots: bigint;
   marketIndex: number;
   isTaker: number;
   takerSide: number;
@@ -104,6 +107,9 @@ export type SettleFillInstructionData = {
 export type SettleFillInstructionDataArgs = {
   priceLots: number | bigint;
   baseLots: number | bigint;
+  reservedMargin: number | bigint;
+  filledBaseLots: number | bigint;
+  originalBaseLots: number | bigint;
   marketIndex: number;
   isTaker: number;
   takerSide: number;
@@ -120,6 +126,9 @@ export function getSettleFillInstructionDataEncoder(): FixedSizeEncoder<SettleFi
       ["discriminator", getU8Encoder()],
       ["priceLots", getI64Encoder()],
       ["baseLots", getI64Encoder()],
+      ["reservedMargin", getI64Encoder()],
+      ["filledBaseLots", getI64Encoder()],
+      ["originalBaseLots", getI64Encoder()],
       ["marketIndex", getU16Encoder()],
       ["isTaker", getU8Encoder()],
       ["takerSide", getU8Encoder()],
@@ -138,6 +147,9 @@ export function getSettleFillInstructionDataDecoder(): FixedSizeDecoder<SettleFi
     ["discriminator", getU8Decoder()],
     ["priceLots", getI64Decoder()],
     ["baseLots", getI64Decoder()],
+    ["reservedMargin", getI64Decoder()],
+    ["filledBaseLots", getI64Decoder()],
+    ["originalBaseLots", getI64Decoder()],
     ["marketIndex", getU16Decoder()],
     ["isTaker", getU8Decoder()],
     ["takerSide", getU8Decoder()],
@@ -181,6 +193,9 @@ export type SettleFillInput<
   payer: TransactionSigner<TAccountPayer>;
   priceLots: SettleFillInstructionDataArgs["priceLots"];
   baseLots: SettleFillInstructionDataArgs["baseLots"];
+  reservedMargin: SettleFillInstructionDataArgs["reservedMargin"];
+  filledBaseLots: SettleFillInstructionDataArgs["filledBaseLots"];
+  originalBaseLots: SettleFillInstructionDataArgs["originalBaseLots"];
   marketIndex: SettleFillInstructionDataArgs["marketIndex"];
   isTaker: SettleFillInstructionDataArgs["isTaker"];
   takerSide: SettleFillInstructionDataArgs["takerSide"];

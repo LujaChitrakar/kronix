@@ -135,7 +135,7 @@ pub fn process_cancel_all_orders(accounts: &[AccountView], data: &[u8]) -> Progr
         asks: asks_state,
     };
 
-    let mut release_quote_lots = 0_i64;
+    let mut release_margin = 0_i64;
     for i in 0..oo_account_state.open_orders.len() {
         let oo = oo_account_state.open_orders[i];
         if oo.is_free() {
@@ -155,26 +155,24 @@ pub fn process_cancel_all_orders(accounts: &[AccountView], data: &[u8]) -> Progr
             Side::Bid => &*orderbook.bids,
             Side::Ask => &*orderbook.asks,
         };
-        if let Some(leaf) = bookside.node_by_key(u128::from_le_bytes(oo.id)) {
-            let quote_lots = leaf
-                .quantity
-                .checked_mul(oo.locked_price)
-                .ok_or(ProgramError::ArithmeticOverflow)?;
-            release_quote_lots = release_quote_lots
-                .checked_add(quote_lots)
+        if bookside.node_by_key(u128::from_le_bytes(oo.id)).is_some() {
+            release_margin = release_margin
+                .checked_add(oo.releasable_margin()?)
                 .ok_or(ProgramError::ArithmeticOverflow)?;
         }
     }
 
     orderbook.cancel_all_orders(oo_account_state, side_filter, client_id_filter, limit)?;
-    if release_quote_lots > 0 {
+    if release_margin > 0 {
         order_margin_cpi(
             risk_program,
             signer,
             user_account,
             market_config,
-            release_quote_lots,
+            0,
+            release_margin,
             market_state.market_index,
+            0,
             0,
             false,
         )?;
