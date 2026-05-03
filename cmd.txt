@@ -1,0 +1,3 @@
+shank idl \
+  --crate-root . \
+  --out-dir clients/risk_program/src/generated

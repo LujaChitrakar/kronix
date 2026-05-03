@@ -1,12 +1,12 @@
 use pinocchio::{
-    AccountView, Address, ProgramResult, default_panic_handler, error::ProgramError, no_allocator,
-    program_entrypoint,
+    default_panic_handler, error::ProgramError, no_allocator, program_entrypoint, AccountView,
+    Address, ProgramResult,
 };
 
 use crate::instructions::{
-    StrategyProgramInstruction, process_close_strategy, process_create_strategy,
-    process_edit_strategy, process_execute_strategy, process_pause_strategy,
-    process_resume_strategy,
+    process_close_strategy, process_create_strategy, process_edit_strategy,
+    process_execute_strategy, process_pause_strategy, process_resume_strategy,
+    StrategyProgramInstruction,
 };
 
 program_entrypoint!(process_instruction);

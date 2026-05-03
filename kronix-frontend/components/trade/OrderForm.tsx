@@ -12,8 +12,9 @@ import {
   findOpenOrdersPda,
   findMarketPda,
   findMarketConfigPda,
+  findUserAccountPda,
 } from "@/lib/kronix/pdas";
-import { fetchOpenOrders, fetchMarketConfig } from "@/lib/kronix/state";
+import { fetchOpenOrders, fetchMarketConfig, fetchUser } from "@/lib/kronix/state";
 import { useStore } from "@/lib/store";
 import { sendTx, formatTxError } from "./tx";
 
@@ -172,16 +173,25 @@ export function OrderForm() {
       setMsg("Enter price in lots");
       return;
     }
-    // Market orders have no caller price; cap quote at i64-safe max so
-    // matching loop's `remaining_quote_lots / best_opposing_price` always
-    // yields a usable bound. Program ignores params.price_lots for Market.
-    const MARKET_MAX_QUOTE = 1n << 62n;
-    const maxQuoteLots = isMarket
-      ? MARKET_MAX_QUOTE
-      : priceLots * maxBaseLots;
     setBusy(true);
     setMsg("Placing…");
     try {
+      const maxQuoteLots = isMarket
+        ? await (async () => {
+            const [userPda] = findUserAccountPda(owner);
+            const user = await fetchUser(connection, userPda);
+            if (!user) return 0n;
+            const freeNative = user.collateral - user.marginUsed;
+            return freeNative > 0n ? freeNative / 1_000_000n : 0n;
+          })()
+        : priceLots * maxBaseLots;
+
+      if (maxQuoteLots <= 0n) {
+        setMsg("No free collateral");
+        setBusy(false);
+        return;
+      }
+
       const clientOrderId = BigInt(Date.now());
       const res = await sendPlaceOrderAndSettle(
         owner,

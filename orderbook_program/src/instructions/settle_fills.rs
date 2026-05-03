@@ -10,7 +10,7 @@ use crate::{
     states::{FillsLog, OpenOrdersAccount},
 };
 
-#[derive(Pod, Zeroable, Clone, Copy,ShankType)]
+#[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
 pub struct FillSettleParams {
     pub taker_bump_user: u8,

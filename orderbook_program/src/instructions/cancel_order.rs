@@ -8,6 +8,7 @@ use shank::ShankType;
 
 use crate::{
     constants::{MARKET_SEED, OPEN_ORDERS_SEED},
+    cpi::order_margin_cpi,
     errors::OrderBookError,
     helper::{
         verify_account_owner, verify_initialized, verify_owner_or_delegate, verify_pda,
@@ -34,6 +35,18 @@ pub fn process_cancel_order(accounts: &[AccountView], data: &[u8]) -> ProgramRes
     verify_initialized(market)?;
     verify_initialized(bids)?;
     verify_initialized(asks)?;
+    let user_account = _remaining
+        .first()
+        .ok_or(ProgramError::NotEnoughAccountKeys)?;
+    let market_config = _remaining
+        .get(1)
+        .ok_or(ProgramError::NotEnoughAccountKeys)?;
+    let risk_program = _remaining
+        .get(2)
+        .ok_or(ProgramError::NotEnoughAccountKeys)?;
+    if risk_program.address().as_array() != &crate::RISK_PROGRAM_ID {
+        return Err(ProgramError::IncorrectProgramId);
+    }
 
     unsafe {
         verify_account_owner(market, &crate::ID)?;
@@ -100,9 +113,10 @@ pub fn process_cancel_order(accounts: &[AccountView], data: &[u8]) -> ProgramRes
         )?;
     }
 
-    let _order_slot = oo_account_state
+    let locked_price = oo_account_state
         .find_order_with_order_id(order_id)
-        .ok_or(OrderBookError::OpenOrderNotFound)?;
+        .ok_or(OrderBookError::OpenOrderNotFound)?
+        .locked_price;
 
     let mut bids_data = bids.try_borrow_mut()?;
     let bids_state = bytemuck::from_bytes_mut::<BookSide>(&mut bids_data[..BookSide::LEN]);
@@ -114,11 +128,27 @@ pub fn process_cancel_order(accounts: &[AccountView], data: &[u8]) -> ProgramRes
         bids: bids_state,
         asks: asks_state,
     };
-    order_book.cancel_order(
+    let canceled = order_book.cancel_order(
         oo_account_state,
         order_id,
         side,
         Some(*signer.address().as_array()), // may also be Some(*open_orders_account.address().as_array()),
     )?;
+    let quote_lots = canceled
+        .quantity
+        .checked_mul(locked_price)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    if quote_lots > 0 {
+        order_margin_cpi(
+            risk_program,
+            signer,
+            user_account,
+            market_config,
+            quote_lots,
+            market_state.market_index,
+            0,
+            false,
+        )?;
+    }
     Ok(())
 }

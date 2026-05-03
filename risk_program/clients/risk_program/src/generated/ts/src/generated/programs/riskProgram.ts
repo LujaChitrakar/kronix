@@ -58,7 +58,9 @@ import {
   getInitializeVaultInstruction,
   getLiquidateInstruction,
   getOpenPositionInstruction,
+  getReleaseOrderMarginInstruction,
   getRemoveMarginInstruction,
+  getReserveOrderMarginInstruction,
   getSettleFillInstruction,
   getSettleFundingInstruction,
   getUpdateFundingRateInstruction,
@@ -73,7 +75,9 @@ import {
   parseInitializeVaultInstruction,
   parseLiquidateInstruction,
   parseOpenPositionInstruction,
+  parseReleaseOrderMarginInstruction,
   parseRemoveMarginInstruction,
+  parseReserveOrderMarginInstruction,
   parseSettleFillInstruction,
   parseSettleFundingInstruction,
   parseUpdateFundingRateInstruction,
@@ -98,12 +102,16 @@ import {
   type ParsedInitializeVaultInstruction,
   type ParsedLiquidateInstruction,
   type ParsedOpenPositionInstruction,
+  type ParsedReleaseOrderMarginInstruction,
   type ParsedRemoveMarginInstruction,
+  type ParsedReserveOrderMarginInstruction,
   type ParsedSettleFillInstruction,
   type ParsedSettleFundingInstruction,
   type ParsedUpdateFundingRateInstruction,
   type ParsedWithdrawInstruction,
+  type ReleaseOrderMarginInput,
   type RemoveMarginInput,
+  type ReserveOrderMarginInput,
   type SettleFillInput,
   type SettleFundingInput,
   type UpdateFundingRateInput,
@@ -137,6 +145,8 @@ export enum RiskProgramInstruction {
   Liquidate,
   CoverBadDebt,
   DepositInsurance,
+  ReserveOrderMargin,
+  ReleaseOrderMargin,
 }
 
 export function identifyRiskProgramInstruction(
@@ -187,6 +197,12 @@ export function identifyRiskProgramInstruction(
   }
   if (containsBytes(data, getU8Encoder().encode(14), 0)) {
     return RiskProgramInstruction.DepositInsurance;
+  }
+  if (containsBytes(data, getU8Encoder().encode(15), 0)) {
+    return RiskProgramInstruction.ReserveOrderMargin;
+  }
+  if (containsBytes(data, getU8Encoder().encode(16), 0)) {
+    return RiskProgramInstruction.ReleaseOrderMargin;
   }
   throw new SolanaError(
     SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_INSTRUCTION,
@@ -241,7 +257,13 @@ export type ParsedRiskProgramInstruction<
     } & ParsedCoverBadDebtInstruction<TProgram>)
   | ({
       instructionType: RiskProgramInstruction.DepositInsurance;
-    } & ParsedDepositInsuranceInstruction<TProgram>);
+    } & ParsedDepositInsuranceInstruction<TProgram>)
+  | ({
+      instructionType: RiskProgramInstruction.ReserveOrderMargin;
+    } & ParsedReserveOrderMarginInstruction<TProgram>)
+  | ({
+      instructionType: RiskProgramInstruction.ReleaseOrderMargin;
+    } & ParsedReleaseOrderMarginInstruction<TProgram>);
 
 export function parseRiskProgramInstruction<TProgram extends string>(
   instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
@@ -353,6 +375,20 @@ export function parseRiskProgramInstruction<TProgram extends string>(
         ...parseDepositInsuranceInstruction(instruction),
       };
     }
+    case RiskProgramInstruction.ReserveOrderMargin: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: RiskProgramInstruction.ReserveOrderMargin,
+        ...parseReserveOrderMarginInstruction(instruction),
+      };
+    }
+    case RiskProgramInstruction.ReleaseOrderMargin: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: RiskProgramInstruction.ReleaseOrderMargin,
+        ...parseReleaseOrderMarginInstruction(instruction),
+      };
+    }
     default:
       throw new SolanaError(
         SOLANA_ERROR__PROGRAM_CLIENTS__UNRECOGNIZED_INSTRUCTION_TYPE,
@@ -434,6 +470,14 @@ export type RiskProgramPluginInstructions = {
   depositInsurance: (
     input: DepositInsuranceInput,
   ) => ReturnType<typeof getDepositInsuranceInstruction> &
+    SelfPlanAndSendFunctions;
+  reserveOrderMargin: (
+    input: ReserveOrderMarginInput,
+  ) => ReturnType<typeof getReserveOrderMarginInstruction> &
+    SelfPlanAndSendFunctions;
+  releaseOrderMargin: (
+    input: ReleaseOrderMarginInput,
+  ) => ReturnType<typeof getReleaseOrderMarginInstruction> &
     SelfPlanAndSendFunctions;
 };
 
@@ -531,6 +575,16 @@ export function riskProgramProgram() {
             addSelfPlanAndSendFunctions(
               client,
               getDepositInsuranceInstruction(input),
+            ),
+          reserveOrderMargin: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getReserveOrderMarginInstruction(input),
+            ),
+          releaseOrderMargin: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getReleaseOrderMarginInstruction(input),
             ),
         },
       },

@@ -42,17 +42,8 @@ pub struct CreateStrategyParams {
 }
 
 pub fn process_create_strategy(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let [
-        signer,
-        strategy_account,
-        strategy_authority,
-        open_orders_account,
-        fills_log,
-        market,
-        orderbook_program,
-        system_program,
-        _remaining @ ..,
-    ] = accounts
+    let [signer, strategy_account, strategy_authority, open_orders_account, fills_log, market, orderbook_program, system_program, _remaining @ ..] =
+        accounts
     else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };

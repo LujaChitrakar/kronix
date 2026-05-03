@@ -16,6 +16,7 @@ pub struct MatchResults {
     pub order_id: Option<[u8; 16]>,
     pub fill_count: u8,
     pub filled_base_lots: i64,
+    pub posted_base_lots: i64,
     pub posted_price: i64,
     pub fills: [FillEvent; MAX_FILLS_PER_ORDER],
 }
@@ -26,6 +27,7 @@ impl Default for MatchResults {
             order_id: None,
             fill_count: 0,
             filled_base_lots: 0,
+            posted_base_lots: 0,
             posted_price: 0,
             fills: [FillEvent::default(); MAX_FILLS_PER_ORDER],
         }
@@ -273,6 +275,7 @@ impl<'a> Orderbook<'a> {
             );
 
             posted_price = price_lots;
+            result.posted_base_lots = book_base_quantity_lots;
             result.order_id = Some(order_id.to_le_bytes());
         }
 

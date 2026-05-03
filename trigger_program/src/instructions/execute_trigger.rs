@@ -91,6 +91,10 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
         return Err(TriggerProgramError::TriggerConditionNotMet.into());
     }
 
+    let [user_account, market_config, risk_program, ..] = _remaining else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
     place_take_order_cpi(
         orderbook_program,
         system_program,
@@ -100,6 +104,9 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
         bids,
         asks,
         fills_log,
+        user_account,
+        market_config,
+        risk_program,
         order.size_lots,
         i64::MAX,
         order.client_order_id,

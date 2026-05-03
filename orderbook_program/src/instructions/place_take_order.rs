@@ -8,6 +8,7 @@ use shank::ShankType;
 
 use crate::{
     constants::{FILLS_LOG_SEED, MARKET_SEED, MAX_FILLS_PER_ORDER, OPEN_ORDERS_SEED},
+    cpi::order_margin_cpi,
     errors::OrderBookError,
     helper::{
         verify_account_owner, verify_initialized, verify_pda, verify_program_id, verify_signer,
@@ -46,6 +47,19 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
     verify_initialized(bids)?;
     verify_initialized(asks)?;
     verify_program_id(system_program, &pinocchio_system::ID)?;
+
+    let user_account = _remaining
+        .first()
+        .ok_or(ProgramError::NotEnoughAccountKeys)?;
+    let market_config = _remaining
+        .get(1)
+        .ok_or(ProgramError::NotEnoughAccountKeys)?;
+    let risk_program = _remaining
+        .get(2)
+        .ok_or(ProgramError::NotEnoughAccountKeys)?;
+    if risk_program.address().as_array() != &crate::RISK_PROGRAM_ID {
+        return Err(ProgramError::IncorrectProgramId);
+    }
 
     unsafe {
         verify_account_owner(market, &crate::ID)?;
@@ -175,6 +189,17 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
         params: order_params,
     };
 
+    order_margin_cpi(
+        risk_program,
+        signer,
+        user_account,
+        market_config,
+        order.max_quote_lots,
+        market_state.market_index,
+        0,
+        true,
+    )?;
+
     let mut bids_data = bids.try_borrow_mut()?;
     let bids_state = bytemuck::from_bytes_mut::<BookSide>(&mut bids_data[..BookSide::LEN]);
 
@@ -197,6 +222,31 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
     // verify order did not post to book
     if result.order_id.is_some() {
         return Err(OrderBookError::InvalidOrderType.into());
+    }
+
+    let mut used_quote_lots = 0_i64;
+    for i in 0..result.fill_count as usize {
+        let fill_quote_lots = result.fills[i]
+            .quantity
+            .checked_mul(result.fills[i].price)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        used_quote_lots = used_quote_lots
+            .checked_add(fill_quote_lots)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+    }
+
+    let unused_quote_lots = order.max_quote_lots.saturating_sub(used_quote_lots);
+    if unused_quote_lots > 0 {
+        order_margin_cpi(
+            risk_program,
+            signer,
+            user_account,
+            market_config,
+            unused_quote_lots,
+            market_state.market_index,
+            0,
+            false,
+        )?;
     }
 
     if result.fill_count > 0 {

@@ -148,6 +148,10 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
         )?;
     }
 
+    let [user_account, market_config, risk_program, strategy_remaining @ ..] = _remaining else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
     place_order_cpi(
         orderbook_program,
         system_program,
@@ -157,6 +161,9 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
         bids,
         asks,
         fills_log,
+        user_account,
+        market_config,
+        risk_program,
         strategy.size_lots,
         i64::MAX,
         strategy.client_order_id,
@@ -173,7 +180,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
     let has_tp = strategy.take_profit_price > 0;
     let has_sl = strategy.stop_loss_price > 0;
 
-    // Remaining accounts for trigger CPIs (when has_tp || has_sl):
+    // Remaining accounts after risk margin accounts for trigger CPIs (when has_tp || has_sl):
     //   [trigger_program, trigger_authority, tp_order?, tp_fills_log?,
     //    sl_order?, sl_fills_log?]
     let (trigger_program, trigger_authority, tp_order, tp_fills_log, sl_order, sl_fills_log): (
@@ -187,7 +194,8 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
         (false, false) => (None, None, None, None, None, None),
 
         (true, false) => {
-            let [trigger_program, trigger_authority, tp_order, tp_fills_log, ..] = _remaining
+            let [trigger_program, trigger_authority, tp_order, tp_fills_log, ..] =
+                strategy_remaining
             else {
                 return Err(ProgramError::NotEnoughAccountKeys);
             };
@@ -202,7 +210,8 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
         }
 
         (false, true) => {
-            let [trigger_program, trigger_authority, sl_order, sl_fills_log, ..] = _remaining
+            let [trigger_program, trigger_authority, sl_order, sl_fills_log, ..] =
+                strategy_remaining
             else {
                 return Err(ProgramError::NotEnoughAccountKeys);
             };
@@ -218,7 +227,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
 
         (true, true) => {
             let [trigger_program, trigger_authority, tp_order, tp_fills_log, sl_order, sl_fills_log, ..] =
-                _remaining
+                strategy_remaining
             else {
                 return Err(ProgramError::NotEnoughAccountKeys);
             };

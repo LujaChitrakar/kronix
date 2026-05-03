@@ -15,7 +15,9 @@
   pub(crate) mod r#initialize_vault;
   pub(crate) mod r#liquidate;
   pub(crate) mod r#open_position;
+  pub(crate) mod r#release_order_margin;
   pub(crate) mod r#remove_margin;
+  pub(crate) mod r#reserve_order_margin;
   pub(crate) mod r#settle_fill;
   pub(crate) mod r#settle_funding;
   pub(crate) mod r#update_funding_rate;
@@ -31,7 +33,9 @@
   pub use self::r#initialize_vault::*;
   pub use self::r#liquidate::*;
   pub use self::r#open_position::*;
+  pub use self::r#release_order_margin::*;
   pub use self::r#remove_margin::*;
+  pub use self::r#reserve_order_margin::*;
   pub use self::r#settle_fill::*;
   pub use self::r#settle_funding::*;
   pub use self::r#update_funding_rate::*;

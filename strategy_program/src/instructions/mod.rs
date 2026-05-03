@@ -18,9 +18,23 @@ use shank::ShankInstruction;
 pub enum StrategyInstruction {
     #[account(0, name = "signer", desc = "Fee payer", signer, writable)]
     #[account(1, name = "strategy_account", desc = "Strategy account PDA", writable)]
-    #[account(2, name = "strategy_authority", desc = "Strategy authority PDA (taker for fills_log + OO delegate)")]
-    #[account(3, name = "open_orders_account", desc = "Open orders account PDA", writable)]
-    #[account(4, name = "fills_log", desc = "FillsLog PDA (initialized via CPI)", writable)]
+    #[account(
+        2,
+        name = "strategy_authority",
+        desc = "Strategy authority PDA (taker for fills_log + OO delegate)"
+    )]
+    #[account(
+        3,
+        name = "open_orders_account",
+        desc = "Open orders account PDA",
+        writable
+    )]
+    #[account(
+        4,
+        name = "fills_log",
+        desc = "FillsLog PDA (initialized via CPI)",
+        writable
+    )]
     #[account(5, name = "market", desc = "Market state PDA")]
     #[account(6, name = "orderbook_program", desc = "Orderbook program (CPI)")]
     #[account(7, name = "system_program", desc = "System program")]
@@ -51,12 +65,46 @@ pub enum StrategyInstruction {
     #[account(8, name = "fills_log", desc = "Fills log PDA (lazy init)", writable)]
     #[account(9, name = "orderbook_program", desc = "Orderbook Program")]
     #[account(10, name = "system_program", desc = "System program")]
-    #[account(11, name = "trigger_program", desc = "Trigger program (optional, when TP/SL set)", optional)]
-    #[account(12, name = "trigger_authority", desc = "Trigger authority PDA of strategy_authority (optional)", optional)]
-    #[account(13, name = "tp_trigger_order", desc = "TP trigger order PDA (optional)", optional, writable)]
-    #[account(14, name = "tp_fills_log", desc = "TP trigger fills_log PDA (optional)", optional, writable)]
-    #[account(15, name = "sl_trigger_order", desc = "SL trigger order PDA (optional)", optional, writable)]
-    #[account(16, name = "sl_fills_log", desc = "SL trigger fills_log PDA (optional)", optional, writable)]
+    #[account(
+        11,
+        name = "trigger_program",
+        desc = "Trigger program (optional, when TP/SL set)",
+        optional
+    )]
+    #[account(
+        12,
+        name = "trigger_authority",
+        desc = "Trigger authority PDA of strategy_authority (optional)",
+        optional
+    )]
+    #[account(
+        13,
+        name = "tp_trigger_order",
+        desc = "TP trigger order PDA (optional)",
+        optional,
+        writable
+    )]
+    #[account(
+        14,
+        name = "tp_fills_log",
+        desc = "TP trigger fills_log PDA (optional)",
+        optional,
+        writable
+    )]
+    #[account(
+        15,
+        name = "sl_trigger_order",
+        desc = "SL trigger order PDA (optional)",
+        optional,
+        writable
+    )]
+    #[account(
+        16,
+        name = "sl_fills_log",
+        desc = "SL trigger fills_log PDA (optional)",
+        optional,
+        writable
+    )]
     ExecuteStrategy(ExecuteStrategyParams),
 
     #[account(0, name = "signer", desc = "Fee payer", signer, writable)]

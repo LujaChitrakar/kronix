@@ -132,6 +132,9 @@ pub fn place_order_cpi(
     bids: &AccountView,
     asks: &AccountView,
     fills_log: &AccountView,
+    user_account: &AccountView,
+    market_config: &AccountView,
+    risk_program: &AccountView,
     max_base_lots: i64,
     max_quote_lots: i64,
     client_order_id: u64,
@@ -171,6 +174,9 @@ pub fn place_order_cpi(
         InstructionAccount::new(asks.address(), true, false),
         InstructionAccount::new(fills_log.address(), true, false),
         InstructionAccount::new(system_program.address(), false, false),
+        InstructionAccount::new(user_account.address(), true, false),
+        InstructionAccount::new(market_config.address(), false, false),
+        InstructionAccount::new(risk_program.address(), false, false),
     ];
 
     let account_infos = [
@@ -181,6 +187,9 @@ pub fn place_order_cpi(
         asks,
         fills_log,
         system_program,
+        user_account,
+        market_config,
+        risk_program,
     ];
 
     let ix = InstructionView {
@@ -195,7 +204,7 @@ pub fn place_order_cpi(
         Seed::from(bump_bytes.as_ref()),
     ];
 
-    invoke_signed::<7>(&ix, &account_infos, &[Signer::from(&seeds)])?;
+    invoke_signed::<10>(&ix, &account_infos, &[Signer::from(&seeds)])?;
 
     Ok(())
 }

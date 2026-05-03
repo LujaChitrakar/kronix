@@ -1,6 +1,8 @@
 use bytemuck::{Pod, Zeroable};
 use shank::ShankAccount;
 
+pub const QUOTE_NATIVE_UNIT: i128 = 1_000_000;
+
 #[derive(Pod, Zeroable, Copy, Clone, ShankAccount)]
 #[repr(C)]
 pub struct MarketConfig {
@@ -29,6 +31,14 @@ impl MarketConfig {
             .saturating_mul(self.quote_lot_size as i128);
 
         (notional * self.initial_margin_bps as i128 / 10_000) as i64
+    }
+
+    pub fn notional_value(&self, size_lots: i64, price_lots: i64) -> i64 {
+        let notional = (size_lots.abs() as i128)
+            .saturating_mul(price_lots as i128)
+            .saturating_mul(QUOTE_NATIVE_UNIT);
+
+        notional as i64
     }
 
     pub fn required_maintenance_margin(&self, size_lots: i64, price_lots: i64) -> i64 {

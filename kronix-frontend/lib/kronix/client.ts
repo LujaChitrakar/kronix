@@ -54,6 +54,7 @@ import {
   TRIGGER_PROGRAM_ID,
   ORDERBOOK_PROGRAM_ID,
   STRATEGY_PROGRAM_ID,
+  RISK_PROGRAM_ID,
 } from "./config";
 import {
   findMarketPda,
@@ -340,6 +341,8 @@ export async function sendPlaceOrder(
   const [bids] = findBidsPda(marketIndex);
   const [asks] = findAsksPda(marketIndex);
   const [oo] = findOpenOrdersPda(owner, market);
+  const [userAccount] = findUserAccountPda(owner);
+  const [marketConfig] = findMarketConfigPda(marketIndex);
   const [fillsLog, bumpFillsLog] = findFillsLogPda(owner, args.clientOrderId);
 
   const initFillsLog = getInitializeFillsLogInstruction({
@@ -383,10 +386,14 @@ export async function sendPlaceOrder(
     owner: owner.toBase58(),
   });
 
-  return send(
-    [...priorityFeeIxs(), toLegacyIx(initFillsLog), toLegacyIx(place)],
-    conn,
+  const placeIx = toLegacyIx(place);
+  placeIx.keys.push(
+    { pubkey: userAccount, isSigner: false, isWritable: true },
+    { pubkey: marketConfig, isSigner: false, isWritable: false },
+    { pubkey: RISK_PROGRAM_ID, isSigner: false, isWritable: false },
   );
+
+  return send([...priorityFeeIxs(), toLegacyIx(initFillsLog), placeIx], conn);
 }
 
 export type PlaceAndSettleResult = {
@@ -476,6 +483,8 @@ export async function sendCancelOrderByClientId(
   const [bids] = findBidsPda(marketIndex);
   const [asks] = findAsksPda(marketIndex);
   const [oo] = findOpenOrdersPda(owner, market);
+  const [userAccount] = findUserAccountPda(owner);
+  const [marketConfig] = findMarketConfigPda(marketIndex);
 
   const ix = getCancelOrderByClientIdInstruction({
     signer: fakeSigner(owner),
@@ -485,7 +494,13 @@ export async function sendCancelOrderByClientId(
     asks: addr(asks),
     clientId,
   });
-  return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
+  const cancelIx = toLegacyIx(ix);
+  cancelIx.keys.push(
+    { pubkey: userAccount, isSigner: false, isWritable: true },
+    { pubkey: marketConfig, isSigner: false, isWritable: false },
+    { pubkey: RISK_PROGRAM_ID, isSigner: false, isWritable: false },
+  );
+  return send([...priorityFeeIxs(), cancelIx], conn);
 }
 
 export async function sendCancelAllOrders(
@@ -503,6 +518,8 @@ export async function sendCancelAllOrders(
   const [bids] = findBidsPda(marketIndex);
   const [asks] = findAsksPda(marketIndex);
   const [oo] = findOpenOrdersPda(owner, market);
+  const [userAccount] = findUserAccountPda(owner);
+  const [marketConfig] = findMarketConfigPda(marketIndex);
 
   const ix = getCancelAllOrdersInstruction({
     signer: fakeSigner(owner),
@@ -516,7 +533,13 @@ export async function sendCancelAllOrders(
     limit: args.limit ?? 24,
     padding: PADDING_5,
   });
-  return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
+  const cancelIx = toLegacyIx(ix);
+  cancelIx.keys.push(
+    { pubkey: userAccount, isSigner: false, isWritable: true },
+    { pubkey: marketConfig, isSigner: false, isWritable: false },
+    { pubkey: RISK_PROGRAM_ID, isSigner: false, isWritable: false },
+  );
+  return send([...priorityFeeIxs(), cancelIx], conn);
 }
 
 export async function sendEditOrder(
@@ -542,6 +565,8 @@ export async function sendEditOrder(
   const [asks] = findAsksPda(marketIndex);
   const [oo] = findOpenOrdersPda(owner, market);
   const [fillsLog, bumpFillsLog] = findFillsLogPda(owner, args.clientOrderId);
+  const [userAccount] = findUserAccountPda(owner);
+  const [marketConfig] = findMarketConfigPda(marketIndex);
 
   const initFillsLog = getInitializeFillsLogInstruction({
     feePayer: fakeSigner(owner),
@@ -575,10 +600,14 @@ export async function sendEditOrder(
     orderId: args.orderId,
   });
 
-  return send(
-    [...priorityFeeIxs(), toLegacyIx(initFillsLog), toLegacyIx(edit)],
-    conn,
+  const editIx = toLegacyIx(edit);
+  editIx.keys.push(
+    { pubkey: userAccount, isSigner: false, isWritable: true },
+    { pubkey: marketConfig, isSigner: false, isWritable: false },
+    { pubkey: RISK_PROGRAM_ID, isSigner: false, isWritable: false },
   );
+
+  return send([...priorityFeeIxs(), toLegacyIx(initFillsLog), editIx], conn);
 }
 
 export async function sendSetDelegate(

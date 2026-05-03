@@ -8,6 +8,7 @@ use shank::ShankType;
 
 use crate::{
     constants::{MARKET_SEED, MAX_OPEN_ORDERS, OPEN_ORDERS_SEED},
+    cpi::order_margin_cpi,
     errors::OrderBookError,
     helper::{
         verify_account_owner, verify_owner_or_delegate, verify_pda, verify_signer, verify_writtable,
@@ -30,6 +31,18 @@ pub fn process_cancel_all_orders(accounts: &[AccountView], data: &[u8]) -> Progr
     };
 
     verify_signer(signer)?;
+    let user_account = _remaining
+        .first()
+        .ok_or(ProgramError::NotEnoughAccountKeys)?;
+    let market_config = _remaining
+        .get(1)
+        .ok_or(ProgramError::NotEnoughAccountKeys)?;
+    let risk_program = _remaining
+        .get(2)
+        .ok_or(ProgramError::NotEnoughAccountKeys)?;
+    if risk_program.address().as_array() != &crate::RISK_PROGRAM_ID {
+        return Err(ProgramError::IncorrectProgramId);
+    }
     unsafe {
         verify_account_owner(market, &crate::ID)?;
         verify_account_owner(open_orders_account, &crate::ID)?;
@@ -122,6 +135,49 @@ pub fn process_cancel_all_orders(accounts: &[AccountView], data: &[u8]) -> Progr
         asks: asks_state,
     };
 
+    let mut release_quote_lots = 0_i64;
+    for i in 0..oo_account_state.open_orders.len() {
+        let oo = oo_account_state.open_orders[i];
+        if oo.is_free() {
+            continue;
+        }
+        if let Some(side) = side_filter {
+            if oo.side() != side {
+                continue;
+            }
+        }
+        if let Some(client_id) = client_id_filter {
+            if oo.client_id != client_id {
+                continue;
+            }
+        }
+        let bookside = match oo.side() {
+            Side::Bid => &*orderbook.bids,
+            Side::Ask => &*orderbook.asks,
+        };
+        if let Some(leaf) = bookside.node_by_key(u128::from_le_bytes(oo.id)) {
+            let quote_lots = leaf
+                .quantity
+                .checked_mul(oo.locked_price)
+                .ok_or(ProgramError::ArithmeticOverflow)?;
+            release_quote_lots = release_quote_lots
+                .checked_add(quote_lots)
+                .ok_or(ProgramError::ArithmeticOverflow)?;
+        }
+    }
+
     orderbook.cancel_all_orders(oo_account_state, side_filter, client_id_filter, limit)?;
+    if release_quote_lots > 0 {
+        order_margin_cpi(
+            risk_program,
+            signer,
+            user_account,
+            market_config,
+            release_quote_lots,
+            market_state.market_index,
+            0,
+            false,
+        )?;
+    }
     Ok(())
 }

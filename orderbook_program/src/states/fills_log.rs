@@ -24,7 +24,7 @@ const _: () = assert!(size_of::<FillsLog>() % 8 == 0);
 
 impl FillsLog {
     pub const LEN: usize = size_of::<FillsLog>();
-    
+
     pub fn is_ready(&self, current_slot: u64) -> bool {
         if self.all_settled == 1 {
             return true;

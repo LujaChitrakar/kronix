@@ -8,6 +8,7 @@ use shank::ShankType;
 
 use crate::{
     constants::{FILLS_LOG_SEED, MARKET_SEED, MAX_FILLS_PER_ORDER, OPEN_ORDERS_SEED},
+    cpi::order_margin_cpi,
     errors::OrderBookError,
     helper::{
         verify_account_owner, verify_initialized, verify_owner_or_delegate, verify_pda,
@@ -48,6 +49,18 @@ pub fn process_edit_order(accounts: &[AccountView], data: &[u8]) -> ProgramResul
     verify_initialized(bids)?;
     verify_initialized(asks)?;
     verify_program_id(system_program, &pinocchio_system::ID)?;
+    let user_account = _remaining
+        .first()
+        .ok_or(ProgramError::NotEnoughAccountKeys)?;
+    let market_config = _remaining
+        .get(1)
+        .ok_or(ProgramError::NotEnoughAccountKeys)?;
+    let risk_program = _remaining
+        .get(2)
+        .ok_or(ProgramError::NotEnoughAccountKeys)?;
+    if risk_program.address().as_array() != &crate::RISK_PROGRAM_ID {
+        return Err(ProgramError::IncorrectProgramId);
+    }
     unsafe {
         verify_account_owner(market, &crate::ID)?;
         verify_account_owner(open_orders_account, &crate::ID)?;
@@ -146,9 +159,10 @@ pub fn process_edit_order(accounts: &[AccountView], data: &[u8]) -> ProgramResul
         )?;
     }
 
-    oo_account_state
+    let old_locked_price = oo_account_state
         .find_order_with_order_id(order_id)
-        .ok_or(OrderBookError::OrderIdNotFound)?;
+        .ok_or(OrderBookError::OrderIdNotFound)?
+        .locked_price;
 
     let time_in_force = Order::tif_from_expiry(params.expiry_timestamp, now_ts as u64)
         .ok_or(OrderBookError::OrderAlreadyExpired)?;
@@ -203,7 +217,24 @@ pub fn process_edit_order(accounts: &[AccountView], data: &[u8]) -> ProgramResul
         side,
         Some(*signer.address().as_array()),
     ) {
-        Ok(_) => {}
+        Ok(old_leaf) => {
+            let old_quote_lots = old_leaf
+                .quantity
+                .checked_mul(old_locked_price)
+                .ok_or(ProgramError::ArithmeticOverflow)?;
+            if old_quote_lots > 0 {
+                order_margin_cpi(
+                    risk_program,
+                    signer,
+                    user_account,
+                    market_config,
+                    old_quote_lots,
+                    market_state.market_index,
+                    0,
+                    false,
+                )?;
+            }
+        }
         Err(e) => {
             // if order not found still place  new one
             let is_not_found = matches!(
@@ -219,6 +250,16 @@ pub fn process_edit_order(accounts: &[AccountView], data: &[u8]) -> ProgramResul
     }
 
     // place new order
+    order_margin_cpi(
+        risk_program,
+        signer,
+        user_account,
+        market_config,
+        new_order.max_quote_lots,
+        market_state.market_index,
+        0,
+        true,
+    )?;
 
     let result = order_book.new_order(
         &new_order,
@@ -227,6 +268,34 @@ pub fn process_edit_order(accounts: &[AccountView], data: &[u8]) -> ProgramResul
         now_ts as u64,
         params.limit.min(MAX_FILLS_PER_ORDER as u8),
     )?;
+
+    let mut used_quote_lots = result
+        .posted_base_lots
+        .checked_mul(result.posted_price)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    for i in 0..result.fill_count as usize {
+        let fill_quote_lots = result.fills[i]
+            .quantity
+            .checked_mul(result.fills[i].price)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        used_quote_lots = used_quote_lots
+            .checked_add(fill_quote_lots)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+    }
+
+    let unused_quote_lots = new_order.max_quote_lots.saturating_sub(used_quote_lots);
+    if unused_quote_lots > 0 {
+        order_margin_cpi(
+            risk_program,
+            signer,
+            user_account,
+            market_config,
+            unused_quote_lots,
+            market_state.market_index,
+            0,
+            false,
+        )?;
+    }
 
     if result.fill_count > 0 {
         let mut log_data = fills_log.try_borrow_mut()?;

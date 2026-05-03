@@ -1,4 +1,4 @@
-use pinocchio::{AccountView, ProgramResult, error::ProgramError};
+use pinocchio::{error::ProgramError, AccountView, ProgramResult};
 
 use crate::states::StrategyAccount;
 

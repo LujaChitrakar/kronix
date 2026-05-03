@@ -14,8 +14,8 @@ use crate::{
     },
     instructions::{
         CancelAllOrdersParams, CancelOrderByClientIdParams, CancelOrderParams, ClaimFillParams,
-        CreateOrderbookMarketParams, CreateOpenOrdersAccountParams, EditOrderParams, PlaceOrderParams,
-        PlaceTakeOrderParams, PruneOrdersParams,
+        CreateOpenOrdersAccountParams, CreateOrderbookMarketParams, EditOrderParams,
+        PlaceOrderParams, PlaceTakeOrderParams, PruneOrdersParams,
     },
     states::OpenOrdersAccount,
 };

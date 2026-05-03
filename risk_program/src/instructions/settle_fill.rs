@@ -15,7 +15,7 @@ use crate::{
         verify_account_owner, verify_initialized, verify_pda, verify_program_id, verify_writtable,
     },
     instructions::settle_funding_internal,
-    state::{FundingState, MarketConfig, Position, UserAccount},
+    state::{FundingState, MarketConfig, Position, UserAccount, QUOTE_NATIVE_UNIT},
 };
 
 #[derive(Pod, Zeroable, Clone, Copy, ShankType)]
@@ -181,7 +181,7 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
 
     if position_is_new {
         let required_margin =
-            market_config_state.required_initial_margin(params.base_lots, params.price_lots);
+            market_config_state.notional_value(params.base_lots, params.price_lots);
 
         let mut position_data = position.try_borrow_mut()?;
         let position_state =
@@ -200,10 +200,7 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
             reserved: [0; 32],
         };
 
-        user_account_state.margin_used = user_account_state
-            .margin_used
-            .checked_add(required_margin)
-            .ok_or(ProgramError::ArithmeticOverflow)?;
+        user_account_state.consume_reserved_order_margin(required_margin)?;
         user_account_state.position_count = user_account_state
             .position_count
             .checked_add(1)
@@ -236,7 +233,7 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
                 .ok_or(ProgramError::ArithmeticOverflow)? as i64;
 
             let additional_margin =
-                market_config_state.required_initial_margin(params.base_lots, params.price_lots);
+                market_config_state.notional_value(params.base_lots, params.price_lots);
 
             position_state.size = new_size;
             position_state.entry_price = new_entry_price;
@@ -245,10 +242,7 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
                 .checked_add(additional_margin)
                 .ok_or(ProgramError::ArithmeticOverflow)?;
 
-            user_account_state.margin_used = user_account_state
-                .margin_used
-                .checked_add(additional_margin)
-                .ok_or(ProgramError::ArithmeticOverflow)?;
+            user_account_state.consume_reserved_order_margin(additional_margin)?;
         } else {
             let close_size = params.base_lots.min(position_state.size);
 
@@ -261,13 +255,13 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
                 (close_size as i128)
                     .checked_mul(price_diff as i128)
                     .ok_or(ProgramError::ArithmeticOverflow)?
-                    .checked_mul(market_config_state.quote_lot_size as i128)
+                    .checked_mul(QUOTE_NATIVE_UNIT)
                     .ok_or(ProgramError::ArithmeticOverflow)?
             } else {
                 (close_size as i128)
                     .checked_mul(-price_diff as i128)
                     .ok_or(ProgramError::ArithmeticOverflow)?
-                    .checked_mul(market_config_state.quote_lot_size as i128)
+                    .checked_mul(QUOTE_NATIVE_UNIT)
                     .ok_or(ProgramError::ArithmeticOverflow)?
             };
             let realized_pnl =
@@ -302,17 +296,14 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
 
                 if flip_size > 0 {
                     let new_margin =
-                        market_config_state.required_initial_margin(flip_size, params.price_lots);
+                        market_config_state.notional_value(flip_size, params.price_lots);
                     position_state.side = position_side;
                     position_state.size = flip_size;
                     position_state.entry_price = params.price_lots;
                     position_state.initial_margin = new_margin;
                     position_state.entry_funding_index = funding.cumulative_index;
 
-                    user_account_state.margin_used = user_account_state
-                        .margin_used
-                        .checked_add(new_margin)
-                        .ok_or(ProgramError::ArithmeticOverflow)?;
+                    user_account_state.consume_reserved_order_margin(new_margin)?;
                 } else {
                     position_state.size = 0;
                     position_state.initial_margin = 0;

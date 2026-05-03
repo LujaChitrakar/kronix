@@ -11,6 +11,7 @@ pub mod initialize_insurance_fund;
 pub mod initialize_vault;
 pub mod liquidate;
 pub mod open_position;
+pub mod order_margin;
 pub mod remove_margin;
 pub mod settle_fill;
 pub mod settle_funding;
@@ -27,6 +28,7 @@ pub use initialize_insurance_fund::*;
 pub use initialize_vault::*;
 pub use liquidate::*;
 pub use open_position::*;
+pub use order_margin::*;
 pub use remove_margin::*;
 pub use settle_fill::*;
 pub use settle_funding::*;
@@ -161,6 +163,16 @@ pub enum RiskInstruction {
     #[account(4, name = "token_program", desc = "Token program")]
     #[account(5, name = "system_program", desc = "System program")]
     DepositInsurance(DepositInsuranceParams),
+
+    #[account(0, name = "signer", desc = "Order owner", signer)]
+    #[account(1, name = "user_account", desc = "UserAccount PDA", writable)]
+    #[account(2, name = "market_config", desc = "MarketConfig")]
+    ReserveOrderMargin(OrderMarginParams),
+
+    #[account(0, name = "signer", desc = "Order owner", signer)]
+    #[account(1, name = "user_account", desc = "UserAccount PDA", writable)]
+    #[account(2, name = "market_config", desc = "MarketConfig")]
+    ReleaseOrderMargin(OrderMarginParams),
 }
 
 #[repr(u8)]
@@ -180,6 +192,8 @@ pub enum RiskProgramInstruction {
     Liquidate = 12,
     CoverBadDebt = 13,
     DepositInsurance = 14,
+    ReserveOrderMargin = 15,
+    ReleaseOrderMargin = 16,
 }
 
 impl TryFrom<&u8> for RiskProgramInstruction {
@@ -202,6 +216,8 @@ impl TryFrom<&u8> for RiskProgramInstruction {
             12 => Ok(RiskProgramInstruction::Liquidate),
             13 => Ok(RiskProgramInstruction::CoverBadDebt),
             14 => Ok(RiskProgramInstruction::DepositInsurance),
+            15 => Ok(RiskProgramInstruction::ReserveOrderMargin),
+            16 => Ok(RiskProgramInstruction::ReleaseOrderMargin),
             _ => Err(ProgramError::InvalidInstructionData),
         }
     }

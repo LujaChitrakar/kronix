@@ -5,11 +5,7 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-      pub mod accounts;
-        pub mod errors;
-        pub mod instructions;
-        pub mod programs;
-        pub mod shared;
-        pub mod types;
-  
-  pub(crate) use programs::*;
+  pub(crate) mod r#order_margin_params;
+
+  pub use self::r#order_margin_params::*;
+
