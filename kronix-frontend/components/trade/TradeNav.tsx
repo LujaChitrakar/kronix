@@ -3,14 +3,38 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { MARKET_NAME, RPC_URL } from "@/lib/kronix/config";
 
 export function TradeNav() {
+  const wallet = useWallet();
   const [mounted, setMounted] = useState(false);
+  const [usdcBusy, setUsdcBusy] = useState(false);
+  const [usdcMsg, setUsdcMsg] = useState("");
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const requestUsdc = async () => {
+    if (!wallet.publicKey || usdcBusy) return;
+    setUsdcBusy(true);
+    setUsdcMsg("");
+    try {
+      const res = await fetch("/api/faucet-usdc", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ wallet: wallet.publicKey.toBase58() }),
+      });
+      const json = (await res.json()) as { signature?: string; error?: string };
+      if (!res.ok) throw new Error(json.error ?? "USDC faucet failed");
+      setUsdcMsg(`Sent ${json.signature?.slice(0, 8)}…`);
+    } catch (e) {
+      setUsdcMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setUsdcBusy(false);
+    }
+  };
 
   const cluster = RPC_URL.includes("devnet")
     ? "Devnet"
@@ -37,14 +61,25 @@ export function TradeNav() {
           </span>
         </div>*/}
         <div className="flex items-center gap-2">
-          <a
-            href="https://faucet.circle.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-3 h-9 inline-flex items-center rounded-md bg-kx-surface-hi border kx-border text-xs font-bold text-on-surface hover:text-[#4DFFB4] transition-colors"
+          {usdcMsg && (
+            <span
+              className={`hidden md:inline max-w-64 truncate font-mono text-[11px] ${
+                usdcMsg.startsWith("Sent") ? "text-[#4DFFB4]" : "text-[#ff6b6b]"
+              }`}
+              title={usdcMsg}
+            >
+              {usdcMsg}
+            </span>
+          )}
+          <button
+            type="button"
+            disabled={!wallet.publicKey || usdcBusy}
+            onClick={requestUsdc}
+            title={usdcMsg || (!wallet.publicKey ? "Connect wallet first" : "Transfer 1000 devnet USDC")}
+            className="px-3 h-9 inline-flex items-center rounded-md bg-kx-surface-hi border kx-border text-xs font-bold text-on-surface hover:text-[#4DFFB4] disabled:opacity-50 disabled:hover:text-on-surface transition-colors"
           >
-            Get USDC devnet
-          </a>
+            {usdcBusy ? "Sending…" : "Get USDC devnet"}
+          </button>
           <a
             href="https://faucet.solana.com"
             target="_blank"

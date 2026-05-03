@@ -4,7 +4,7 @@ use pinocchio::{
     error::ProgramError,
     AccountView, ProgramResult,
 };
-use pinocchio_token::instructions::Transfer;
+use pinocchio_token::{instructions::Transfer, state::TokenAccount};
 use shank::ShankType;
 
 use crate::{
@@ -43,6 +43,10 @@ pub fn process_withdraw(accounts: &[AccountView], data: &[u8]) -> ProgramResult 
     }
     let signer_key = signer.address().as_array();
     let amount = params.amount;
+    let token_mint = {
+        let user_token = TokenAccount::from_account_view(user_token_account)?;
+        *user_token.mint().as_array()
+    };
 
     {
         verify_pda(
@@ -50,10 +54,18 @@ pub fn process_withdraw(accounts: &[AccountView], data: &[u8]) -> ProgramResult 
             &[USER_ACCOUNT_SEED, signer_key.as_ref(), &[params.bump_user]],
             &crate::ID,
         )?;
-        verify_pda(vault, &[VAULT_SEED, &[params.bump_vault]], &crate::ID)?;
+        verify_pda(
+            vault,
+            &[VAULT_SEED, token_mint.as_ref(), &[params.bump_vault]],
+            &crate::ID,
+        )?;
         verify_pda(
             vault_authority,
-            &[VAULT_AUTHORITY_SEED, &[params.bump_authority]],
+            &[
+                VAULT_AUTHORITY_SEED,
+                token_mint.as_ref(),
+                &[params.bump_authority],
+            ],
             &crate::ID,
         )?;
     }
@@ -80,6 +92,7 @@ pub fn process_withdraw(accounts: &[AccountView], data: &[u8]) -> ProgramResult 
     let vault_authority_bump = [params.bump_authority];
     let vault_authority_seed = [
         Seed::from(VAULT_AUTHORITY_SEED),
+        Seed::from(token_mint.as_ref()),
         Seed::from(vault_authority_bump.as_ref()),
     ];
 

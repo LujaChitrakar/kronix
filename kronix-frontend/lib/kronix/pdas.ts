@@ -4,6 +4,7 @@ import {
   RISK_PROGRAM_ID,
   TRIGGER_PROGRAM_ID,
   STRATEGY_PROGRAM_ID,
+  USDC_MINT,
 } from "./config";
 
 // Browser Buffer polyfill lacks writeBigUInt64LE — use DataView and copy
@@ -104,16 +105,16 @@ export function findInsuranceFundPda(): [PublicKey, number] {
   );
 }
 
-export function findVaultPda(): [PublicKey, number] {
+export function findVaultPda(mint = USDC_MINT): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("vault")],
+    [Buffer.from("vault"), mint.toBuffer()],
     RISK_PROGRAM_ID,
   );
 }
 
-export function findVaultAuthorityPda(): [PublicKey, number] {
+export function findVaultAuthorityPda(mint = USDC_MINT): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("vault_authority")],
+    [Buffer.from("vault_authority"), mint.toBuffer()],
     RISK_PROGRAM_ID,
   );
 }

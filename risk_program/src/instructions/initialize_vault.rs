@@ -48,15 +48,27 @@ pub fn process_initialize_vault(accounts: &[AccountView], data: &[u8]) -> Progra
     let vault_bump = [params.vault_bump];
     let authority_bump = [params.authority_bump];
 
-    verify_pda(vault, &[VAULT_SEED, &vault_bump], &crate::ID)?;
-
     verify_pda(
-        vault_authority,
-        &[VAULT_AUTHORITY_SEED, &authority_bump],
+        vault,
+        &[VAULT_SEED, mint.address().as_array().as_ref(), &vault_bump],
         &crate::ID,
     )?;
 
-    let vault_seeds = [Seed::from(VAULT_SEED), Seed::from(vault_bump.as_ref())];
+    verify_pda(
+        vault_authority,
+        &[
+            VAULT_AUTHORITY_SEED,
+            mint.address().as_array().as_ref(),
+            &authority_bump,
+        ],
+        &crate::ID,
+    )?;
+
+    let vault_seeds = [
+        Seed::from(VAULT_SEED),
+        Seed::from(mint.address().as_array().as_ref()),
+        Seed::from(vault_bump.as_ref()),
+    ];
 
     // SPL token account = 165 bytes
     let rent = Rent::get()?;

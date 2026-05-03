@@ -6,7 +6,7 @@ use pinocchio::{
     AccountView, ProgramResult,
 };
 use pinocchio_log::log;
-use pinocchio_token::instructions::Transfer;
+use pinocchio_token::{instructions::Transfer, state::TokenAccount};
 use shank::ShankType;
 
 use crate::{
@@ -143,8 +143,10 @@ pub fn process_liquidate(accounts: &[AccountView], data: &[u8]) -> ProgramResult
         bytemuck::from_bytes_mut::<InsuranceFund>(&mut insurance_data[..InsuranceFund::LEN]);
 
     let vault_authority_bump = [params.bump_authority];
+    let liquidator_token = TokenAccount::from_account_view(liquidator_token_account)?;
     let vault_authority_seed = [
         Seed::from(VAULT_AUTHORITY_SEED),
+        Seed::from(liquidator_token.mint().as_array().as_ref()),
         Seed::from(vault_authority_bump.as_ref()),
     ];
 

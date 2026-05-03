@@ -1,6 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{error::ProgramError, AccountView, ProgramResult};
-use pinocchio_token::instructions::Transfer;
+use pinocchio_token::{instructions::Transfer, state::TokenAccount};
 use shank::ShankType;
 
 use crate::{
@@ -47,7 +47,16 @@ pub fn process_deposit_insurance(accounts: &[AccountView], data: &[u8]) -> Progr
 
     unsafe { verify_account_owner(insurance_fund, &crate::ID)? };
 
-    verify_pda(vault, &[VAULT_SEED, &vault_bump], &crate::ID)?;
+    let user_token = TokenAccount::from_account_view(user_token_account)?;
+    verify_pda(
+        vault,
+        &[
+            VAULT_SEED,
+            user_token.mint().as_array().as_ref(),
+            &vault_bump,
+        ],
+        &crate::ID,
+    )?;
 
     let mut insurance_fund_data = insurance_fund.try_borrow_mut()?;
     let insurance_fund_state =

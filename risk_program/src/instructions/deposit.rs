@@ -6,11 +6,11 @@ use pinocchio::{
     AccountView, Address, ProgramResult,
 };
 use pinocchio_system::instructions::CreateAccount;
-use pinocchio_token::instructions::Transfer;
+use pinocchio_token::{instructions::Transfer, state::TokenAccount};
 use shank::ShankType;
 
 use crate::{
-    constants::USER_ACCOUNT_SEED,
+    constants::{USER_ACCOUNT_SEED, VAULT_SEED},
     errors::RiskProgramError,
     helper::{verify_account_owner, verify_pda, verify_program_id, verify_signer},
     state::UserAccount,
@@ -54,6 +54,16 @@ pub fn process_deposit(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     let bump_bytes = [params.bump_user];
 
     {
+        let user_token = TokenAccount::from_account_view(user_token_account)?;
+        verify_pda(
+            vault,
+            &[
+                VAULT_SEED,
+                user_token.mint().as_array().as_ref(),
+                &[params.bump_vault],
+            ],
+            &crate::ID,
+        )?;
         verify_pda(
             user_account,
             &[USER_ACCOUNT_SEED, signer_key.as_ref(), &bump_bytes],
