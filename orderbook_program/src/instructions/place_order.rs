@@ -231,6 +231,8 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
 
     let leverage = params.leverage;
     let reserved_margin = margin_from_quote_lots(params.max_quote_lots, leverage)?;
+    let oo_owner = oo_account_state.owner;
+    let market_index = market_state.market_index;
 
     let order = Order {
         side,
@@ -247,16 +249,18 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
         return Err(OrderBookError::InvalidInputLotsSize.into());
     }
 
+    drop(oo_account_data);
+
     order_margin_cpi(
         risk_program,
         signer,
         user_account,
         market_config,
         open_orders_account,
-        oo_account_state.owner,
+        oo_owner,
         order.max_quote_lots,
         0,
-        market_state.market_index,
+        market_index,
         leverage,
         0,
         true,
@@ -281,6 +285,11 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
         asks: asks_state,
     };
 
+    let mut oo_account_data = open_orders_account.try_borrow_mut()?;
+    let oo_account_state = bytemuck::from_bytes_mut::<OpenOrdersAccount>(
+        &mut oo_account_data[..OpenOrdersAccount::LEN],
+    );
+
     let mut result = order_book.new_order(
         &order,
         market_state,
@@ -298,16 +307,21 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
     }
 
     if result.unused_reserved_margin > 0 {
+        drop(order_book);
+        drop(bids_data);
+        drop(asks_data);
+        drop(oo_account_data);
+
         order_margin_cpi(
             risk_program,
             signer,
             user_account,
             market_config,
             open_orders_account,
-            oo_account_state.owner,
+            oo_owner,
             0,
             result.unused_reserved_margin,
-            market_state.market_index,
+            market_index,
             leverage,
             0,
             false,
@@ -343,9 +357,9 @@ pub fn process_place_order(accounts: &[AccountView], data: &[u8]) -> ProgramResu
                 maker_slot: fill.maker_slot,
                 maker_out: fill.maker_out as u8,
                 settled: 0,
-                market_index: market_state.market_index,
+                market_index,
                 padding: [0; 2],
-                taker_pubkey: oo_account_state.owner,
+                taker_pubkey: oo_owner,
                 maker_pubkey: fill.maker_pubkey,
             };
         }

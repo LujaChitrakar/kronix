@@ -143,6 +143,7 @@ pub fn place_order_cpi(
     side: u8,
     order_type: u8,
     limit: u8,
+    leverage: u8,
     bump_fills_log: u8,
     bump_authority: u8,
     owner_pubkey: [u8; 32],
@@ -157,7 +158,7 @@ pub fn place_order_cpi(
         order_type,
         limit,
         bump_fills_log,
-        leverage: 1,
+        leverage,
         padding: [0; 3],
     };
 

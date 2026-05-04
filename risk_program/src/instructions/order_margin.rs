@@ -5,7 +5,8 @@ use shank::ShankType;
 use crate::{
     constants::{
         OPEN_ORDERS_AUTHORITY_BYTES, OPEN_ORDERS_DELEGATE_OFFSET, OPEN_ORDERS_OWNER_OFFSET,
-        ORDERBOOK_PROGRAM_ID, TRIGGER_AUTHORITY_SEED, TRIGGER_PROGRAM_ID, USER_ACCOUNT_SEED,
+        ORDERBOOK_PROGRAM_ID, STRATEGY_AUTHORITY_SEED, STRATEGY_PROGRAM_ID,
+        TRIGGER_AUTHORITY_SEED, TRIGGER_PROGRAM_ID, USER_ACCOUNT_SEED,
     },
     errors::RiskProgramError,
     helper::{
@@ -75,6 +76,15 @@ fn verify_margin_authority(
             &[TRIGGER_AUTHORITY_SEED, params.owner.as_ref()],
             Some(bump),
             &TRIGGER_PROGRAM_ID,
+        );
+        if &derived == signer_key {
+            return Ok(());
+        }
+
+        let derived = pinocchio_pubkey::derive_address(
+            &[STRATEGY_AUTHORITY_SEED, params.owner.as_ref()],
+            Some(bump),
+            &STRATEGY_PROGRAM_ID,
         );
         if &derived == signer_key {
             return Ok(());

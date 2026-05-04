@@ -7,13 +7,25 @@ use risk_program_cpi::{
     SETTLE_FILL_IX,
 };
 
+const USER_ACCOUNT_OWNER_OFFSET: usize = 24;
+
+fn user_account_owner(user_account: &AccountView) -> Result<[u8; 32], pinocchio::error::ProgramError> {
+    let data = user_account.try_borrow()?;
+    if data.len() < USER_ACCOUNT_OWNER_OFFSET + 32 {
+        return Err(pinocchio::error::ProgramError::InvalidAccountData);
+    }
+    let mut owner = [0u8; 32];
+    owner.copy_from_slice(&data[USER_ACCOUNT_OWNER_OFFSET..USER_ACCOUNT_OWNER_OFFSET + 32]);
+    Ok(owner)
+}
+
 pub fn order_margin_cpi(
     risk_program: &AccountView,
     signer: &AccountView,
     user_account: &AccountView,
     market_config: &AccountView,
     open_orders_account: &AccountView,
-    owner: [u8; 32],
+    _owner: [u8; 32],
     quote_lots: i64,
     margin_amount: i64,
     market_index: u16,
@@ -21,6 +33,7 @@ pub fn order_margin_cpi(
     bump_user: u8,
     reserve: bool,
 ) -> ProgramResult {
+    let owner = user_account_owner(user_account)?;
     let params = OrderMarginParams {
         quote_lots,
         margin_amount,

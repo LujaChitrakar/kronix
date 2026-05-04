@@ -5,7 +5,6 @@ use pinocchio::{
     AccountView, ProgramResult,
 };
 use shank::ShankType;
-use std::i64;
 
 use crate::{
     constants::STRATEGY_AUTHORITY_SEED,
@@ -17,6 +16,8 @@ use crate::{
     helpers::{verify_account_owner, verify_pda, verify_signer, verify_writtable},
     states::StrategyAccount,
 };
+
+const MARKET_CONFIG_MAX_LEVERAGE_OFFSET: usize = 25;
 
 #[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
@@ -32,6 +33,14 @@ pub struct ExecuteStrategyParams {
     pub bump_tp_fills_log: u8, // fills_log used by TP trigger
     pub bump_sl_fills_log: u8, // fills_log used by SL trigger
     pub padding: [u8; 7],
+}
+
+fn market_max_leverage(market_config: &AccountView) -> Result<u8, ProgramError> {
+    let data = market_config.try_borrow()?;
+    if data.len() <= MARKET_CONFIG_MAX_LEVERAGE_OFFSET {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    Ok(data[MARKET_CONFIG_MAX_LEVERAGE_OFFSET].min(10).max(1))
 }
 
 pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
@@ -152,6 +161,20 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 
+    let quote_price_lots = if strategy.limit_price_lots > 0 {
+        strategy.limit_price_lots
+    } else {
+        strategy
+            .take_profit_price
+            .max(strategy.stop_loss_price)
+            .max(1)
+    };
+    let max_quote_lots = strategy
+        .size_lots
+        .checked_mul(quote_price_lots)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    let leverage = market_max_leverage(market_config)?;
+
     place_order_cpi(
         orderbook_program,
         system_program,
@@ -165,13 +188,14 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
         market_config,
         risk_program,
         strategy.size_lots,
-        i64::MAX,
+        max_quote_lots,
         strategy.client_order_id,
         0,
         strategy.limit_price_lots,
         params.signal,
         order_type,
         8u8,
+        leverage,
         params.bump_fills_log,
         params.bump_authority,
         owner_key,

@@ -108,12 +108,13 @@ const MARKET_INDEXES = (
 const POSITION_SIZE = 104;
 const USER_ACCOUNT_SIZE = 88;
 const TRIGGER_ORDER_SIZE = 144;
-const FILLS_LOG_SIZE = 952; // FillsLog::LEN — orderbook_program/src/states/fills_log.rs
+const FILLS_LOG_SIZE = 1336; // FillsLog::LEN — orderbook_program/src/states/fills_log.rs
 const PRUNE_BATCH = 16;
 const EXECUTE_TRIGGER_DISC = 2;
 const PRUNE_EXPIRED_TRIGGER_DISC = 4;
 const EXECUTE_STRATEGY_DISC = 2;
 const PRICE_HISTORY_MAX = 200;
+const QUOTE_NATIVE_UNIT = 1_000_000n;
 const LIQUIDATION_HEALTH_BUFFER = 1_000n;
 const DEV_SKIP_CORRUPTED_ACCOUNTS =
   process.env.KEEPER_DEV_SKIP_CORRUPTED_ACCOUNTS === "1" &&
@@ -324,6 +325,7 @@ type MarketCtx = {
   quoteLotSize: bigint;
   maintenanceMarginBps: number;
   liquidationFeeBps: number;
+  maxLeverage: number;
 };
 
 function feedOverrideForMarket(marketIndex: number): PublicKey | null {
@@ -368,10 +370,12 @@ async function loadMarkets(): Promise<MarketCtx[]> {
     //   quote_lot_size i64       @ 8
     //   maintenance_margin_bps u16 @ 20
     //   liquidation_fee_bps u16  @ 22
-    //   oracle [u8;32]           @ 32
+    //   max_leverage u8           @ 25
+    //   oracle [u8;32]            @ 32
     const quoteLotSize = data.readBigInt64LE(8);
     const maintenanceMarginBps = data.readUInt16LE(20);
     const liquidationFeeBps = data.readUInt16LE(22);
+    const maxLeverage = Math.max(1, Math.min(10, data.readUInt8(25)));
     const storedOracle = new PublicKey(data.subarray(32, 64));
     const oracle = feedOverrideForMarket(idx) ?? storedOracle;
     markets.push({
@@ -383,9 +387,10 @@ async function loadMarkets(): Promise<MarketCtx[]> {
       quoteLotSize,
       maintenanceMarginBps,
       liquidationFeeBps,
+      maxLeverage,
     });
     console.log(
-      `[init] market ${idx} oracle=${oracle.toBase58()} stored_oracle=${storedOracle.toBase58()} quote_lot=${quoteLotSize} maint_bps=${maintenanceMarginBps} liq_fee_bps=${liquidationFeeBps}`,
+      `[init] market ${idx} oracle=${oracle.toBase58()} stored_oracle=${storedOracle.toBase58()} quote_lot=${quoteLotSize} maint_bps=${maintenanceMarginBps} liq_fee_bps=${liquidationFeeBps} max_lev=${maxLeverage}`,
     );
   }
   if (markets.length === 0) throw new Error("No MarketConfig accounts found");
@@ -1212,6 +1217,8 @@ type StrategyRow = {
   status: number;
   marketIndex: number;
   side: number;
+  sizeLots: bigint;
+  limitPriceLots: bigint;
   clientOrderId: bigint;
   takeProfitPrice: bigint;
   stopLossPrice: bigint;
@@ -1252,6 +1259,8 @@ async function scanStrategies(): Promise<StrategyRow[]> {
         status: s.status,
         marketIndex: s.marketIndex,
         side: s.side,
+        sizeLots: s.sizeLots,
+        limitPriceLots: s.limitPriceLots,
         clientOrderId: s.clientOrderId,
         takeProfitPrice: s.takeProfitPrice,
         stopLossPrice: s.stopLossPrice,
@@ -1482,6 +1491,7 @@ function buildExecuteStrategyIx(args: {
 async function runExecuteStrategies(): Promise<void> {
   const markets = await loadMarkets();
   const strategies = await scanStrategies();
+  const users = await scanUserAccounts();
   const now = BigInt(Math.floor(Date.now() / 1000));
 
   for (const s of strategies) {
@@ -1508,6 +1518,28 @@ async function runExecuteStrategies(): Promise<void> {
 
     const signal = computeSignal(s, markLots);
     if (signal === null) continue;
+
+    const ua = users.get(s.owner.toBase58());
+    if (!ua) continue;
+    const sizeLotsAbs = s.sizeLots < 0n ? -s.sizeLots : s.sizeLots;
+    const quotePriceLots =
+      s.limitPriceLots > 0n
+        ? s.limitPriceLots
+        : [s.takeProfitPrice, s.stopLossPrice, 1n].reduce((a, b) =>
+            a > b ? a : b,
+          );
+    const maxQuoteLots = sizeLotsAbs * quotePriceLots;
+    if (maxQuoteLots <= 0n) continue;
+    const leverage = BigInt(m.maxLeverage);
+    const requiredMargin =
+      (maxQuoteLots * QUOTE_NATIVE_UNIT + leverage - 1n) / leverage;
+    const freeCollateral = ua.collateral - ua.marginUsed;
+    if (requiredMargin > freeCollateral) {
+      console.log(
+        `[execute-strategy ${s.owner.toBase58().slice(0, 6)}/t${s.strategyType}/sig${signal}] skip collateral free=${freeCollateral} required=${requiredMargin} lev=${m.maxLeverage}`,
+      );
+      continue;
+    }
 
     const [strategyAuthority, bumpAuthority] = findStrategyAuthorityPda(s.owner);
     const [market] = findMarketPda(s.marketIndex);
