@@ -11,6 +11,7 @@ import {
 } from "@/lib/kronix/client";
 import { PlaceOrderType } from "@/lib/kronix/config";
 import { useStore } from "@/lib/store";
+import { notifyError, notifyTxSuccess, notifyWarning } from "@/lib/notifications";
 import { sendTx, formatTxError } from "./tx";
 
 type Row = {
@@ -90,9 +91,12 @@ export function OpenOrders() {
         marketIndex,
       );
       setMsg(`Cancel → ${sig.slice(0, 8)}…`);
+      notifyTxSuccess("Order cancelled", sig);
       await refresh();
     } catch (e) {
-      setMsg(`Cancel failed:\n${formatTxError(e)}`);
+      const err = formatTxError(e);
+      setMsg(`Cancel failed:\n${err}`);
+      notifyError("Cancel failed", err);
     } finally {
       setBusy(null);
     }
@@ -111,9 +115,12 @@ export function OpenOrders() {
         marketIndex,
       );
       setMsg(`Cancel-all → ${sig.slice(0, 8)}…`);
+      notifyTxSuccess("Orders cancelled", sig);
       await refresh();
     } catch (e) {
-      setMsg(`Cancel-all failed:\n${formatTxError(e)}`);
+      const err = formatTxError(e);
+      setMsg(`Cancel-all failed:\n${err}`);
+      notifyError("Cancel-all failed", err);
     } finally {
       setBusy(null);
     }
@@ -125,6 +132,7 @@ export function OpenOrders() {
     const newBase = BigInt(parseInt(draft.size || "0", 10));
     if (newPrice <= 0n || newBase <= 0n) {
       setMsg("Edit: price + size required");
+      notifyWarning("Edit blocked", "Price + size required");
       return;
     }
     setBusy(`edit ${r.clientId}`);
@@ -150,11 +158,14 @@ export function OpenOrders() {
         (ixs, c) => sendTx(wallet, c, ixs),
       );
       setMsg(`Edit → ${sig.slice(0, 8)}…`);
+      notifyTxSuccess("Order edited", sig);
       setEditing(null);
       setDraft({ price: "", size: "", leverage: "1" });
       await refresh();
     } catch (e) {
-      setMsg(`Edit failed:\n${formatTxError(e)}`);
+      const err = formatTxError(e);
+      setMsg(`Edit failed:\n${err}`);
+      notifyError("Edit failed", err);
     } finally {
       setBusy(null);
     }

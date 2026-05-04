@@ -11,6 +11,7 @@ import {
   sendResumeStrategy,
 } from "@/lib/kronix/client";
 import { useStore } from "@/lib/store";
+import { notifyError, notifyTxSuccess } from "@/lib/notifications";
 import { sendTx, formatTxError } from "./tx";
 import { getStrategyAccountDecoder, STRATEGY_ACCOUNT_LEN } from "@/lib/strategy-sdk";
 
@@ -133,9 +134,12 @@ export function Strategies() {
         marketIndex,
       );
       setMsg(`Pause → ${sig.slice(0, 8)}…`);
+      notifyTxSuccess("Strategy paused", sig);
       await refresh();
     } catch (e) {
-      setMsg(`Pause failed:\n${formatTxError(e)}`);
+      const err = formatTxError(e);
+      setMsg(`Pause failed:\n${err}`);
+      notifyError("Pause failed", err);
     } finally {
       setBusy(null);
     }
@@ -154,9 +158,12 @@ export function Strategies() {
         marketIndex,
       );
       setMsg(`Resume → ${sig.slice(0, 8)}…`);
+      notifyTxSuccess("Strategy resumed", sig);
       await refresh();
     } catch (e) {
-      setMsg(`Resume failed:\n${formatTxError(e)}`);
+      const err = formatTxError(e);
+      setMsg(`Resume failed:\n${err}`);
+      notifyError("Resume failed", err);
     } finally {
       setBusy(null);
     }
@@ -175,9 +182,12 @@ export function Strategies() {
         marketIndex,
       );
       setMsg(`Close → ${sig.slice(0, 8)}…`);
+      notifyTxSuccess("Strategy closed", sig);
       await refresh();
     } catch (e) {
-      setMsg(`Close failed:\n${formatTxError(e)}`);
+      const err = formatTxError(e);
+      setMsg(`Close failed:\n${err}`);
+      notifyError("Close failed", err);
     } finally {
       setBusy(null);
     }
@@ -217,10 +227,13 @@ export function Strategies() {
         marketIndex,
       );
       setMsg(`Edit → ${sig.slice(0, 8)}…`);
+      notifyTxSuccess("Strategy edited", sig);
       setEditType(null);
       await refresh();
     } catch (e) {
-      setMsg(`Edit failed:\n${formatTxError(e)}`);
+      const err = formatTxError(e);
+      setMsg(`Edit failed:\n${err}`);
+      notifyError("Edit failed", err);
     } finally {
       setBusy(null);
     }

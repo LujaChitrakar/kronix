@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { notifyError, notifyInfo, notifyWarning } from "@/lib/notifications";
 
 export default function WaitlistForm() {
   const [name, setName] = useState("");
@@ -27,10 +28,14 @@ export default function WaitlistForm() {
 
   const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
-    if (!name || !email) return;
+    if (!name || !email) {
+      notifyWarning("Waitlist blocked", "Name and email required");
+      return;
+    }
     setLoading(true);
     setError(null);
     setSubmitted(true);
+    notifyInfo("Joining waitlist", "Submitting early access request");
     
     const { error: sbError } = await supabase.from("waitlist").insert({
       name: name.trim(),
@@ -39,16 +44,18 @@ export default function WaitlistForm() {
     });
     
     if (sbError) {
-      setError(
+      const message =
         sbError.code === "23505"
         ? "This email is already on the waitlist."
-        : "Something went wrong. Please try again."
-      );
+        : "Something went wrong. Please try again.";
+      setError(message);
+      notifyError("Waitlist failed", message);
       setLoading(false);
       return;
     }
 
     setLoading(false);
+    notifyInfo("Waitlist confirmed", "Redirecting shortly");
   };
 
   const REDIRECT_SECONDS = 6;

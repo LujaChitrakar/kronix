@@ -16,6 +16,12 @@ import {
 } from "@/lib/kronix/pdas";
 import { fetchOpenOrders, fetchMarketConfig, fetchUser } from "@/lib/kronix/state";
 import { useStore } from "@/lib/store";
+import {
+  notifyError,
+  notifyInfo,
+  notifyTxSuccess,
+  notifyWarning,
+} from "@/lib/notifications";
 import { sendTx, formatTxError } from "./tx";
 
 type OwnOrder = { clientId: bigint; priceLots: bigint; side: number };
@@ -148,19 +154,25 @@ export function OrderForm() {
     if (!owner || conflicts.length === 0) return;
     setBusy(true);
     setMsg(`Cancelling ${conflicts.length} own order(s)…`);
+    notifyInfo("Cancelling conflicting orders", `${conflicts.length} order(s)`);
     try {
+      const sigs: string[] = [];
       for (const o of conflicts) {
-        await sendCancelOrderByClientId(
+        const sig = await sendCancelOrderByClientId(
           owner,
           o.clientId,
           connection,
           (ixs, c) => sendTx(wallet, c, ixs),
           marketIndex,
         );
+        sigs.push(sig);
       }
       setMsg(`Cancelled ${conflicts.length}. Retry place order.`);
+      for (const sig of sigs) notifyTxSuccess("Conflicting order cancelled", sig);
     } catch (e) {
-      setMsg(`Cancel failed:\n${formatTxError(e)}`);
+      const err = formatTxError(e);
+      setMsg(`Cancel failed:\n${err}`);
+      notifyError("Cancel failed", err);
     } finally {
       setBusy(false);
     }
@@ -175,10 +187,12 @@ export function OrderForm() {
     const maxBaseLots = BigInt(parseInt(size || "0", 10));
     if (maxBaseLots <= 0n) {
       setMsg("Enter size in lots");
+      notifyWarning("Order blocked", "Enter size in lots");
       return;
     }
     if (!isMarket && priceLots <= 0n) {
       setMsg("Enter price in lots");
+      notifyWarning("Order blocked", "Enter price in lots");
       return;
     }
     setBusy(true);
@@ -196,6 +210,7 @@ export function OrderForm() {
 
       if (maxQuoteLots <= 0n) {
         setMsg("No free collateral");
+        notifyWarning("Order blocked", "No free collateral");
         setBusy(false);
         return;
       }
@@ -224,8 +239,18 @@ export function OrderForm() {
           `settle TXs=${settled}` +
           (settled ? ` [${res.settleSigs.map((s) => s.slice(0, 6)).join(", ")}]` : ""),
       );
+      notifyTxSuccess(
+        "Order placed",
+        res.placeSig,
+        `fills=${res.fillCount} settle TXs=${settled}`,
+      );
+      for (const sig of res.settleSigs) {
+        notifyTxSuccess("Fill settled", sig);
+      }
     } catch (e) {
-      setMsg(`Failed:\n${formatTxError(e)}`);
+      const err = formatTxError(e);
+      setMsg(`Failed:\n${err}`);
+      notifyError("Order failed", err);
     } finally {
       setBusy(false);
     }

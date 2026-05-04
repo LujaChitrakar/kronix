@@ -15,6 +15,7 @@ import {
   sendEditTrigger,
 } from "@/lib/kronix/client";
 import { sendTx, formatTxError } from "./tx";
+import { notifyError, notifyTxSuccess } from "@/lib/notifications";
 import { getTriggerOrderDecoder } from "@/lib/trigger-sdk";
 
 const TRIGGER_ORDER_SIZE = 144;
@@ -113,9 +114,12 @@ export function TriggerOrders() {
         (ixs, c) => sendTx(wallet, c, ixs),
       );
       setMsg(`Cancel → ${sig.slice(0, 8)}…`);
+      notifyTxSuccess("Trigger cancelled", sig);
       await refresh();
     } catch (e) {
-      setMsg(`Cancel failed:\n${formatTxError(e)}`);
+      const err = formatTxError(e);
+      setMsg(`Cancel failed:\n${err}`);
+      notifyError("Cancel failed", err);
     } finally {
       setBusy(null);
     }
@@ -130,9 +134,12 @@ export function TriggerOrders() {
         sendTx(wallet, c, ixs),
       );
       setMsg(`Pause → ${sig.slice(0, 8)}…`);
+      notifyTxSuccess("Trigger paused", sig);
       await refresh();
     } catch (e) {
-      setMsg(`Pause failed:\n${formatTxError(e)}`);
+      const err = formatTxError(e);
+      setMsg(`Pause failed:\n${err}`);
+      notifyError("Pause failed", err);
     } finally {
       setBusy(null);
     }
@@ -150,9 +157,12 @@ export function TriggerOrders() {
         (ixs, c) => sendTx(wallet, c, ixs),
       );
       setMsg(`Resume → ${sig.slice(0, 8)}…`);
+      notifyTxSuccess("Trigger resumed", sig);
       await refresh();
     } catch (e) {
-      setMsg(`Resume failed:\n${formatTxError(e)}`);
+      const err = formatTxError(e);
+      setMsg(`Resume failed:\n${err}`);
+      notifyError("Resume failed", err);
     } finally {
       setBusy(null);
     }
@@ -182,10 +192,13 @@ export function TriggerOrders() {
         (ixs, c) => sendTx(wallet, c, ixs),
       );
       setMsg(`Edit → ${sig.slice(0, 8)}…`);
+      notifyTxSuccess("Trigger edited", sig);
       setEditId(null);
       await refresh();
     } catch (e) {
-      setMsg(`Edit failed:\n${formatTxError(e)}`);
+      const err = formatTxError(e);
+      setMsg(`Edit failed:\n${err}`);
+      notifyError("Edit failed", err);
     } finally {
       setBusy(null);
     }

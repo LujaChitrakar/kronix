@@ -16,6 +16,7 @@ import {
 } from "@/lib/kronix/client";
 import { getMarketInfoByIndex } from "@/lib/kronix/config";
 import { useStore } from "@/lib/store";
+import { notifyError, notifyTxSuccess } from "@/lib/notifications";
 import { sendTx, formatTxError } from "./tx";
 
 function fmtUsdc(n: bigint): string {
@@ -150,9 +151,12 @@ export function PositionPanel() {
     try {
       const sig = await fn();
       setMsg(`${label} → ${sig.slice(0, 8)}…`);
+      notifyTxSuccess(label, sig);
       await refresh();
     } catch (e) {
-      setMsg(`${label} failed:\n${formatTxError(e)}`);
+      const err = formatTxError(e);
+      setMsg(`${label} failed:\n${err}`);
+      notifyError(`${label} failed`, err);
     } finally {
       setBusy(null);
     }

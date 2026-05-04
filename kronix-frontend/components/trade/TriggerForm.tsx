@@ -11,6 +11,7 @@ import {
 } from "@/lib/kronix/config";
 import { useStore } from "@/lib/store";
 import { useEffect } from "react";
+import { notifyError, notifyTxSuccess, notifyWarning } from "@/lib/notifications";
 import { sendTx, formatTxError } from "./tx";
 
 const TRIGGER_TYPES: [string, number][] = [
@@ -54,6 +55,7 @@ export function TriggerForm() {
     const sizeLots = BigInt(parseInt(size || "0", 10));
     if (triggerLots <= 0n || sizeLots <= 0n) {
       setMsg("Enter trigger price + size in lots");
+      notifyWarning("Trigger blocked", "Enter trigger price + size in lots");
       return;
     }
     setBusy(true);
@@ -75,8 +77,11 @@ export function TriggerForm() {
         (ixs, c) => sendTx(wallet, c, ixs),
       );
       setMsg(`Trigger placed → ${sig.slice(0, 8)}…`);
+      notifyTxSuccess("Trigger placed", sig);
     } catch (e) {
-      setMsg(`Failed:\n${formatTxError(e)}`);
+      const err = formatTxError(e);
+      setMsg(`Failed:\n${err}`);
+      notifyError("Trigger failed", err);
     } finally {
       setBusy(false);
     }

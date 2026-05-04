@@ -6,12 +6,15 @@ import Image from "next/image";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { MARKET_NAME, RPC_URL } from "@/lib/kronix/config";
+import { notifyError, notifyInfo, notifyTxSuccess } from "@/lib/notifications";
 
 export function TradeNav() {
   const wallet = useWallet();
   const [mounted, setMounted] = useState(false);
   const [usdcBusy, setUsdcBusy] = useState(false);
   const [usdcMsg, setUsdcMsg] = useState("");
+  const [solBusy, setSolBusy] = useState(false);
+  const [solMsg, setSolMsg] = useState("");
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -20,7 +23,9 @@ export function TradeNav() {
     if (!wallet.publicKey || usdcBusy) return;
     setUsdcBusy(true);
     setUsdcMsg("");
+    setSolMsg("");
     try {
+      notifyInfo("Requesting devnet USDC", "Faucet transaction pending");
       const res = await fetch("/api/faucet-usdc", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -29,10 +34,38 @@ export function TradeNav() {
       const json = (await res.json()) as { signature?: string; error?: string };
       if (!res.ok) throw new Error(json.error ?? "USDC faucet failed");
       setUsdcMsg(`Sent ${json.signature?.slice(0, 8)}…`);
+      if (json.signature) notifyTxSuccess("Devnet USDC sent", json.signature);
     } catch (e) {
-      setUsdcMsg(e instanceof Error ? e.message : String(e));
+      const err = e instanceof Error ? e.message : String(e);
+      setUsdcMsg(err);
+      notifyError("USDC faucet failed", err);
     } finally {
       setUsdcBusy(false);
+    }
+  };
+
+  const requestSol = async () => {
+    if (!wallet.publicKey || solBusy) return;
+    setSolBusy(true);
+    setSolMsg("");
+    setUsdcMsg("");
+    try {
+      notifyInfo("Requesting devnet SOL", "Faucet transaction pending");
+      const res = await fetch("/api/faucet-sol", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ wallet: wallet.publicKey.toBase58() }),
+      });
+      const json = (await res.json()) as { signature?: string; error?: string };
+      if (!res.ok) throw new Error(json.error ?? "SOL faucet failed");
+      setSolMsg(`Sent ${json.signature?.slice(0, 8)}…`);
+      if (json.signature) notifyTxSuccess("Devnet SOL sent", json.signature);
+    } catch (e) {
+      const err = e instanceof Error ? e.message : String(e);
+      setSolMsg(err);
+      notifyError("SOL faucet failed", err);
+    } finally {
+      setSolBusy(false);
     }
   };
 
@@ -61,14 +94,14 @@ export function TradeNav() {
           </span>
         </div>*/}
         <div className="flex items-center gap-2">
-          {usdcMsg && (
+          {(usdcMsg || solMsg) && (
             <span
               className={`hidden md:inline max-w-64 truncate font-mono text-[11px] ${
-                usdcMsg.startsWith("Sent") ? "text-[#4DFFB4]" : "text-[#ff6b6b]"
+                (solMsg || usdcMsg).startsWith("Sent") ? "text-[#4DFFB4]" : "text-[#ff6b6b]"
               }`}
-              title={usdcMsg}
+              title={solMsg || usdcMsg}
             >
-              {usdcMsg}
+              {solMsg || usdcMsg}
             </span>
           )}
           <button
@@ -80,14 +113,15 @@ export function TradeNav() {
           >
             {usdcBusy ? "Sending…" : "Get USDC devnet"}
           </button>
-          <a
-            href="https://faucet.solana.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-3 h-9 inline-flex items-center rounded-md bg-kx-surface-hi border kx-border text-xs font-bold text-on-surface hover:text-[#4DFFB4] transition-colors"
+          <button
+            type="button"
+            disabled={!wallet.publicKey || solBusy}
+            onClick={requestSol}
+            title={solMsg || (!wallet.publicKey ? "Connect wallet first" : "Transfer 0.01 devnet SOL")}
+            className="px-3 h-9 inline-flex items-center rounded-md bg-kx-surface-hi border kx-border text-xs font-bold text-on-surface hover:text-[#4DFFB4] disabled:opacity-50 disabled:hover:text-on-surface transition-colors"
           >
-            Get SOL devnet
-          </a>
+            {solBusy ? "Sending…" : "Get SOL devnet"}
+          </button>
           {mounted && (
             <WalletMultiButton style={{
               background: "#222F2B",

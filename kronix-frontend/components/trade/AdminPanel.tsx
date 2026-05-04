@@ -27,6 +27,7 @@ import {
   getMarketInfo,
 } from "@/lib/kronix/config";
 import { useStore } from "@/lib/store";
+import { notifyError, notifyTxSuccess, notifyWarning } from "@/lib/notifications";
 import { sendTx, formatTxError } from "./tx";
 
 type Status = Record<string, boolean | null>;
@@ -105,9 +106,12 @@ export function AdminPanel() {
     try {
       const sig = await fn();
       setMsg(`${label} → ${sig.slice(0, 12)}…`);
+      notifyTxSuccess(label, sig);
       await refresh();
     } catch (e) {
-      setMsg(`${label} failed:\n${formatTxError(e)}`);
+      const err = formatTxError(e);
+      setMsg(`${label} failed:\n${err}`);
+      notifyError(`${label} failed`, err);
     } finally {
       setBusy(null);
     }
@@ -283,6 +287,7 @@ export function AdminPanel() {
             const human = parseFloat(insuranceAmount || "0");
             if (!Number.isFinite(human) || human <= 0) {
               setMsg("DepositInsurance failed:\nAmount must be > 0");
+              notifyWarning("DepositInsurance blocked", "Amount must be > 0");
               return;
             }
             const baseUnits = BigInt(Math.round(human * 1_000_000));

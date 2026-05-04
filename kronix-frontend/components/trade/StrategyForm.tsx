@@ -7,6 +7,7 @@ import { Side, StrategyType } from "@/lib/kronix/config";
 import { emptyStrategyParamsArgs } from "@/lib/strategy-sdk";
 import { useStore } from "@/lib/store";
 import { useEffect } from "react";
+import { notifyError, notifyTxSuccess, notifyWarning } from "@/lib/notifications";
 import { sendTx, formatTxError } from "./tx";
 
 const STRATEGY_TYPES: [string, number][] = [
@@ -83,6 +84,7 @@ export function StrategyForm() {
     const sz = BigInt(parseInt(sizeLots || "0", 10));
     if (sz <= 0n) {
       setMsg("Size must be > 0");
+      notifyWarning("Strategy blocked", "Size must be > 0");
       return;
     }
     setBusy(true);
@@ -130,8 +132,11 @@ export function StrategyForm() {
         (ixs, c) => sendTx(wallet, c, ixs),
       );
       setMsg(`Strategy created → ${sig.slice(0, 8)}…`);
+      notifyTxSuccess("Strategy created", sig);
     } catch (e) {
-      setMsg(`Failed:\n${formatTxError(e)}`);
+      const err = formatTxError(e);
+      setMsg(`Failed:\n${err}`);
+      notifyError("Strategy failed", err);
     } finally {
       setBusy(false);
     }

@@ -18,6 +18,7 @@ import {
   sendSetDelegate,
 } from "@/lib/kronix/client";
 import { useStore } from "@/lib/store";
+import { notifyError, notifyInfo, notifyTxSuccess } from "@/lib/notifications";
 import { sendTx, formatTxError } from "./tx";
 
 function fmtUsdc(n: bigint): string {
@@ -81,9 +82,13 @@ export function AccountPanel() {
       setMsg(
         sig ? `${label} → ${sig.slice(0, 8)}…` : `${label}: nothing to do`,
       );
+      if (sig) notifyTxSuccess(label, sig);
+      else notifyInfo(label, "Nothing to do");
       await refresh();
     } catch (e) {
-      setMsg(`${label} failed:\n${formatTxError(e)}`);
+      const err = formatTxError(e);
+      setMsg(`${label} failed:\n${err}`);
+      notifyError(`${label} failed`, err);
     } finally {
       setBusy(null);
     }
