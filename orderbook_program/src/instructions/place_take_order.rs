@@ -7,7 +7,10 @@ use pinocchio::{
 use shank::ShankType;
 
 use crate::{
-    constants::{FILLS_LOG_SEED, MARKET_SEED, MAX_FILLS_PER_ORDER, OPEN_ORDERS_SEED},
+    constants::{
+        FILLS_LOG_SEED, MARKET_SEED, MAX_FILLS_PER_ORDER, MAX_OPEN_ORDERS, OPEN_ORDERS_SEED,
+        TRIGGER_AUTHORITY_SEED,
+    },
     cpi::order_margin_cpi,
     errors::OrderBookError,
     helper::{
@@ -126,6 +129,7 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
     if !log.is_ready(now_slot) {
         return Err(OrderBookError::PreviousFillsNotSettled.into());
     }
+    drop(log_data);
 
     // validations
     {
@@ -184,6 +188,16 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
 
     let leverage = params.leverage;
     let reserved_margin = margin_from_quote_lots(params.max_quote_lots, leverage)?;
+    let oo_owner = oo_account_state.owner;
+    let market_index = market_state.market_index;
+    let is_trigger_authority = (0..=u8::MAX).rev().any(|bump| {
+        let derived = pinocchio_pubkey::derive_address(
+            &[TRIGGER_AUTHORITY_SEED, oo_owner.as_ref()],
+            Some(bump),
+            &crate::TRIGGER_PROGRAM_ID,
+        );
+        &derived == signer.address().as_array()
+    });
 
     let order = Order {
         side,
@@ -196,29 +210,94 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
         params: order_params,
     };
 
-    order_margin_cpi(
-        risk_program,
-        signer,
-        user_account,
-        market_config,
-        order.max_quote_lots,
-        0,
-        market_state.market_index,
-        leverage,
-        0,
-        true,
-    )?;
+    drop(oo_account_data);
+
+    if !is_trigger_authority {
+        order_margin_cpi(
+            risk_program,
+            signer,
+            user_account,
+            market_config,
+            open_orders_account,
+            oo_owner,
+            order.max_quote_lots,
+            0,
+            market_index,
+            leverage,
+            0,
+            true,
+        )?;
+    }
 
     let mut bids_data = bids.try_borrow_mut()?;
-    let bids_state = bytemuck::from_bytes_mut::<BookSide>(&mut bids_data[..BookSide::LEN]);
+    let mut bids_state = bytemuck::from_bytes_mut::<BookSide>(&mut bids_data[..BookSide::LEN]);
 
     let mut asks_data = asks.try_borrow_mut()?;
-    let asks_state = bytemuck::from_bytes_mut::<BookSide>(&mut asks_data[..BookSide::LEN]);
+    let mut asks_state = bytemuck::from_bytes_mut::<BookSide>(&mut asks_data[..BookSide::LEN]);
+
+    let mut oo_account_data = open_orders_account.try_borrow_mut()?;
+    let mut oo_account_state = bytemuck::from_bytes_mut::<OpenOrdersAccount>(
+        &mut oo_account_data[..OpenOrdersAccount::LEN],
+    );
 
     let mut order_book = Orderbook {
         bids: bids_state,
         asks: asks_state,
     };
+
+    if is_trigger_authority {
+        let cancel_side = side.invert_side();
+        let mut release_margin = 0_i64;
+        for oo in oo_account_state.open_orders.iter() {
+            if oo.is_free() || oo.side() != cancel_side {
+                continue;
+            }
+            release_margin = release_margin
+                .checked_add(oo.releasable_margin()?)
+                .ok_or(ProgramError::ArithmeticOverflow)?;
+        }
+        order_book.cancel_all_orders(
+            oo_account_state,
+            Some(cancel_side),
+            None,
+            MAX_OPEN_ORDERS as u8,
+        )?;
+
+        if release_margin > 0 {
+            drop(order_book);
+            drop(bids_data);
+            drop(asks_data);
+            drop(oo_account_data);
+
+            order_margin_cpi(
+                risk_program,
+                signer,
+                user_account,
+                market_config,
+                open_orders_account,
+                oo_owner,
+                0,
+                release_margin,
+                market_index,
+                leverage,
+                0,
+                false,
+            )?;
+
+            bids_data = bids.try_borrow_mut()?;
+            bids_state = bytemuck::from_bytes_mut::<BookSide>(&mut bids_data[..BookSide::LEN]);
+            asks_data = asks.try_borrow_mut()?;
+            asks_state = bytemuck::from_bytes_mut::<BookSide>(&mut asks_data[..BookSide::LEN]);
+            oo_account_data = open_orders_account.try_borrow_mut()?;
+            oo_account_state = bytemuck::from_bytes_mut::<OpenOrdersAccount>(
+                &mut oo_account_data[..OpenOrdersAccount::LEN],
+            );
+            order_book = Orderbook {
+                bids: bids_state,
+                asks: asks_state,
+            };
+        }
+    }
 
     let mut result = order_book.new_order(
         &order,
@@ -227,6 +306,10 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
         now_ts as u64,
         params.limit.min(MAX_FILLS_PER_ORDER as u8),
     )?;
+
+    if is_trigger_authority && result.fill_count == 0 {
+        return Err(OrderBookError::WouldExecutePartially.into());
+    }
 
     for i in 0..result.fill_count as usize {
         apply_maker_open_order_fill(
@@ -242,14 +325,21 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
     }
 
     if result.unused_reserved_margin > 0 {
+        drop(order_book);
+        drop(bids_data);
+        drop(asks_data);
+        drop(oo_account_data);
+
         order_margin_cpi(
             risk_program,
             signer,
             user_account,
             market_config,
+            open_orders_account,
+            oo_owner,
             0,
             result.unused_reserved_margin,
-            market_state.market_index,
+            market_index,
             leverage,
             0,
             false,
@@ -285,9 +375,9 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
                 maker_slot: fill.maker_slot,
                 maker_out: fill.maker_out as u8,
                 settled: 0,
-                market_index: market_state.market_index,
+                market_index,
                 padding: [0; 2],
-                taker_pubkey: oo_account_state.owner,
+                taker_pubkey: oo_owner,
                 maker_pubkey: fill.maker_pubkey,
             };
         }

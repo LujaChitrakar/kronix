@@ -25,7 +25,7 @@ pub reserved: [u8; 32],
 
 
 impl OpenOrdersAccount {
-      pub const LEN: usize = 1096;
+      pub const LEN: usize = 1480;
   
   
   

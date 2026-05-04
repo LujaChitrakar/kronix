@@ -12,6 +12,8 @@ pub fn order_margin_cpi(
     signer: &AccountView,
     user_account: &AccountView,
     market_config: &AccountView,
+    open_orders_account: &AccountView,
+    owner: [u8; 32],
     quote_lots: i64,
     margin_amount: i64,
     market_index: u16,
@@ -26,7 +28,7 @@ pub fn order_margin_cpi(
         leverage,
         bump_user,
         padding: [0; 4],
-        owner: *signer.address().as_array(),
+        owner,
     };
 
     let params_bytes = bytemuck::bytes_of(&params);
@@ -39,21 +41,34 @@ pub fn order_margin_cpi(
     };
     ix_data[1..].copy_from_slice(params_bytes);
 
-    let account_metas = [
-        InstructionAccount::new(signer.address(), false, true),
-        InstructionAccount::new(user_account.address(), true, false),
-        InstructionAccount::new(market_config.address(), false, false),
-    ];
-
-    let account_infos = [signer, user_account, market_config];
-
-    let ix = InstructionView {
-        program_id: risk_program.address(),
-        accounts: &account_metas,
-        data: &ix_data,
-    };
-
-    invoke::<3>(&ix, &account_infos)?;
+    if signer.address().as_array() == &owner {
+        let account_metas = [
+            InstructionAccount::new(signer.address(), false, true),
+            InstructionAccount::new(user_account.address(), true, false),
+            InstructionAccount::new(market_config.address(), false, false),
+        ];
+        let account_infos = [signer, user_account, market_config];
+        let ix = InstructionView {
+            program_id: risk_program.address(),
+            accounts: &account_metas,
+            data: &ix_data,
+        };
+        invoke::<3>(&ix, &account_infos)?;
+    } else {
+        let account_metas = [
+            InstructionAccount::new(signer.address(), false, true),
+            InstructionAccount::new(user_account.address(), true, false),
+            InstructionAccount::new(market_config.address(), false, false),
+            InstructionAccount::new(open_orders_account.address(), false, false),
+        ];
+        let account_infos = [signer, user_account, market_config, open_orders_account];
+        let ix = InstructionView {
+            program_id: risk_program.address(),
+            accounts: &account_metas,
+            data: &ix_data,
+        };
+        invoke::<4>(&ix, &account_infos)?;
+    }
 
     Ok(())
 }

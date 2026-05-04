@@ -16,19 +16,19 @@ export function TradeForms() {
 
   return (
     <div className="bg-kx-surface rounded-xl border kx-border overflow-hidden flex flex-col h-full">
-      <div className="flex items-center border-b kx-border shrink-0">
+      <div className="grid grid-cols-2 items-center border-b kx-border shrink-0">
         <TabBtn active={tab === "order"} onClick={() => setTab("order")}>
           Order
         </TabBtn>
         <TabBtn active={tab === "strategy"} onClick={() => setTab("strategy")}>
           Strategy
         </TabBtn>
-        <TabBtn active={tab === "trigger"} onClick={() => setTab("trigger")}>
+        {/*<TabBtn active={tab === "trigger"} onClick={() => setTab("trigger")}>
           Trigger
-        </TabBtn>
-        <div className="ml-auto pr-3 text-[10px] font-mono text-on-surface-variant/70">
+        </TabBtn>*/}
+        {/*<div className="ml-auto pr-3 text-[10px] font-mono text-on-surface-variant/70">
           {marketName}
-        </div>
+        </div>*/}
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto">
@@ -52,7 +52,7 @@ function TabBtn({
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-2.5 text-xs font-headline uppercase tracking-wider transition-colors ${
+      className={`w-full px-4 py-2.5 text-xs font-headline uppercase tracking-wider transition-colors ${
         active
           ? "text-on-surface border-b-2 border-[#4dffb4] -mb-px"
           : "text-on-surface-variant/70 hover:text-on-surface"

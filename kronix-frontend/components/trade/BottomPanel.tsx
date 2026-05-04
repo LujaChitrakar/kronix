@@ -12,7 +12,7 @@ type Tab =
   | "account"
   | "position"
   | "open"
-  | "trigger"
+  // | "trigger"
   | "strategy"
   | "history";
 
@@ -20,7 +20,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "account", label: "Account" },
   { id: "position", label: "Position" },
   { id: "open", label: "Open Orders" },
-  { id: "trigger", label: "Trigger Orders" },
+  // { id: "trigger", label: "Trigger Orders" },
   { id: "strategy", label: "Strategy Orders" },
   { id: "history", label: "Order History" },
 ];
@@ -46,7 +46,7 @@ export function BottomPanel() {
         {tab === "account" && <AccountPanel />}
         {tab === "position" && <PositionPanel />}
         {tab === "open" && <OpenOrders />}
-        {tab === "trigger" && <TriggerOrders />}
+        {/*{tab === "trigger" && <TriggerOrders />}*/}
         {tab === "strategy" && <Strategies />}
         {tab === "history" && <OrderHistory />}
       </div>

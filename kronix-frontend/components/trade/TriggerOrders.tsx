@@ -14,6 +14,9 @@ import {
   sendResumeTrigger,
   sendEditTrigger,
 } from "@/lib/kronix/client";
+import { findMarketPda, findOpenOrdersPda } from "@/lib/kronix/pdas";
+import { fetchOpenOrders } from "@/lib/kronix/state";
+import { useStore } from "@/lib/store";
 import { sendTx, formatTxError } from "./tx";
 import { notifyError, notifyTxSuccess } from "@/lib/notifications";
 import { getTriggerOrderDecoder } from "@/lib/trigger-sdk";
@@ -58,6 +61,7 @@ export function TriggerOrders() {
     newSizeLots: "",
     newExpiry: "-1",
   });
+  const marketIndex = useStore((s) => s.selectedMarketIndex);
 
   const refresh = useCallback(async () => {
     if (!owner) {
@@ -71,11 +75,22 @@ export function TriggerOrders() {
         { memcmp: { offset: 48, bytes: owner.toBase58() } },
       ],
     });
+    const attachedIds = new Set<string>();
+    const [market] = findMarketPda(marketIndex);
+    const [oo] = findOpenOrdersPda(owner, market);
+    const openOrders = await fetchOpenOrders(connection, oo);
+    openOrders?.openOrders.forEach((o) => {
+      if (o.isFree === 1) return;
+      const base = o.clientId * 10n;
+      attachedIds.add(String(base + 1n));
+      attachedIds.add(String(base + 2n));
+    });
     const decoder = getTriggerOrderDecoder();
     const list: Row[] = [];
     for (const { pubkey, account } of accs) {
       try {
         const t = decoder.decode(new Uint8Array(account.data));
+        if (attachedIds.has(String(t.clientOrderId))) continue;
         list.push({
           pubkey,
           clientId: t.clientOrderId,
@@ -94,7 +109,7 @@ export function TriggerOrders() {
       a.clientId > b.clientId ? -1 : a.clientId < b.clientId ? 1 : 0,
     );
     setRows(list);
-  }, [connection, owner]);
+  }, [connection, owner, marketIndex]);
 
   useEffect(() => {
     refresh().catch(console.error);

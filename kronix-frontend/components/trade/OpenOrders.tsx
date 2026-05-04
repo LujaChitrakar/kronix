@@ -2,17 +2,18 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { findOpenOrdersPda, findMarketPda } from "@/lib/kronix/pdas";
+import { findOpenOrdersPda, findMarketPda, findTriggerOrderPda } from "@/lib/kronix/pdas";
 import { fetchOpenOrders } from "@/lib/kronix/state";
 import {
   sendCancelOrderByClientId,
   sendCancelAllOrders,
   sendEditOrder,
 } from "@/lib/kronix/client";
-import { PlaceOrderType } from "@/lib/kronix/config";
+import { PlaceOrderType, TriggerStatus, TriggerType } from "@/lib/kronix/config";
 import { useStore } from "@/lib/store";
 import { notifyError, notifyTxSuccess, notifyWarning } from "@/lib/notifications";
 import { sendTx, formatTxError } from "./tx";
+import { getTriggerOrderDecoder } from "@/lib/trigger-sdk";
 
 type Row = {
   slot: number;
@@ -22,15 +23,48 @@ type Row = {
   side: number;
   isFilled: boolean;
   id: Uint8Array;
+  takeProfit?: AttachedTrigger;
+  stopLoss?: AttachedTrigger;
 };
 
 type EditDraft = { price: string; size: string; leverage: string };
+type AttachedTrigger = { price: bigint; status: number };
+
+const headCellClass = "py-1 pr-5 whitespace-nowrap";
+const bodyCellClass = "py-1.5 pr-5 whitespace-nowrap";
 
 function priceFromOrderId(id: Uint8Array | ArrayLike<number>): bigint {
   const bytes = Uint8Array.from(id);
   let out = 0n;
   for (let i = 15; i >= 8; i--) out = (out << 8n) + BigInt(bytes[i] ?? 0);
   return out;
+}
+
+function statusLabel(s: number): string {
+  if (s === TriggerStatus.Active) return "ACTIVE";
+  if (s === TriggerStatus.Triggered) return "TRIGGERED";
+  if (s === TriggerStatus.Canceled) return "CANCELED";
+  if (s === TriggerStatus.Paused) return "PAUSED";
+  return `?${s}`;
+}
+
+function TriggerCell({
+  trigger,
+  kind,
+}: {
+  trigger?: AttachedTrigger;
+  kind: "tp" | "sl";
+}) {
+  if (!trigger) return <span className="text-on-surface-variant/50">—</span>;
+  const color = kind === "tp" ? "text-[#4dffb4]" : "text-[#ffb86b]";
+  return (
+    <div className="leading-tight">
+      <div className={color}>{String(trigger.price)}</div>
+      {/*<div className="text-[9px] text-on-surface-variant/60">
+        {statusLabel(trigger.status)}
+      </div>*/}
+    </div>
+  );
 }
 
 export function OpenOrders() {
@@ -69,6 +103,40 @@ export function OpenOrders() {
         id: Uint8Array.from(o.id),
       });
     });
+
+    const triggerPdas = list.flatMap((r) => {
+      const base = r.clientId * 10n;
+      return [
+        findTriggerOrderPda(owner, base + 1n)[0],
+        findTriggerOrderPda(owner, base + 2n)[0],
+      ];
+    });
+    if (triggerPdas.length > 0) {
+      const accounts = await connection.getMultipleAccountsInfo(
+        triggerPdas,
+        "confirmed",
+      );
+      const decoder = getTriggerOrderDecoder();
+      accounts.forEach((account, i) => {
+        if (!account) return;
+        const row = list[Math.floor(i / 2)];
+        if (!row) return;
+        try {
+          const trigger = decoder.decode(new Uint8Array(account.data));
+          const value = {
+            price: trigger.triggerPrice,
+            status: trigger.status,
+          };
+          if (trigger.triggerType === TriggerType.TakeProfit) {
+            row.takeProfit = value;
+          } else if (trigger.triggerType === TriggerType.StopLoss) {
+            row.stopLoss = value;
+          }
+        } catch {
+          return;
+        }
+      });
+    }
     setRows(list);
   }, [connection, owner, marketIndex]);
 
@@ -109,7 +177,18 @@ export function OpenOrders() {
     try {
       const sig = await sendCancelAllOrders(
         owner,
-        { sideFilter, limit: 24 },
+        {
+          sideFilter,
+          limit: 24,
+          triggerClientIds: rows
+            .filter(
+              (r) =>
+                sideFilter === 255 ||
+                (sideFilter === 0 && r.side === 0) ||
+                (sideFilter === 1 && r.side === 1),
+            )
+            .map((r) => r.clientId),
+        },
         connection,
         (ixs, c) => sendTx(wallet, c, ixs),
         marketIndex,
@@ -210,11 +289,13 @@ export function OpenOrders() {
         <table className="w-full font-mono text-xs">
           <thead>
             <tr className="text-on-surface-variant/70 text-left">
-              <th className="py-1">Slot</th>
-              <th>Side</th>
-              <th>Price (lots)</th>
-              <th>ClientId</th>
-              <th>Status</th>
+              <th className={headCellClass}>Slot</th>
+              <th className={headCellClass}>Side</th>
+              <th className={headCellClass}>Price (lots)</th>
+              <th className={headCellClass}>TP</th>
+              <th className={headCellClass}>SL</th>
+              <th className={headCellClass}>ClientId</th>
+              <th className={headCellClass}>Status</th>
               <th></th>
             </tr>
           </thead>
@@ -222,13 +303,19 @@ export function OpenOrders() {
             {rows.map((r) => (
               <Fragment key={r.slot}>
                 <tr className="border-t kx-border">
-                  <td className="py-1.5">{r.slot}</td>
-                  <td className={r.side === 0 ? "text-[#4dffb4]" : "text-[#ff6b6b]"}>
+                  <td className={bodyCellClass}>{r.slot}</td>
+                  <td className={`${bodyCellClass} ${r.side === 0 ? "text-[#4dffb4]" : "text-[#ff6b6b]"}`}>
                     {r.side === 0 ? "BID" : "ASK"}
                   </td>
-                  <td>{String(r.lockedPrice)}</td>
-                  <td>{String(r.clientId)}</td>
-                  <td>{r.isFilled ? "FILLED" : "OPEN"}</td>
+                  <td className={bodyCellClass}>{String(r.lockedPrice)}</td>
+                  <td className={bodyCellClass}>
+                    <TriggerCell trigger={r.takeProfit} kind="tp" />
+                  </td>
+                  <td className={bodyCellClass}>
+                    <TriggerCell trigger={r.stopLoss} kind="sl" />
+                  </td>
+                  <td className={bodyCellClass}>{String(r.clientId)}</td>
+                  <td className={bodyCellClass}>{r.isFilled ? "FILLED" : "OPEN"}</td>
                   <td className="text-right">
                     <div className="inline-flex gap-1">
                       <button
@@ -261,7 +348,7 @@ export function OpenOrders() {
                 </tr>
                 {editing === r.clientId && (
                   <tr className="border-t kx-border bg-kx-surface-lo">
-                    <td colSpan={6} className="p-3">
+                    <td colSpan={8} className="p-3">
                       <div className="flex gap-3 items-end">
                         <div className="flex-1">
                           <div className="text-[11px] uppercase tracking-wider text-on-surface-variant/70 mb-1">

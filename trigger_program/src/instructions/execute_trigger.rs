@@ -5,7 +5,6 @@ use pinocchio::{
     AccountView, ProgramResult,
 };
 use shank::ShankType;
-use std::i64;
 
 use crate::{
     constants::TRIGGER_AUTHORITY_SEED,
@@ -90,6 +89,10 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
     if !order.should_trigger(mark_price) {
         return Err(TriggerProgramError::TriggerConditionNotMet.into());
     }
+    let max_quote_lots = order
+        .size_lots
+        .checked_mul(mark_price)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
 
     let [user_account, market_config, risk_program, ..] = _remaining else {
         return Err(ProgramError::NotEnoughAccountKeys);
@@ -108,7 +111,7 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
         market_config,
         risk_program,
         order.size_lots,
-        i64::MAX,
+        max_quote_lots,
         order.client_order_id,
         0, //ignored as its market order
         order.side,

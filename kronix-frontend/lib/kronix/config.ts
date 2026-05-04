@@ -83,13 +83,13 @@ export const KXI_SWITCHBOARD_FEED = new PublicKey(
 export const MARKETS: Record<MarketSymbol, MarketInfo> = {
   SOL: {
     symbol: "SOL",
-    marketIndex: Number(process.env.NEXT_PUBLIC_SOL_MARKET_INDEX ?? process.env.NEXT_PUBLIC_MARKET_INDEX ?? 24),
+    marketIndex: Number(process.env.NEXT_PUBLIC_SOL_MARKET_INDEX ?? process.env.NEXT_PUBLIC_MARKET_INDEX ?? 32),
     name: "SOL-PERP",
     oracle: SOL_SWITCHBOARD_FEED,
   },
   KXI: {
     symbol: "KXI",
-    marketIndex: Number(process.env.NEXT_PUBLIC_KXI_MARKET_INDEX ?? 23),
+    marketIndex: Number(process.env.NEXT_PUBLIC_KXI_MARKET_INDEX ?? 31),
     name: "KXI-PERP",
     oracle: KXI_SWITCHBOARD_FEED,
   },

@@ -22,6 +22,7 @@ import {
   getPlaceTriggerOrderInstruction,
   getCancelTriggerOrderInstruction,
   getEditTriggerInstruction,
+  getTriggerOrderDecoder,
 } from "@/lib/trigger-sdk";
 import {
   getCreateStrategyInstruction,
@@ -83,6 +84,18 @@ type Send = (
   ixs: TransactionInstruction[],
   conn: Connection,
 ) => Promise<string>;
+
+type PlaceTriggerOrderArgs = {
+  clientOrderId: bigint;
+  triggerPrice: bigint;
+  sizeLots: bigint;
+  expiry: bigint;
+  triggerType: number; // 0=StopLoss, 1=TakeProfit
+  side: number; // 0=Buy, 1=Sell
+  marketIndex?: number;
+};
+
+const TERMINAL_TRIGGER_STATUSES = new Set([1, 2]); // Triggered, Canceled
 
 const PADDING_3 = new Uint8Array(3);
 const PADDING_4 = new Uint8Array(4);
@@ -367,6 +380,7 @@ export async function sendPlaceOrder(
     limit: number;
     leverage?: number;
     marketIndex?: number;
+    attachedTriggers?: PlaceTriggerOrderArgs[];
   },
   conn: Connection,
   send: Send,
@@ -439,7 +453,25 @@ export async function sendPlaceOrder(
     ...makerOos.map((pubkey) => ({ pubkey, isSigner: false, isWritable: true })),
   );
 
-  return send([...priorityFeeIxs(), toLegacyIx(initFillsLog), placeIx], conn);
+  const attachedTriggers = args.attachedTriggers ?? [];
+  const delegateIxs =
+    attachedTriggers.length > 0
+      ? [buildSetDelegateIx(owner, findTriggerAuthorityPda(owner)[0], marketIndex)]
+      : [];
+  const triggerIxs = attachedTriggers.map((trigger) =>
+    buildPlaceTriggerOrderIx(owner, trigger),
+  );
+
+  return send(
+    [
+      ...priorityFeeIxs(),
+      toLegacyIx(initFillsLog),
+      placeIx,
+      ...delegateIxs,
+      ...triggerIxs,
+    ],
+    conn,
+  );
 }
 
 export type PlaceAndSettleResult = {
@@ -471,6 +503,7 @@ export async function sendPlaceOrderAndSettle(
     limit: number;
     leverage?: number;
     marketIndex?: number;
+    attachedTriggers?: PlaceTriggerOrderArgs[];
   },
   conn: Connection,
   send: Send,
@@ -547,7 +580,8 @@ export async function sendCancelOrderByClientId(
     { pubkey: marketConfig, isSigner: false, isWritable: false },
     { pubkey: RISK_PROGRAM_ID, isSigner: false, isWritable: false },
   );
-  return send([...priorityFeeIxs(), cancelIx], conn);
+  const triggerIxs = await attachedTriggerCancelIxs(owner, [clientId], conn);
+  return send([...priorityFeeIxs(), cancelIx, ...triggerIxs], conn);
 }
 
 export async function sendCancelAllOrders(
@@ -556,6 +590,7 @@ export async function sendCancelAllOrders(
     sideFilter?: number; // 0=bids only, 1=asks only, 2=both (program convention)
     clientIdFilter?: bigint;
     limit?: number;
+    triggerClientIds?: bigint[];
   },
   conn: Connection,
   send: Send,
@@ -586,7 +621,12 @@ export async function sendCancelAllOrders(
     { pubkey: marketConfig, isSigner: false, isWritable: false },
     { pubkey: RISK_PROGRAM_ID, isSigner: false, isWritable: false },
   );
-  return send([...priorityFeeIxs(), cancelIx], conn);
+  const triggerIxs = await attachedTriggerCancelIxs(
+    owner,
+    args.triggerClientIds ?? [],
+    conn,
+  );
+  return send([...priorityFeeIxs(), cancelIx, ...triggerIxs], conn);
 }
 
 export async function sendEditOrder(
@@ -676,6 +716,14 @@ export async function sendSetDelegate(
   send: Send,
   marketIndex = MARKET_INDEX,
 ): Promise<string> {
+  return send([...priorityFeeIxs(), buildSetDelegateIx(owner, delegate, marketIndex)], conn);
+}
+
+function buildSetDelegateIx(
+  owner: PublicKey,
+  delegate: PublicKey,
+  marketIndex = MARKET_INDEX,
+): TransactionInstruction {
   const [market] = findMarketPda(marketIndex);
   const [oo] = findOpenOrdersPda(owner, market);
   const ix = getSetDelegateInstruction({
@@ -683,25 +731,24 @@ export async function sendSetDelegate(
     openOrdersAccount: addr(oo),
     delegate: delegate.toBytes(),
   });
-  return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
+  return toLegacyIx(ix);
 }
 
 // ───────── Trigger orders (Stop-Loss / Take-Profit) ─────────
 
 export async function sendPlaceTriggerOrder(
   owner: PublicKey,
-  args: {
-    clientOrderId: bigint;
-    triggerPrice: bigint;
-    sizeLots: bigint;
-    expiry: bigint;
-    triggerType: number; // 0=StopLoss, 1=TakeProfit
-    side: number; // 0=Buy, 1=Sell
-    marketIndex?: number;
-  },
+  args: PlaceTriggerOrderArgs,
   conn: Connection,
   send: Send,
 ): Promise<string> {
+  return send([...priorityFeeIxs(), buildPlaceTriggerOrderIx(owner, args)], conn);
+}
+
+function buildPlaceTriggerOrderIx(
+  owner: PublicKey,
+  args: PlaceTriggerOrderArgs,
+): TransactionInstruction {
   const marketIndex = args.marketIndex ?? MARKET_INDEX;
   const [market] = findMarketPda(marketIndex);
   const [oo] = findOpenOrdersPda(owner, market);
@@ -733,7 +780,7 @@ export async function sendPlaceTriggerOrder(
     bumpFillsLog,
     padding: new Uint8Array(1),
   });
-  return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
+  return toLegacyIx(ix);
 }
 
 export async function sendCancelTriggerOrder(
@@ -743,11 +790,51 @@ export async function sendCancelTriggerOrder(
   send: Send,
 ): Promise<string> {
   const [triggerOrder] = findTriggerOrderPda(owner, clientOrderId);
+  return send([...priorityFeeIxs(), buildCancelTriggerOrderIx(owner, triggerOrder)], conn);
+}
+
+function buildCancelTriggerOrderIx(
+  owner: PublicKey,
+  triggerOrder: PublicKey,
+): TransactionInstruction {
   const ix = getCancelTriggerOrderInstruction({
     signer: fakeSigner(owner),
     triggerOrder: addr(triggerOrder),
   });
-  return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
+  return toLegacyIx(ix);
+}
+
+async function attachedTriggerCancelIxs(
+  owner: PublicKey,
+  orderClientIds: bigint[],
+  conn: Connection,
+): Promise<TransactionInstruction[]> {
+  if (orderClientIds.length === 0) return [];
+
+  const triggerOrders = orderClientIds.flatMap((clientId) => {
+    const triggerBaseId = clientId * 10n;
+    return [
+      findTriggerOrderPda(owner, triggerBaseId + 1n)[0],
+      findTriggerOrderPda(owner, triggerBaseId + 2n)[0],
+    ];
+  });
+
+  const accounts = await conn.getMultipleAccountsInfo(triggerOrders, "confirmed");
+  const decoder = getTriggerOrderDecoder();
+  const ixs: TransactionInstruction[] = [];
+
+  accounts.forEach((account, i) => {
+    if (!account) return;
+    try {
+      const trigger = decoder.decode(account.data);
+      if (TERMINAL_TRIGGER_STATUSES.has(trigger.status)) return;
+      ixs.push(buildCancelTriggerOrderIx(owner, triggerOrders[i]));
+    } catch {
+      return;
+    }
+  });
+
+  return ixs;
 }
 
 // Pause = disc 5, Resume = disc 6. Both ix layout: [signer (writable, signer), trigger_order (writable)] + 1-byte data.

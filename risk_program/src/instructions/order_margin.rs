@@ -3,7 +3,10 @@ use pinocchio::{error::ProgramError, AccountView, ProgramResult};
 use shank::ShankType;
 
 use crate::{
-    constants::USER_ACCOUNT_SEED,
+    constants::{
+        OPEN_ORDERS_AUTHORITY_BYTES, OPEN_ORDERS_DELEGATE_OFFSET, OPEN_ORDERS_OWNER_OFFSET,
+        ORDERBOOK_PROGRAM_ID, TRIGGER_AUTHORITY_SEED, TRIGGER_PROGRAM_ID, USER_ACCOUNT_SEED,
+    },
     errors::RiskProgramError,
     helper::{
         verify_account_owner, verify_initialized, verify_pda, verify_signer, verify_writtable,
@@ -57,6 +60,51 @@ fn order_margin_amount(
     i64::try_from(required).map_err(|_| RiskProgramError::InsufficientCollateral.into())
 }
 
+fn verify_margin_authority(
+    signer: &AccountView,
+    params: &OrderMarginParams,
+    remaining: &[AccountView],
+) -> ProgramResult {
+    if signer.address().as_array() == &params.owner {
+        return Ok(());
+    }
+
+    let signer_key = signer.address().as_array();
+    for bump in (0..=u8::MAX).rev() {
+        let derived = pinocchio_pubkey::derive_address(
+            &[TRIGGER_AUTHORITY_SEED, params.owner.as_ref()],
+            Some(bump),
+            &TRIGGER_PROGRAM_ID,
+        );
+        if &derived == signer_key {
+            return Ok(());
+        }
+    }
+
+    let open_orders_account = remaining.first().ok_or(ProgramError::NotEnoughAccountKeys)?;
+    verify_initialized(open_orders_account)?;
+    unsafe {
+        verify_account_owner(open_orders_account, &ORDERBOOK_PROGRAM_ID)?;
+    }
+
+    let data = open_orders_account.try_borrow()?;
+    if data.len() < OPEN_ORDERS_AUTHORITY_BYTES {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    if &data[OPEN_ORDERS_OWNER_OFFSET..OPEN_ORDERS_OWNER_OFFSET + 32] != params.owner.as_ref() {
+        return Err(RiskProgramError::InvalidOwner.into());
+    }
+
+    let delegate =
+        &data[OPEN_ORDERS_DELEGATE_OFFSET..OPEN_ORDERS_DELEGATE_OFFSET + 32];
+    if delegate == [0u8; 32].as_ref() || delegate != signer_key.as_ref() {
+        return Err(RiskProgramError::InvalidOwner.into());
+    }
+
+    Ok(())
+}
+
 fn load_accounts<'a>(
     accounts: &'a [AccountView],
     data: &[u8],
@@ -69,7 +117,7 @@ fn load_accounts<'a>(
     ),
     ProgramError,
 > {
-    let [signer, user_account, market_config, _remaining @ ..] = accounts else {
+    let [signer, user_account, market_config, remaining @ ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 
@@ -86,9 +134,7 @@ fn load_accounts<'a>(
     let params = bytemuck::try_pod_read_unaligned::<OrderMarginParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
-    if signer.address().as_array() != &params.owner {
-        return Err(RiskProgramError::InvalidOwner.into());
-    }
+    verify_margin_authority(signer, &params, remaining)?;
 
     {
         let user_account_data = user_account.try_borrow()?;

@@ -33,3 +33,4 @@ pub const POSITION_SEED: &[u8] = b"position";
 pub const MARKET_CONFIG_SEED: &[u8] = b"market_config";
 pub const FUNDING_SEED: &[u8] = b"funding";
 pub const FILLS_LOG_SEED: &[u8] = b"fills_log";
+pub const TRIGGER_AUTHORITY_SEED: &[u8] = b"trigger_authority";

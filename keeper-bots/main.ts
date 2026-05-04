@@ -47,7 +47,10 @@ import {
   getUpdateFundingRateInstruction,
   getSettleFundingInstruction,
 } from "../kronix-frontend/lib/risk-sdk";
-import { getPruneOrdersInstruction } from "../kronix-frontend/lib/orderbook-sdk";
+import {
+  getOpenOrdersAccountDecoder,
+  getPruneOrdersInstruction,
+} from "../kronix-frontend/lib/orderbook-sdk";
 
 import {
   ORDERBOOK_PROGRAM_ID,
@@ -733,6 +736,28 @@ function shouldTrigger(
   return false;
 }
 
+function attachedParentClientId(clientId: bigint): bigint | null {
+  const suffix = clientId % 10n;
+  if (suffix !== 1n && suffix !== 2n) return null;
+  return clientId / 10n;
+}
+
+async function parentOrderStillResting(
+  openOrdersAccount: PublicKey,
+  parentClientId: bigint,
+): Promise<boolean> {
+  const acc = await conn.getAccountInfo(openOrdersAccount, "confirmed");
+  if (!acc) return false;
+  try {
+    const oo = getOpenOrdersAccountDecoder().decode(new Uint8Array(acc.data));
+    return oo.openOrders.some(
+      (order) => order.isFree === 0 && order.clientId === parentClientId,
+    );
+  } catch {
+    return false;
+  }
+}
+
 function buildExecuteTriggerIx(args: {
   keeper: PublicKey;
   triggerAuthority: PublicKey;
@@ -744,6 +769,8 @@ function buildExecuteTriggerIx(args: {
   asks: PublicKey;
   fillsLog: PublicKey;
   oracle: PublicKey;
+  userAccount: PublicKey;
+  marketConfig: PublicKey;
   marketIndex: number;
   bumpFillsLog: number;
   bumpAuthority: number;
@@ -770,6 +797,9 @@ function buildExecuteTriggerIx(args: {
       { pubkey: args.oracle, isSigner: false, isWritable: false },
       { pubkey: ORDERBOOK_PROGRAM_ID, isSigner: false, isWritable: false },
       { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: args.userAccount, isSigner: false, isWritable: true },
+      { pubkey: args.marketConfig, isSigner: false, isWritable: false },
+      { pubkey: RISK_PROGRAM_ID, isSigner: false, isWritable: false },
     ],
     data,
   });
@@ -853,10 +883,23 @@ async function runExecuteTriggers(): Promise<void> {
     const [bids] = findBidsPda(t.marketIndex);
     const [asks] = findAsksPda(t.marketIndex);
     const [openOrdersAccount] = findOpenOrdersPda(t.owner, market);
+    const [userAccount] = findUserAccountPda(t.owner);
+    const [marketConfig] = findMarketConfigPda(t.marketIndex);
     const [fillsLog, bumpFillsLog] = findFillsLogPda(
       triggerAuthority,
       t.clientId,
     );
+
+    const parentClientId = attachedParentClientId(t.clientId);
+    if (
+      parentClientId !== null &&
+      (await parentOrderStillResting(openOrdersAccount, parentClientId))
+    ) {
+      console.log(
+        `[execute-trigger ${t.owner.toBase58().slice(0, 6)}/${t.clientId}] skip — parent order still resting`,
+      );
+      continue;
+    }
 
     // Self-trade guard: orderbook PlaceTakeOrder aborts with WouldSelfTrade
     // (errors.rs:19) when best opposing leaf owner == taker OO account.
@@ -864,7 +907,7 @@ async function runExecuteTriggers(): Promise<void> {
     const opposingBook = t.side === 0 ? asks : bids;
     const isBidsSide = t.side === 1;
     const topOwner = await fetchTopOfBookOwner(opposingBook, isBidsSide);
-    if (topOwner && topOwner.equals(openOrdersAccount)) {
+    if (topOwner && topOwner.equals(t.owner)) {
       console.log(
         `[execute-trigger ${t.owner.toBase58().slice(0, 6)}/${t.clientId}] skip — self-trade (top maker == taker OO)`,
       );
@@ -882,6 +925,8 @@ async function runExecuteTriggers(): Promise<void> {
       asks,
       fillsLog,
       oracle: m.oracle,
+      userAccount,
+      marketConfig,
       marketIndex: t.marketIndex,
       bumpFillsLog,
       bumpAuthority,
@@ -1340,6 +1385,8 @@ function buildExecuteStrategyIx(args: {
   bids: PublicKey;
   asks: PublicKey;
   fillsLog: PublicKey;
+  userAccount: PublicKey;
+  marketConfig: PublicKey;
   signal: number;
   bumpOoAccount: number;
   bumpFillsLog: number;
@@ -1383,6 +1430,9 @@ function buildExecuteStrategyIx(args: {
     { pubkey: args.fillsLog, isSigner: false, isWritable: true },
     { pubkey: ORDERBOOK_PROGRAM_ID, isSigner: false, isWritable: false },
     { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+    { pubkey: args.userAccount, isSigner: false, isWritable: true },
+    { pubkey: args.marketConfig, isSigner: false, isWritable: false },
+    { pubkey: RISK_PROGRAM_ID, isSigner: false, isWritable: false },
   ];
 
   if ((args.hasTp || args.hasSl) && args.triggerAuthorityForStrat) {
@@ -1471,6 +1521,8 @@ async function runExecuteStrategies(): Promise<void> {
       strategyAuthority,
       s.clientOrderId,
     );
+    const [userAccount] = findUserAccountPda(s.owner);
+    const [marketConfig] = findMarketConfigPda(s.marketIndex);
 
     const hasTp = s.takeProfitPrice > 0n;
     const hasSl = s.stopLossPrice > 0n;
@@ -1526,6 +1578,8 @@ async function runExecuteStrategies(): Promise<void> {
       bids,
       asks,
       fillsLog,
+      userAccount,
+      marketConfig,
       signal,
       bumpOoAccount,
       bumpFillsLog,

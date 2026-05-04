@@ -169,6 +169,8 @@ pub fn process_cancel_all_orders(accounts: &[AccountView], data: &[u8]) -> Progr
             signer,
             user_account,
             market_config,
+            open_orders_account,
+            oo_account_state.owner,
             0,
             release_margin,
             market_state.market_index,

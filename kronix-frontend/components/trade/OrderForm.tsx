@@ -7,7 +7,7 @@ import {
   sendPlaceOrderAndSettle,
   sendCancelOrderByClientId,
 } from "@/lib/kronix/client";
-import { Side, PlaceOrderType } from "@/lib/kronix/config";
+import { Side, PlaceOrderType, TriggerType } from "@/lib/kronix/config";
 import {
   findOpenOrdersPda,
   findMarketPda,
@@ -63,6 +63,9 @@ export function OrderForm() {
   const [leverage, setLeverage] = useState(1);
   const [price, setPrice] = useState("");
   const [size, setSize] = useState("");
+  const [tpslOpen, setTpslOpen] = useState(false);
+  const [takeProfitPrice, setTakeProfitPrice] = useState("");
+  const [stopLossPrice, setStopLossPrice] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [myOrders, setMyOrders] = useState<OwnOrder[]>([]);
@@ -85,6 +88,8 @@ export function OrderForm() {
     if (selectedPrice !== null && lastFocusedInputId) {
       const p = Math.round(selectedPrice).toString();
       if (lastFocusedInputId === "order-price") setPrice(p);
+      if (lastFocusedInputId === "order-tp") setTakeProfitPrice(p);
+      if (lastFocusedInputId === "order-sl") setStopLossPrice(p);
     }
   }, [selectedPrice, lastFocusedInputId]);
 
@@ -185,6 +190,8 @@ export function OrderForm() {
       ? 1n
       : BigInt(parseInt(price || "0", 10));
     const maxBaseLots = BigInt(parseInt(size || "0", 10));
+    const tpLots = tpslOpen ? BigInt(parseInt(takeProfitPrice || "0", 10)) : 0n;
+    const slLots = tpslOpen ? BigInt(parseInt(stopLossPrice || "0", 10)) : 0n;
     if (maxBaseLots <= 0n) {
       setMsg("Enter size in lots");
       notifyWarning("Order blocked", "Enter size in lots");
@@ -194,6 +201,35 @@ export function OrderForm() {
       setMsg("Enter price in lots");
       notifyWarning("Order blocked", "Enter price in lots");
       return;
+    }
+    if (tpslOpen && tpLots <= 0n && slLots <= 0n) {
+      setMsg("Enter TP or SL trigger price in lots");
+      notifyWarning("Order blocked", "Enter TP or SL trigger price in lots");
+      return;
+    }
+    const triggerReferencePrice = isMarket
+      ? BigInt(Math.round(selectedPrice ?? 0))
+      : priceLots;
+    if (tpslOpen && triggerReferencePrice > 0n) {
+      const invalidTp =
+        tpLots > 0n &&
+        (side === Side.Bid
+          ? tpLots <= triggerReferencePrice
+          : tpLots >= triggerReferencePrice);
+      const invalidSl =
+        slLots > 0n &&
+        (side === Side.Bid
+          ? slLots >= triggerReferencePrice
+          : slLots <= triggerReferencePrice);
+      if (invalidTp || invalidSl) {
+        const msg =
+          side === Side.Bid
+            ? "For a buy/long order, TP must be above entry and SL below entry"
+            : "For a sell/short order, TP must be below entry and SL above entry";
+        setMsg(msg);
+        notifyWarning("Invalid TP/SL", msg);
+        return;
+      }
     }
     setBusy(true);
     setMsg("Placing…");
@@ -216,6 +252,36 @@ export function OrderForm() {
       }
 
       const clientOrderId = BigInt(Date.now());
+      const triggerSide = side === Side.Bid ? Side.Ask : Side.Bid;
+      const triggerBaseId = clientOrderId * 10n;
+      const attachedTriggers = [
+        ...(tpLots > 0n
+          ? [
+              {
+                clientOrderId: triggerBaseId + 1n,
+                triggerPrice: tpLots,
+                sizeLots: maxBaseLots,
+                expiry: 0n,
+                triggerType: TriggerType.TakeProfit,
+                side: triggerSide,
+                marketIndex,
+              },
+            ]
+          : []),
+        ...(slLots > 0n
+          ? [
+              {
+                clientOrderId: triggerBaseId + 2n,
+                triggerPrice: slLots,
+                sizeLots: maxBaseLots,
+                expiry: 0n,
+                triggerType: TriggerType.StopLoss,
+                side: triggerSide,
+                marketIndex,
+              },
+            ]
+          : []),
+      ];
       const res = await sendPlaceOrderAndSettle(
         owner,
         {
@@ -229,20 +295,22 @@ export function OrderForm() {
           limit: 16,
           leverage,
           marketIndex,
+          attachedTriggers,
         },
         connection,
         (ixs, c) => sendTx(wallet, c, ixs),
       );
       const settled = res.settleSigs.length;
+      const triggerCount = attachedTriggers.length;
       setMsg(
         `Placed ${res.placeSig.slice(0, 8)}…  fills=${res.fillCount}  ` +
-          `settle TXs=${settled}` +
+          `settle TXs=${settled}  triggers=${triggerCount}` +
           (settled ? ` [${res.settleSigs.map((s) => s.slice(0, 6)).join(", ")}]` : ""),
       );
       notifyTxSuccess(
         "Order placed",
         res.placeSig,
-        `fills=${res.fillCount} settle TXs=${settled}`,
+        `fills=${res.fillCount} settle TXs=${settled} triggers=${triggerCount}`,
       );
       for (const sig of res.settleSigs) {
         notifyTxSuccess("Fill settled", sig);
@@ -334,6 +402,38 @@ export function OrderForm() {
           onChange={(e) => setLeverage(Number(e.target.value))}
           className="w-full accent-[#4dffb4]"
         />
+      </div>
+
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => setTpslOpen((v) => !v)}
+          className={`w-full py-2 text-[10px] font-mono uppercase rounded-md border transition-colors ${
+            tpslOpen
+              ? "bg-[#4dffb4]/15 text-[#4dffb4] border-[#4dffb4]/40"
+              : "bg-kx-surface-lo text-on-surface-variant kx-border hover:text-on-surface"
+          }`}
+        >
+          TP/SL
+        </button>
+        {tpslOpen && (
+          <div className="grid grid-cols-2 gap-2 p-2 rounded-lg bg-kx-surface-lo border kx-border">
+            <Field
+              id="order-tp"
+              label="TP (lots)"
+              value={takeProfitPrice}
+              onChange={setTakeProfitPrice}
+              onFocus={() => setLastFocusedInputId("order-tp")}
+            />
+            <Field
+              id="order-sl"
+              label="SL (lots)"
+              value={stopLossPrice}
+              onChange={setStopLossPrice}
+              onFocus={() => setLastFocusedInputId("order-sl")}
+            />
+          </div>
+        )}
       </div>
 
       {cfg && (() => {

@@ -6,12 +6,22 @@ pub const INSURANCE_SEED: &[u8] = b"insurance";
 pub const VAULT_SEED: &[u8] = b"vault";
 pub const VAULT_AUTHORITY_SEED: &[u8] = b"vault_authority";
 
+pub const ORDERBOOK_PROGRAM_ID: [u8; 32] =
+    pinocchio_pubkey::from_str("j8VeDggFuwtiCjM8uo7am8i1bWWH2sj7mBRxqTaZniU");
+pub const TRIGGER_PROGRAM_ID: [u8; 32] =
+    pinocchio_pubkey::from_str("9KDXQmrMy71pVHTknapcv4jP8aHsr9yF5yXMmGNftUkX");
+
+pub const OPEN_ORDERS_OWNER_OFFSET: usize = 0;
+pub const OPEN_ORDERS_DELEGATE_OFFSET: usize = 64;
+pub const OPEN_ORDERS_AUTHORITY_BYTES: usize = OPEN_ORDERS_DELEGATE_OFFSET + 32;
+pub const TRIGGER_AUTHORITY_SEED: &[u8] = b"trigger_authority";
+
 pub const FUNDING_INTERVAL_SECS: i64 = 3_600;
 pub const FUNDING_PERIOD_SECS: i64 = 28_800;
 
 pub const MAX_FUNDING_RATE_BPS: i64 = 500;
 
-pub const KXI_MARKET_INDEX: u16 = 23;
+pub const KXI_MARKET_INDEX: u16 = 31;
 
 // Switchboard SOL/USD pull feed: GgGVgSLWAyL9Xf4fGaAQQCkmWetBjX7PCNz8kTK97DKB
 pub const SWITCHBOARD_SOL_USD_FEED: [u8; 32] = [
