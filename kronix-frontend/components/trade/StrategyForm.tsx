@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { sendCreateStrategy } from "@/lib/kronix/client";
 import { Side, StrategyType } from "@/lib/kronix/config";
+import { findUserAccountPda } from "@/lib/kronix/pdas";
+import { fetchUser } from "@/lib/kronix/state";
 import { emptyStrategyParamsArgs } from "@/lib/strategy-sdk";
 import { useStore } from "@/lib/store";
 import { useEffect } from "react";
@@ -33,6 +35,7 @@ export function StrategyForm() {
   const [side, setSide] = useState<number>(Side.Bid);
   const [sizeLots, setSizeLots] = useState("");
   const [limitPriceLots, setLimitPriceLots] = useState("0");
+  const [leverage, setLeverage] = useState(1);
   const [takeProfit, setTakeProfit] = useState("0");
   const [stopLoss, setStopLoss] = useState("0");
   const [cooldownSecs, setCooldownSecs] = useState("60");
@@ -87,6 +90,22 @@ export function StrategyForm() {
       notifyWarning("Strategy blocked", "Size must be > 0");
       return;
     }
+    const limitLots = BigInt(parseInt(limitPriceLots || "0", 10));
+    const tpLots = BigInt(parseInt(takeProfit || "0", 10));
+    const slLots = BigInt(parseInt(stopLoss || "0", 10));
+    const quotePriceLots =
+      limitLots > 0n ? limitLots : [tpLots, slLots, 1n].reduce((a, b) => (a > b ? a : b));
+    const requiredMargin =
+      (sz * quotePriceLots * 1_000_000n + BigInt(leverage - 1)) / BigInt(leverage);
+    const [userPda] = findUserAccountPda(owner);
+    const user = await fetchUser(connection, userPda);
+    const freeCollateral = user ? user.collateral - user.marginUsed : 0n;
+    if (requiredMargin > freeCollateral) {
+      const msg = "Insufficient free collateral";
+      setMsg(msg);
+      notifyWarning("Strategy blocked", msg);
+      return;
+    }
     setBusy(true);
     setMsg("Creating strategy…");
     try {
@@ -120,9 +139,10 @@ export function StrategyForm() {
           strategyType,
           side,
           sizeLots: sz,
-          limitPriceLots: BigInt(parseInt(limitPriceLots || "0", 10)),
-          takeProfitPrice: BigInt(parseInt(takeProfit || "0", 10)),
-          stopLossPrice: BigInt(parseInt(stopLoss || "0", 10)),
+          limitPriceLots: limitLots,
+          leverage,
+          takeProfitPrice: tpLots,
+          stopLossPrice: slLots,
           cooldownSecs: BigInt(parseInt(cooldownSecs || "0", 10)),
           maxExecutionsPerDay: BigInt(parseInt(maxPerDay || "0", 10)),
           params,
@@ -202,6 +222,21 @@ export function StrategyForm() {
           onChange={setLimitPriceLots}
           onFocus={() => setLastFocusedInputId("strategy-limit")}
         />
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-[10px] font-mono uppercase text-on-surface-variant">
+            <span>Leverage</span>
+            <span className="text-[#4dffb4] font-bold">{leverage}x</span>
+          </div>
+          <input
+            type="range"
+            min={1}
+            max={10}
+            step={1}
+            value={leverage}
+            onChange={(e) => setLeverage(Number(e.target.value))}
+            className="w-full accent-[#4dffb4]"
+          />
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <Field
             id="strategy-tp"

@@ -1219,6 +1219,7 @@ type StrategyRow = {
   side: number;
   sizeLots: bigint;
   limitPriceLots: bigint;
+  leverage: number;
   clientOrderId: bigint;
   takeProfitPrice: bigint;
   stopLossPrice: bigint;
@@ -1261,6 +1262,7 @@ async function scanStrategies(): Promise<StrategyRow[]> {
         side: s.side,
         sizeLots: s.sizeLots,
         limitPriceLots: s.limitPriceLots,
+        leverage: s.leverage,
         clientOrderId: s.clientOrderId,
         takeProfitPrice: s.takeProfitPrice,
         stopLossPrice: s.stopLossPrice,
@@ -1530,13 +1532,15 @@ async function runExecuteStrategies(): Promise<void> {
           );
     const maxQuoteLots = sizeLotsAbs * quotePriceLots;
     if (maxQuoteLots <= 0n) continue;
-    const leverage = BigInt(m.maxLeverage);
+    const strategyLeverage =
+      s.leverage > 0 ? Math.max(1, Math.min(m.maxLeverage, s.leverage)) : m.maxLeverage;
+    const leverage = BigInt(strategyLeverage);
     const requiredMargin =
       (maxQuoteLots * QUOTE_NATIVE_UNIT + leverage - 1n) / leverage;
     const freeCollateral = ua.collateral - ua.marginUsed;
     if (requiredMargin > freeCollateral) {
       console.log(
-        `[execute-strategy ${s.owner.toBase58().slice(0, 6)}/t${s.strategyType}/sig${signal}] skip collateral free=${freeCollateral} required=${requiredMargin} lev=${m.maxLeverage}`,
+        `[execute-strategy ${s.owner.toBase58().slice(0, 6)}/t${s.strategyType}/sig${signal}] skip collateral free=${freeCollateral} required=${requiredMargin} lev=${strategyLeverage}`,
       );
       continue;
     }

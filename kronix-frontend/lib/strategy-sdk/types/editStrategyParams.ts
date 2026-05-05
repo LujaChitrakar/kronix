@@ -28,6 +28,7 @@ export type EditStrategyParams = {
   newCooldownSecs: bigint;
   newMaxExecutionsPerDay: bigint;
   newStatus: number; // 255 = no change
+  newLeverage: number; // 0 = no change
   padding: ReadonlyUint8Array;
 };
 
@@ -39,6 +40,7 @@ export type EditStrategyParamsArgs = {
   newCooldownSecs: number | bigint;
   newMaxExecutionsPerDay: number | bigint;
   newStatus: number;
+  newLeverage: number;
   padding: ReadonlyUint8Array;
 };
 
@@ -51,7 +53,8 @@ export function getEditStrategyParamsEncoder(): FixedSizeEncoder<EditStrategyPar
     ["newCooldownSecs", getU64Encoder()],
     ["newMaxExecutionsPerDay", getU64Encoder()],
     ["newStatus", getU8Encoder()],
-    ["padding", fixEncoderSize(getBytesEncoder(), 7)],
+    ["newLeverage", getU8Encoder()],
+    ["padding", fixEncoderSize(getBytesEncoder(), 6)],
   ]);
 }
 
@@ -64,7 +67,8 @@ export function getEditStrategyParamsDecoder(): FixedSizeDecoder<EditStrategyPar
     ["newCooldownSecs", getU64Decoder()],
     ["newMaxExecutionsPerDay", getU64Decoder()],
     ["newStatus", getU8Decoder()],
-    ["padding", fixDecoderSize(getBytesDecoder(), 7)],
+    ["newLeverage", getU8Decoder()],
+    ["padding", fixDecoderSize(getBytesDecoder(), 6)],
   ]);
 }
 

@@ -1052,6 +1052,7 @@ export async function sendCreateStrategy(
     side: number;
     sizeLots: bigint;
     limitPriceLots: bigint; // 0 = market
+    leverage?: number;
     takeProfitPrice: bigint; // 0 = none
     stopLossPrice: bigint; // 0 = none
     cooldownSecs: bigint;
@@ -1099,7 +1100,7 @@ export async function sendCreateStrategy(
       side: args.side,
       bumpAuthority,
       bumpFillsLog,
-      padding: new Uint8Array(1),
+      leverage: Math.max(1, Math.min(10, args.leverage ?? 1)),
       params: args.params ?? emptyStrategyParamsArgs(),
     },
   });
@@ -1117,6 +1118,7 @@ export async function sendEditStrategy(
     newCooldownSecs: bigint;
     newMaxExecutionsPerDay: bigint;
     newStatus: number; // 255 = no change
+    newLeverage?: number;
   },
   conn: Connection,
   send: Send,
@@ -1138,7 +1140,8 @@ export async function sendEditStrategy(
       newCooldownSecs: args.newCooldownSecs,
       newMaxExecutionsPerDay: args.newMaxExecutionsPerDay,
       newStatus: args.newStatus,
-      padding: new Uint8Array(7),
+      newLeverage: args.newLeverage ?? 0,
+      padding: new Uint8Array(6),
     },
   });
   return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);

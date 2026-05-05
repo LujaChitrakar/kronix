@@ -23,8 +23,9 @@ pub struct EditStrategyParams {
 
     // Status control
     pub new_status: u8, // 255 = no change, 0 = active, 1 = paused
+    pub new_leverage: u8, // 0 = no change
 
-    pub padding: [u8; 7],
+    pub padding: [u8; 6],
 }
 
 pub fn process_edit_strategy(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
@@ -82,6 +83,9 @@ pub fn process_edit_strategy(accounts: &[AccountView], data: &[u8]) -> ProgramRe
     if params.new_status != 255 && params.new_status > 1 {
         return Err(StrategyProgramError::InvalidStatus.into());
     }
+    if params.new_leverage > 10 {
+        return Err(StrategyProgramError::InvalidSize.into());
+    }
 
     if params.new_limit_price_lots > 0 {
         strategy.limit_price_lots = params.new_limit_price_lots;
@@ -108,6 +112,9 @@ pub fn process_edit_strategy(accounts: &[AccountView], data: &[u8]) -> ProgramRe
         if params.new_status == 1 {
             strategy.executions_today = 0;
         }
+    }
+    if params.new_leverage > 0 {
+        strategy.leverage = params.new_leverage;
     }
 
     Ok(())

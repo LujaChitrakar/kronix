@@ -748,9 +748,9 @@ export default function Chart({ symbol = 'KXI' }: ChartProps) {
           value={change24h == null ? '—' : `${change24h >= 0 ? '+' : ''}${change24h.toFixed(2)}%`}
           color={changeColor}
         />
-        <Stat label="24h Volume" value="—" />
-        <Stat label="Open Interest" value="—" />
-        <Stat label="Funding" value="—" color="#4dffb4" />
+        {/*<Stat label="24h Volume" value="—" />*/}
+        {/*<Stat label="Open Interest" value="—" />
+        <Stat label="Funding" value="—" color="#4dffb4" />*/}
       </div>
       <div
         id="super-crypto-chart"

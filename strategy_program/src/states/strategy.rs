@@ -29,7 +29,8 @@ pub struct StrategyAccount {
 
     // Execution limits
     pub market_index: u16,
-    pub padding: [u8; 2],
+    pub leverage: u8,
+    pub padding: [u8; 1],
 
     // Strategy-specific params — union over all strategy types
     pub params: StrategyParams,

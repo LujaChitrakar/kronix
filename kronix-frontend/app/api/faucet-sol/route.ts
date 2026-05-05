@@ -9,7 +9,7 @@ import {
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
 
-const FAUCET_LAMPORTS = LAMPORTS_PER_SOL / 100;
+const FAUCET_LAMPORTS = LAMPORTS_PER_SOL / 10;
 
 function loadMintAuthority(): Keypair {
   const raw = process.env.MINT_AUTHORITY;
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       signature: sig,
-      amount: "0.01",
+      amount: "0.1",
       recipient: recipient.toBase58(),
     });
   } catch (e) {

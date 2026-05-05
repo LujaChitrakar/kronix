@@ -25,6 +25,7 @@ type Row = {
   marketIndex: number;
   sizeLots: bigint;
   limitPriceLots: bigint;
+  leverage: number;
   takeProfitPrice: bigint;
   stopLossPrice: bigint;
   cooldownSecs: bigint;
@@ -35,6 +36,7 @@ type Row = {
 type EditDraft = {
   newSizeLots: string;
   newLimitPriceLots: string;
+  newLeverage: string;
   newTakeProfitPrice: string;
   newStopLossPrice: string;
   newCooldownSecs: string;
@@ -68,6 +70,7 @@ export function Strategies() {
   const [draft, setDraft] = useState<EditDraft>({
     newSizeLots: "0",
     newLimitPriceLots: "0",
+    newLeverage: "0",
     newTakeProfitPrice: "0",
     newStopLossPrice: "0",
     newCooldownSecs: "0",
@@ -101,6 +104,7 @@ export function Strategies() {
           marketIndex: s.marketIndex,
           sizeLots: s.sizeLots,
           limitPriceLots: s.limitPriceLots,
+          leverage: s.leverage,
           takeProfitPrice: s.takeProfitPrice,
           stopLossPrice: s.stopLossPrice,
           cooldownSecs: s.cooldownSecs,
@@ -198,6 +202,7 @@ export function Strategies() {
     setDraft({
       newSizeLots: String(r.sizeLots),
       newLimitPriceLots: String(r.limitPriceLots),
+      newLeverage: String(r.leverage || 1),
       newTakeProfitPrice: String(r.takeProfitPrice),
       newStopLossPrice: String(r.stopLossPrice),
       newCooldownSecs: String(r.cooldownSecs),
@@ -216,6 +221,7 @@ export function Strategies() {
           strategyType: t,
           newSizeLots: BigInt(draft.newSizeLots || "0"),
           newLimitPriceLots: BigInt(draft.newLimitPriceLots || "0"),
+          newLeverage: Math.max(0, Math.min(10, parseInt(draft.newLeverage || "0", 10) || 0)),
           newTakeProfitPrice: BigInt(draft.newTakeProfitPrice || "0"),
           newStopLossPrice: BigInt(draft.newStopLossPrice || "0"),
           newCooldownSecs: BigInt(draft.newCooldownSecs || "0"),
@@ -255,6 +261,7 @@ export function Strategies() {
               <th>Side</th>
               <th>Size</th>
               <th>Limit</th>
+              <th>Lev</th>
               <th>TP / SL</th>
               <th>CD</th>
               <th>Used / Day</th>
@@ -276,6 +283,7 @@ export function Strategies() {
                     </td>
                     <td>{String(r.sizeLots)}</td>
                     <td>{r.limitPriceLots === 0n ? "MKT" : String(r.limitPriceLots)}</td>
+                    <td>{r.leverage || 1}x</td>
                     <td>
                       {r.takeProfitPrice === 0n ? "—" : String(r.takeProfitPrice)} /{" "}
                       {r.stopLossPrice === 0n ? "—" : String(r.stopLossPrice)}
@@ -330,8 +338,8 @@ export function Strategies() {
                   </tr>
                   {editType === r.strategyType && (
                     <tr className="border-t kx-border bg-kx-surface-lo">
-                      <td colSpan={9} className="py-3 px-3">
-                        <div className="grid grid-cols-7 gap-3 items-end">
+                      <td colSpan={10} className="py-3 px-3">
+                        <div className="grid grid-cols-8 gap-3 items-end">
                           <EditField
                             label="Size (0=keep)"
                             value={draft.newSizeLots}
@@ -344,6 +352,13 @@ export function Strategies() {
                             value={draft.newLimitPriceLots}
                             onChange={(v) =>
                               setDraft({ ...draft, newLimitPriceLots: v })
+                            }
+                          />
+                          <EditField
+                            label="Lev (0=keep)"
+                            value={draft.newLeverage}
+                            onChange={(v) =>
+                              setDraft({ ...draft, newLeverage: v })
                             }
                           />
                           <EditField

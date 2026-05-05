@@ -37,7 +37,7 @@ pub struct CreateStrategyParams {
     pub side: u8,
     pub bump_authority: u8,
     pub bump_fills_log: u8,
-    pub padding: [u8; 1],
+    pub leverage: u8,
     pub params: StrategyParams,
 }
 
@@ -61,6 +61,9 @@ pub fn process_create_strategy(accounts: &[AccountView], data: &[u8]) -> Program
     }
     if params.strategy_type > 4 {
         return Err(StrategyProgramError::InvalidStrategyType.into());
+    }
+    if params.leverage == 0 || params.leverage > 10 {
+        return Err(StrategyProgramError::InvalidSize.into());
     }
 
     let signer_key = signer.address().as_array();
@@ -130,7 +133,8 @@ pub fn process_create_strategy(accounts: &[AccountView], data: &[u8]) -> Program
             cooldown_secs: params.cooldown_secs,
             executions_today: 0,
             market_index: params.market_index,
-            padding: [0; 2],
+            leverage: params.leverage,
+            padding: [0; 1],
             params: params.params,
             owner: *signer_key,
             reserved: [0; 32],

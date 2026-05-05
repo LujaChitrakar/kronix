@@ -46,6 +46,7 @@ export type StrategyAccount = {
   bump: number;
   side: number;
   marketIndex: number;
+  leverage: number;
   padding: ReadonlyUint8Array;
   params: StrategyParams;
   owner: ReadonlyUint8Array;
@@ -69,6 +70,7 @@ export type StrategyAccountArgs = {
   bump: number;
   side: number;
   marketIndex: number;
+  leverage: number;
   padding: ReadonlyUint8Array;
   params: StrategyParamsArgs;
   owner: ReadonlyUint8Array;
@@ -93,7 +95,8 @@ export function getStrategyAccountEncoder(): FixedSizeEncoder<StrategyAccountArg
     ["bump", getU8Encoder()],
     ["side", getU8Encoder()],
     ["marketIndex", getU16Encoder()],
-    ["padding", fixEncoderSize(getBytesEncoder(), 2)],
+    ["leverage", getU8Encoder()],
+    ["padding", fixEncoderSize(getBytesEncoder(), 1)],
     ["params", getStrategyParamsEncoder()],
     ["owner", fixEncoderSize(getBytesEncoder(), 32)],
     ["reserved", fixEncoderSize(getBytesEncoder(), 32)],
@@ -118,7 +121,8 @@ export function getStrategyAccountDecoder(): FixedSizeDecoder<StrategyAccount> {
     ["bump", getU8Decoder()],
     ["side", getU8Decoder()],
     ["marketIndex", getU16Decoder()],
-    ["padding", fixDecoderSize(getBytesDecoder(), 2)],
+    ["leverage", getU8Decoder()],
+    ["padding", fixDecoderSize(getBytesDecoder(), 1)],
     ["params", getStrategyParamsDecoder()],
     ["owner", fixDecoderSize(getBytesDecoder(), 32)],
     ["reserved", fixDecoderSize(getBytesDecoder(), 32)],

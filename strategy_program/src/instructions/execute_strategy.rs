@@ -173,7 +173,12 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
         .size_lots
         .checked_mul(quote_price_lots)
         .ok_or(ProgramError::ArithmeticOverflow)?;
-    let leverage = market_max_leverage(market_config)?;
+    let max_leverage = market_max_leverage(market_config)?;
+    let leverage = if strategy.leverage == 0 {
+        max_leverage
+    } else {
+        strategy.leverage.min(max_leverage).max(1)
+    };
 
     place_order_cpi(
         orderbook_program,

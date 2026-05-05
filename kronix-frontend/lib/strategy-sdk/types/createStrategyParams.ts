@@ -42,7 +42,7 @@ export type CreateStrategyParams = {
   side: number;
   bumpAuthority: number;
   bumpFillsLog: number;
-  padding: ReadonlyUint8Array;
+  leverage: number;
   params: StrategyParams;
 };
 
@@ -60,7 +60,7 @@ export type CreateStrategyParamsArgs = {
   side: number;
   bumpAuthority: number;
   bumpFillsLog: number;
-  padding: ReadonlyUint8Array;
+  leverage: number;
   params: StrategyParamsArgs;
 };
 
@@ -79,7 +79,7 @@ export function getCreateStrategyParamsEncoder(): FixedSizeEncoder<CreateStrateg
     ["side", getU8Encoder()],
     ["bumpAuthority", getU8Encoder()],
     ["bumpFillsLog", getU8Encoder()],
-    ["padding", fixEncoderSize(getBytesEncoder(), 1)],
+    ["leverage", getU8Encoder()],
     ["params", getStrategyParamsEncoder()],
   ]);
 }
@@ -99,7 +99,7 @@ export function getCreateStrategyParamsDecoder(): FixedSizeDecoder<CreateStrateg
     ["side", getU8Decoder()],
     ["bumpAuthority", getU8Decoder()],
     ["bumpFillsLog", getU8Decoder()],
-    ["padding", fixDecoderSize(getBytesDecoder(), 1)],
+    ["leverage", getU8Decoder()],
     ["params", getStrategyParamsDecoder()],
   ]);
 }
