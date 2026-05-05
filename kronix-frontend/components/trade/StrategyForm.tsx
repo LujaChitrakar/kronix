@@ -374,11 +374,6 @@ export function StrategyForm() {
         {busy ? "Creating…" : owner ? "Create Strategy" : "Connect Wallet"}
       </button>
 
-      {msg && (
-        <pre className="text-[10px] font-mono text-on-surface-variant break-all whitespace-pre-wrap max-h-48 overflow-auto bg-kx-surface-lo p-2 rounded-md border kx-border">
-          {msg}
-        </pre>
-      )}
     </div>
   );
 }

@@ -310,11 +310,6 @@ export function AdminPanel() {
         insurance fund both initialized.
       </div>
 
-      {msg && (
-        <pre className="mt-3 text-[10px] font-mono text-on-surface-variant break-all whitespace-pre-wrap max-h-64 overflow-auto bg-kx-surface-lo p-2 rounded-md border kx-border">
-          {busy ? `${busy}…` : msg}
-        </pre>
-      )}
     </div>
   );
 }

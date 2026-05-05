@@ -94,16 +94,6 @@ export function TradeNav() {
           </span>
         </div>*/}
         <div className="flex items-center gap-2">
-          {(usdcMsg || solMsg) && (
-            <span
-              className={`hidden md:inline max-w-64 truncate font-mono text-[11px] ${
-                (solMsg || usdcMsg).startsWith("Sent") ? "text-[#4DFFB4]" : "text-[#ff6b6b]"
-              }`}
-              title={solMsg || usdcMsg}
-            >
-              {solMsg || usdcMsg}
-            </span>
-          )}
           <button
             type="button"
             disabled={!wallet.publicKey || usdcBusy}

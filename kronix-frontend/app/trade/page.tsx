@@ -11,20 +11,20 @@ export default function TradePage() {
     <div className="min-h-screen bg-[#0B0F0D] text-on-surface">
       <TradeNav />
 
-      <main className="w-full px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-        <section className="lg:col-span-10 flex flex-col gap-4">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <div className="lg:col-span-9 h-[620px] bg-kx-surface rounded-xl border kx-border overflow-hidden">
+      <main className="w-full px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_clamp(260px,19vw,340px)] gap-4 items-stretch">
+        <section className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_clamp(220px,20%,300px)] gap-4">
+            <div className="h-[620px] bg-kx-surface rounded-xl border kx-border overflow-hidden">
               <ChartWrapper symbol="KXI" />
             </div>
-            <div className="lg:col-span-3">
+            <div>
               <Orderbook />
             </div>
           </div>
           <BottomPanel />
         </section>
 
-        <section className="lg:col-span-2 lg:h-full">
+        <section className="lg:h-full">
           <TradeForms />
         </section>
       </main>
