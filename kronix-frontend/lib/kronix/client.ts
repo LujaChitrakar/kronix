@@ -742,7 +742,15 @@ export async function sendPlaceTriggerOrder(
   conn: Connection,
   send: Send,
 ): Promise<string> {
-  return send([...priorityFeeIxs(), buildPlaceTriggerOrderIx(owner, args)], conn);
+  const marketIndex = args.marketIndex ?? MARKET_INDEX;
+  return send(
+    [
+      ...priorityFeeIxs(),
+      buildSetDelegateIx(owner, findTriggerAuthorityPda(owner)[0], marketIndex),
+      buildPlaceTriggerOrderIx(owner, args),
+    ],
+    conn,
+  );
 }
 
 function buildPlaceTriggerOrderIx(

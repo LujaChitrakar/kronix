@@ -6,6 +6,7 @@ import {
   fetchRecentTrades,
   type RecentTrade,
 } from "@/lib/kronix/recent-trades";
+import { useStore } from "@/lib/store";
 
 const SLOT_MS = 400;
 
@@ -22,6 +23,7 @@ export function OrderHistory() {
   const { connection } = useConnection();
   const wallet = useWallet();
   const owner = wallet.publicKey;
+  const marketIndex = useStore((s) => s.selectedMarketIndex);
   const [rows, setRows] = useState<Row[]>([]);
   const [currentSlot, setCurrentSlot] = useState<bigint>(0n);
   const [err, setErr] = useState<string | null>(null);
@@ -33,7 +35,7 @@ export function OrderHistory() {
     }
     try {
       const [trades, slot] = await Promise.all([
-        fetchRecentTrades(connection, 200),
+        fetchRecentTrades(connection, 200, marketIndex),
         connection.getSlot("confirmed"),
       ]);
       const filtered: Row[] = [];
@@ -59,7 +61,7 @@ export function OrderHistory() {
     } catch (e) {
       setErr((e as Error).message);
     }
-  }, [connection, owner]);
+  }, [connection, owner, marketIndex]);
 
   useEffect(() => {
     refresh();

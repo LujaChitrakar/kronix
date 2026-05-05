@@ -48,10 +48,10 @@ export default function Navbar() {
           </a>
 
           <Link
-            href="/waitlist"
+            href="/"
             className="bg-[#222F2B] text-[#4DFFB4] px-6 py-2.5 text-sm font-headline font-bold rounded-full border border-[#4DFFB4]/20 hover:shadow-lg hover:shadow-[#222F2B]/40 transition-all duration-150 active:scale-95"
           >
-            Join Waitlist
+            Launch App
           </Link>
         </div>
 
@@ -109,11 +109,11 @@ export default function Navbar() {
           </a>
 
           <Link
-            href="/waitlist"
+            href="/"
             onClick={() => setOpen(false)}
             className="bg-[#222F2B] text-[#4DFFB4] px-10 py-3.5 text-base font-headline font-bold rounded-full border border-[#4DFFB4]/20 hover:shadow-lg hover:shadow-[#222F2B]/40 transition-all duration-150 active:scale-95"
           >
-            Join Waitlist
+            Launch App
           </Link>
         </div>
       </div>

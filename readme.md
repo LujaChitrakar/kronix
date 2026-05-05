@@ -34,6 +34,29 @@ Kronix introduces a **programmable trading layer** on top of perpetuals.
 - Collateralized positions
 - Funding rate mechanism
 
+### Position Model
+
+Current model is net-position only:
+
+```text
+Position PDA = [b"position", owner, market_index]
+```
+
+One position exists per user per market. Opposite-side trades reduce, close, or
+flip the current net position. Users cannot hold separate long and short
+positions in the same market yet.
+
+Future hedge-mode design should use a new account namespace:
+
+```text
+PositionV2 PDA = [b"position_v2", owner, market_index, position_id]
+```
+
+`position_id` is `u32`. `position_id = 0` is reserved for migrated legacy net
+positions. Future reads should prefer `PositionV2(owner, market, id=0)` when it
+exists, otherwise fall back to the legacy `Position` PDA. Never combine balances
+from both sources.
+
 ### Index Trading (Planned)
 
 - Trade baskets of assets (e.g., top 5 crypto assets)
@@ -87,4 +110,3 @@ kronix/
 
 ## Solana Program Instructions
 All the instructions of all 4 solana programs and their desriptions can be found in /ix_desc.md
-

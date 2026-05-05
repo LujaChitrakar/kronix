@@ -14,10 +14,24 @@ import {
   sendRemoveMargin,
   sendSettleFunding,
 } from "@/lib/kronix/client";
-import { getMarketInfoByIndex } from "@/lib/kronix/config";
+import {
+  getMarketInfoByIndex,
+  TRIGGER_PROGRAM_ID,
+  TriggerStatus,
+  TriggerType,
+} from "@/lib/kronix/config";
 import { useStore } from "@/lib/store";
 import { notifyError, notifyTxSuccess } from "@/lib/notifications";
 import { sendTx, formatTxError } from "./tx";
+import { getTriggerOrderDecoder } from "@/lib/trigger-sdk";
+
+const TRIGGER_ORDER_SIZE = 144;
+
+type PositionTrigger = {
+  price: bigint;
+  sizeLots: bigint;
+  status: number;
+};
 
 function fmtUsdc(n: bigint): string {
   const sign = n < 0n ? "-" : "";
@@ -45,6 +59,13 @@ function parseSwitchboardPriceNative(data: Buffer): bigint | null {
   return readI128LE(data, SWITCHBOARD_VALUE_OFFSET) / SWITCHBOARD_SCALE;
 }
 
+function formatTriggers(triggers: PositionTrigger[]): string {
+  if (triggers.length === 0) return "-";
+  return triggers
+    .map((t) => `${t.price} (${t.sizeLots})${t.status === TriggerStatus.Paused ? " P" : ""}`)
+    .join(", ");
+}
+
 export function PositionPanel() {
   const { connection } = useConnection();
   const wallet = useWallet();
@@ -57,6 +78,10 @@ export function PositionPanel() {
     entryPrice: bigint;
     initialMargin: bigint;
   } | null>(null);
+  const [positionTriggers, setPositionTriggers] = useState<{
+    takeProfit: PositionTrigger[];
+    stopLoss: PositionTrigger[];
+  }>({ takeProfit: [], stopLoss: [] });
   const [oracle, setOracle] = useState<PublicKey | null>(null);
   const [cfg, setCfg] = useState<{
     quoteLotSize: bigint;
@@ -82,8 +107,54 @@ export function PositionPanel() {
         entryPrice: p.entryPrice,
         initialMargin: p.initialMargin,
       });
+      const closeSide = p.side === 0 ? 1 : 0;
+      const accs = await connection.getProgramAccounts(TRIGGER_PROGRAM_ID, {
+        commitment: "confirmed",
+        filters: [
+          { dataSize: TRIGGER_ORDER_SIZE },
+          { memcmp: { offset: 48, bytes: owner.toBase58() } },
+        ],
+      });
+      const decoder = getTriggerOrderDecoder();
+      const nextTriggers = {
+        takeProfit: [] as PositionTrigger[],
+        stopLoss: [] as PositionTrigger[],
+      };
+      for (const { account } of accs) {
+        try {
+          const t = decoder.decode(new Uint8Array(account.data));
+          if (t.marketIndex !== marketIndex) continue;
+          if (t.side !== closeSide) continue;
+          if (
+            t.status !== TriggerStatus.Active &&
+            t.status !== TriggerStatus.Paused
+          ) {
+            continue;
+          }
+          const value = {
+            price: t.triggerPrice,
+            sizeLots: t.sizeLots,
+            status: t.status,
+          };
+          if (t.triggerType === TriggerType.TakeProfit) {
+            nextTriggers.takeProfit.push(value);
+          } else if (t.triggerType === TriggerType.StopLoss) {
+            nextTriggers.stopLoss.push(value);
+          }
+        } catch {
+          continue;
+        }
+      }
+      nextTriggers.takeProfit.sort((a, b) =>
+        a.price > b.price ? 1 : a.price < b.price ? -1 : 0,
+      );
+      nextTriggers.stopLoss.sort((a, b) =>
+        a.price > b.price ? 1 : a.price < b.price ? -1 : 0,
+      );
+      setPositionTriggers(nextTriggers);
     } else {
       setPos(null);
+      setPositionTriggers({ takeProfit: [], stopLoss: [] });
     }
     if (cfg) {
       const configuredOracle = getMarketInfoByIndex(marketIndex)?.oracle;
@@ -200,15 +271,24 @@ export function PositionPanel() {
       )}
 
       {owner && !pos && (
-        <div className="text-on-surface-variant text-sm">No open position.</div>
+        <div className="text-on-surface-variant text-sm">No open net position.</div>
       )}
 
       {owner && pos && (
         <>
           <div className="grid grid-cols-2 gap-3 mb-4 text-sm font-mono">
-            <Stat label="Side" v={pos.side === 0 ? "LONG" : "SHORT"} accent={pos.side === 0} />
-            <Stat label="Size (lots)" v={String(pos.size)} />
-            <Stat label="Entry (lots)" v={String(pos.entryPrice)} />
+            <Stat label="Net Side" v={pos.side === 0 ? "LONG" : "SHORT"} accent={pos.side === 0} />
+            <Stat label="Net Size (lots)" v={String(pos.size)} />
+            <Stat label="Avg Entry (lots)" v={String(pos.entryPrice)} />
+            <Stat
+              label="TP (price/size)"
+              v={formatTriggers(positionTriggers.takeProfit)}
+              accent={positionTriggers.takeProfit.length > 0}
+            />
+            <Stat
+              label="SL (price/size)"
+              v={formatTriggers(positionTriggers.stopLoss)}
+            />
             <Stat
               label="Margin"
               v={`$${fmtUsdc(pos.initialMargin)} (${pos.initialMargin} native)`}
@@ -233,9 +313,9 @@ export function PositionPanel() {
           {maintenanceMargin !== null &&
             pos.initialMargin < maintenanceMargin && (
               <div className="mb-2 px-2 py-1.5 rounded-md border border-[#ff6b6b]/40 bg-[#ff6b6b]/10 text-[10px] font-mono text-[#ff6b6b]">
-                Position UNDER maintenance ({fmtUsdc(pos.initialMargin)} &lt;{" "}
+                Net position UNDER maintenance ({fmtUsdc(pos.initialMargin)} &lt;{" "}
                 {fmtUsdc(maintenanceMargin)}). Liquidatable. Add margin or
-                close position. Removal blocked.
+                close net position. Removal blocked.
               </div>
             )}
 
@@ -325,7 +405,7 @@ export function PositionPanel() {
               }
               className="text-[11px] font-headline font-bold uppercase tracking-wider min-w-[88px] px-3 py-1.5 rounded-md bg-[#ff6b6b]/10 border border-[#ff6b6b]/30 text-[#ff6b6b] hover:bg-[#ff6b6b]/20 transition-colors disabled:opacity-50"
             >
-              Close Position
+              Close Net Position
             </button>
             <button
               disabled={!!busy}

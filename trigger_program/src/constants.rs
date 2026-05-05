@@ -1,5 +1,6 @@
 pub const TRIGGER_ORDER_SEED: &[u8] = b"trigger_order";
 pub const TRIGGER_AUTHORITY_SEED: &[u8] = b"trigger_authority";
+pub const MAX_CPI_MAKER_ACCOUNTS: usize = 6;
 
 pub const FUNDING_INTERVAL_SECS: i64 = 3_600;
 pub const FUNDING_PERIOD_SECS: i64 = 28_800;

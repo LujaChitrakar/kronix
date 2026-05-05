@@ -110,6 +110,8 @@ const USER_ACCOUNT_SIZE = 88;
 const TRIGGER_ORDER_SIZE = 144;
 const FILLS_LOG_SIZE = 1336; // FillsLog::LEN — orderbook_program/src/states/fills_log.rs
 const PRUNE_BATCH = 16;
+const MAX_TRIGGER_MAKER_ACCOUNTS = 6;
+const INITIALIZE_FILLS_LOG_DISC = 2;
 const EXECUTE_TRIGGER_DISC = 2;
 const PRUNE_EXPIRED_TRIGGER_DISC = 4;
 const EXECUTE_STRATEGY_DISC = 2;
@@ -763,6 +765,20 @@ async function parentOrderStillResting(
   }
 }
 
+async function openOrdersHasDelegate(
+  openOrdersAccount: PublicKey,
+  delegate: PublicKey,
+): Promise<boolean> {
+  const acc = await conn.getAccountInfo(openOrdersAccount, "confirmed");
+  if (!acc) return false;
+  try {
+    const oo = getOpenOrdersAccountDecoder().decode(new Uint8Array(acc.data));
+    return Buffer.from(oo.delegate).equals(delegate.toBuffer());
+  } catch {
+    return false;
+  }
+}
+
 function buildExecuteTriggerIx(args: {
   keeper: PublicKey;
   triggerAuthority: PublicKey;
@@ -776,6 +792,7 @@ function buildExecuteTriggerIx(args: {
   oracle: PublicKey;
   userAccount: PublicKey;
   marketConfig: PublicKey;
+  makerOpenOrders: PublicKey[];
   marketIndex: number;
   bumpFillsLog: number;
   bumpAuthority: number;
@@ -805,14 +822,45 @@ function buildExecuteTriggerIx(args: {
       { pubkey: args.userAccount, isSigner: false, isWritable: true },
       { pubkey: args.marketConfig, isSigner: false, isWritable: false },
       { pubkey: RISK_PROGRAM_ID, isSigner: false, isWritable: false },
+      ...args.makerOpenOrders.map((pubkey) => ({
+        pubkey,
+        isSigner: false,
+        isWritable: true,
+      })),
     ],
     data,
   });
 }
 
-// Walk a BookSide critbit tree and return the OO-account pubkey of the
-// best (top-of-book) leaf. Mirrors `OrderTreeIter::find_left_most_leaf`:
-// bids walk children[1] always, asks walk children[0] always.
+function buildInitializeFillsLogIx(args: {
+  payer: PublicKey;
+  taker: PublicKey;
+  fillsLog: PublicKey;
+  market: PublicKey;
+  clientOrderId: bigint;
+  bumpFillsLog: number;
+}): TransactionInstruction {
+  const data = Buffer.alloc(17);
+  data.writeUInt8(INITIALIZE_FILLS_LOG_DISC, 0);
+  data.writeUInt8(args.bumpFillsLog, 1);
+  data.writeBigUInt64LE(args.clientOrderId, 9);
+  return new TransactionInstruction({
+    programId: ORDERBOOK_PROGRAM_ID,
+    keys: [
+      { pubkey: args.payer, isSigner: true, isWritable: true },
+      { pubkey: args.taker, isSigner: false, isWritable: false },
+      { pubkey: args.fillsLog, isSigner: false, isWritable: true },
+      { pubkey: args.market, isSigner: false, isWritable: false },
+      { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+    ],
+    data,
+  });
+}
+
+// Walk a BookSide critbit tree and return maker wallet owners from best leaves.
+// Mirrors `OrderTreeIter`: bids walk children[1] first, asks walk children[0] first.
+// LeafNode.owner is the maker wallet owner. The CPI account passed later must be
+// that maker's OpenOrders PDA, derived from this owner and market.
 //
 // BookSide layout (orderbook_program/src/states/orderbook/bookside.rs):
 //   roots: OrderTreeRoot @ 0  (maybe_node u32 + leaf_count u32 = 8 bytes)
@@ -834,37 +882,60 @@ const BOOK_NODE_SIZE = 88;
 const BOOK_LEAF_OWNER_OFFSET = 48;
 const BOOK_INNER_CHILDREN_OFFSET = 40;
 
-async function fetchTopOfBookOwner(
+async function fetchBestBookMakerOwners(
   bookAccount: PublicKey,
   isBids: boolean,
-): Promise<PublicKey | null> {
+  limit: number,
+): Promise<PublicKey[]> {
   const acc = await conn.getAccountInfo(bookAccount, "confirmed");
-  if (!acc) return null;
+  if (!acc) return [];
   const data = acc.data;
   const maybeNode = data.readUInt32LE(0);
   const leafCount = data.readUInt32LE(4);
-  if (leafCount === 0) return null;
+  if (leafCount === 0) return [];
 
-  const dir = isBids ? 1 : 0;
-  let h = maybeNode;
-  for (let depth = 0; depth < 64; depth++) {
+  const left = isBids ? 1 : 0;
+  const right = isBids ? 0 : 1;
+  const innerStack: number[] = [];
+  const makerOwners: PublicKey[] = [];
+  const seen = new Set<string>();
+  let current = maybeNode;
+
+  while (makerOwners.length < limit) {
+    const h = current;
     const off = BOOK_NODES_BASE + h * BOOK_NODE_SIZE;
-    if (off + BOOK_NODE_SIZE > data.length) return null;
+    if (off + BOOK_NODE_SIZE > data.length) break;
     const tag = data.readUInt8(off);
-    if (tag === 2) {
-      return new PublicKey(
+
+    if (tag === 1) {
+      innerStack.push(h);
+      current = data.readUInt32LE(
+        off + BOOK_INNER_CHILDREN_OFFSET + left * 4,
+      );
+    } else if (tag === 2) {
+      const makerOwner = new PublicKey(
         data.subarray(
           off + BOOK_LEAF_OWNER_OFFSET,
           off + BOOK_LEAF_OWNER_OFFSET + 32,
         ),
       );
-    } else if (tag === 1) {
-      h = data.readUInt32LE(off + BOOK_INNER_CHILDREN_OFFSET + dir * 4);
+      const key = makerOwner.toBase58();
+      if (!seen.has(key)) {
+        seen.add(key);
+        makerOwners.push(makerOwner);
+      }
+
+      const parent = innerStack.pop();
+      if (parent === undefined) break;
+      const parentOff = BOOK_NODES_BASE + parent * BOOK_NODE_SIZE;
+      current = data.readUInt32LE(
+        parentOff + BOOK_INNER_CHILDREN_OFFSET + right * 4,
+      );
     } else {
-      return null;
+      break;
     }
   }
-  return null;
+  return makerOwners;
 }
 
 async function runExecuteTriggers(): Promise<void> {
@@ -890,10 +961,29 @@ async function runExecuteTriggers(): Promise<void> {
     const [openOrdersAccount] = findOpenOrdersPda(t.owner, market);
     const [userAccount] = findUserAccountPda(t.owner);
     const [marketConfig] = findMarketConfigPda(t.marketIndex);
+    const userAccountInfo = await conn.getAccountInfo(userAccount, "confirmed");
+    if (!userAccountInfo || userAccountInfo.data.length !== USER_ACCOUNT_SIZE) {
+      console.log(
+        `[execute-trigger ${t.owner.toBase58().slice(0, 6)}/${t.clientId}] skip — missing risk user account`,
+      );
+      continue;
+    }
     const [fillsLog, bumpFillsLog] = findFillsLogPda(
       triggerAuthority,
       t.clientId,
     );
+    const fillsLogAcc = await conn.getAccountInfo(fillsLog, "confirmed");
+    const initFillsLogIx =
+      !fillsLogAcc || fillsLogAcc.data.length === 0
+        ? buildInitializeFillsLogIx({
+            payer: keeper.publicKey,
+            taker: triggerAuthority,
+            fillsLog,
+            market,
+            clientOrderId: t.clientId,
+            bumpFillsLog,
+          })
+        : null;
 
     const parentClientId = attachedParentClientId(t.clientId);
     if (
@@ -905,19 +995,39 @@ async function runExecuteTriggers(): Promise<void> {
       );
       continue;
     }
-
-    // Self-trade guard: orderbook PlaceTakeOrder aborts with WouldSelfTrade
-    // (errors.rs:19) when best opposing leaf owner == taker OO account.
-    // Trigger side 0=Buy hits asks, side 1=Sell hits bids.
-    const opposingBook = t.side === 0 ? asks : bids;
-    const isBidsSide = t.side === 1;
-    const topOwner = await fetchTopOfBookOwner(opposingBook, isBidsSide);
-    if (topOwner && topOwner.equals(t.owner)) {
+    if (!(await openOrdersHasDelegate(openOrdersAccount, triggerAuthority))) {
       console.log(
-        `[execute-trigger ${t.owner.toBase58().slice(0, 6)}/${t.clientId}] skip — self-trade (top maker == taker OO)`,
+        `[execute-trigger ${t.owner.toBase58().slice(0, 6)}/${t.clientId}] skip — trigger authority not OpenOrders delegate`,
       );
       continue;
     }
+
+    // Self-trade guard: orderbook PlaceTakeOrder aborts with WouldSelfTrade
+    // (errors.rs:19) when best opposing leaf owner == taker owner.
+    // Trigger side 0=Buy hits asks, side 1=Sell hits bids.
+    const opposingBook = t.side === 0 ? asks : bids;
+    const isBidsSide = t.side === 1;
+    const makerOwners = await fetchBestBookMakerOwners(
+      opposingBook,
+      isBidsSide,
+      MAX_TRIGGER_MAKER_ACCOUNTS,
+    );
+    const topMakerOwner = makerOwners[0] ?? null;
+    if (!topMakerOwner) {
+      console.log(
+        `[execute-trigger ${t.owner.toBase58().slice(0, 6)}/${t.clientId}] skip — no opposing liquidity`,
+      );
+      continue;
+    }
+    if (topMakerOwner.equals(t.owner)) {
+      console.log(
+        `[execute-trigger ${t.owner.toBase58().slice(0, 6)}/${t.clientId}] skip — self-trade (top maker == taker owner)`,
+      );
+      continue;
+    }
+    const makerOpenOrders = makerOwners.map(
+      (makerOwner) => findOpenOrdersPda(makerOwner, market)[0],
+    );
 
     const ix = buildExecuteTriggerIx({
       keeper: keeper.publicKey,
@@ -932,12 +1042,13 @@ async function runExecuteTriggers(): Promise<void> {
       oracle: m.oracle,
       userAccount,
       marketConfig,
+      makerOpenOrders,
       marketIndex: t.marketIndex,
       bumpFillsLog,
       bumpAuthority,
     });
     await send(
-      [...priorityFeeIxs(), ix],
+      [...priorityFeeIxs(), ...(initFillsLogIx ? [initFillsLogIx] : []), ix],
       `execute-trigger ${t.owner.toBase58().slice(0, 6)}/${t.clientId}`,
     );
   }

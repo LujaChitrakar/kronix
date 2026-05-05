@@ -7,7 +7,7 @@ use pinocchio::{
 use shank::ShankType;
 
 use crate::{
-    constants::TRIGGER_AUTHORITY_SEED,
+    constants::{MAX_CPI_MAKER_ACCOUNTS, TRIGGER_AUTHORITY_SEED},
     cpi::place_take_order_cpi,
     errors::TriggerProgramError,
     helpers::{
@@ -94,8 +94,14 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
         .checked_mul(mark_price)
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
-    let [user_account, market_config, risk_program, ..] = _remaining else {
+    let [user_account, market_config, risk_program, maker_open_orders @ ..] = _remaining else {
         return Err(ProgramError::NotEnoughAccountKeys);
+    };
+    let maker_count = maker_open_orders.len().min(MAX_CPI_MAKER_ACCOUNTS);
+    let limit = if maker_count > 0 {
+        maker_count as u8
+    } else {
+        1
     };
 
     place_take_order_cpi(
@@ -110,13 +116,14 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
         user_account,
         market_config,
         risk_program,
+        maker_open_orders,
         order.size_lots,
         max_quote_lots,
         order.client_order_id,
         0, //ignored as its market order
         order.side,
         3u8,
-        8u8,
+        limit,
         params.bump_fills_log,
         params.bump_authority,
         owner_key,

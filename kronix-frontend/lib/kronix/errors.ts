@@ -32,12 +32,35 @@ export const ORDERBOOK_ERRORS: Record<number, string> = {
   31: "InvalidMakerAccount",
 };
 
+export const RISK_ERRORS: Record<number, string> = {
+  1: "InvalidAmount",
+  2: "ExceedsMaxLeverage",
+  3: "InvalidOracle",
+  4: "StalePriceFeed",
+  5: "OracleConfidenceTooWide",
+  6: "InvalidOraclePrice",
+  7: "InvalidOwner",
+  8: "InsufficientCollateral",
+  9: "InvalidSide",
+  10: "InvalidMarketIndex",
+  11: "InvalidPositionSize",
+  12: "PositionAlreadyOpen",
+  13: "FundingNotDue",
+  14: "InsufficientMaintenanceMargin",
+  15: "InsuranceFundDepleted",
+  16: "NotLiquidatable",
+  17: "NotInBadDebt",
+};
+
 export function annotateOrderbookError(s: string): string {
   // Match either {"Custom":15} or 0xf / 0x0f patterns and append name.
   return s.replace(/(?:"Custom":\s*(\d+))|0x([0-9a-f]+)/gi, (_full, dec, hex) => {
     const code = dec ? parseInt(dec, 10) : parseInt(hex, 16);
-    const name = ORDERBOOK_ERRORS[code];
-    if (!name) return _full;
-    return `${_full} (${name})`;
+    const names = [
+      ORDERBOOK_ERRORS[code] ? `Orderbook: ${ORDERBOOK_ERRORS[code]}` : null,
+      RISK_ERRORS[code] ? `Risk: ${RISK_ERRORS[code]}` : null,
+    ].filter(Boolean);
+    if (names.length === 0) return _full;
+    return `${_full} (${names.join("; ")})`;
   });
 }

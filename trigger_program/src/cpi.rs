@@ -2,11 +2,11 @@ use orderbook_program_cpi::{
     self, InitializeFillsLogParams, PlaceTakeOrderParams, SetDelegateParams,
     INITIALIZE_FILLS_LOG_IX, PLACE_TAKE_ORDER_IX, SET_DELEGATE_IX,
 };
-use pinocchio::cpi::{invoke, invoke_signed, Seed, Signer};
+use pinocchio::cpi::{invoke, invoke_signed_with_bounds, Seed, Signer};
 use pinocchio::instruction::{InstructionAccount, InstructionView};
 use pinocchio::{AccountView, ProgramResult};
 
-use crate::constants::TRIGGER_AUTHORITY_SEED;
+use crate::constants::{MAX_CPI_MAKER_ACCOUNTS, TRIGGER_AUTHORITY_SEED};
 
 pub fn set_delegate_cpi(
     orderbook_program: &AccountView,
@@ -98,6 +98,7 @@ pub fn place_take_order_cpi(
     user_account: &AccountView,
     market_config: &AccountView,
     risk_program: &AccountView,
+    maker_open_orders: &[AccountView],
     max_base_lots: i64,
     max_quote_lots: i64,
     client_order_id: u64,
@@ -128,35 +129,49 @@ pub fn place_take_order_cpi(
     ix_data[0] = PLACE_TAKE_ORDER_IX;
     ix_data[1..].copy_from_slice(params_bytes);
 
-    let account_metas = [
-        InstructionAccount::new(trigger_authority.address(), true, true),
-        InstructionAccount::new(open_orders_account.address(), true, false),
-        InstructionAccount::new(market.address(), true, false),
-        InstructionAccount::new(bids.address(), true, false),
-        InstructionAccount::new(asks.address(), true, false),
-        InstructionAccount::new(fills_log.address(), true, false),
-        InstructionAccount::new(system_program.address(), false, false),
-        InstructionAccount::new(user_account.address(), true, false),
-        InstructionAccount::new(market_config.address(), false, false),
-        InstructionAccount::new(risk_program.address(), false, false),
-    ];
+    const FIXED_ACCOUNT_COUNT: usize = 10;
+    const MAX_ACCOUNT_COUNT: usize = FIXED_ACCOUNT_COUNT + MAX_CPI_MAKER_ACCOUNTS;
 
-    let account_infos = [
-        trigger_authority,
-        open_orders_account,
-        market,
-        bids,
-        asks,
-        fills_log,
-        system_program,
-        user_account,
-        market_config,
-        risk_program,
-    ];
+    let maker_count = maker_open_orders.len().min(MAX_CPI_MAKER_ACCOUNTS);
+    let account_count = FIXED_ACCOUNT_COUNT + maker_count;
+    let account_metas: [InstructionAccount; MAX_ACCOUNT_COUNT] =
+        core::array::from_fn(|i| match i {
+            0 => InstructionAccount::new(trigger_authority.address(), true, true),
+            1 => InstructionAccount::new(open_orders_account.address(), true, false),
+            2 => InstructionAccount::new(market.address(), true, false),
+            3 => InstructionAccount::new(bids.address(), true, false),
+            4 => InstructionAccount::new(asks.address(), true, false),
+            5 => InstructionAccount::new(fills_log.address(), true, false),
+            6 => InstructionAccount::new(system_program.address(), false, false),
+            7 => InstructionAccount::new(user_account.address(), true, false),
+            8 => InstructionAccount::new(market_config.address(), false, false),
+            9 => InstructionAccount::new(risk_program.address(), false, false),
+            i if i < account_count => InstructionAccount::new(
+                maker_open_orders[i - FIXED_ACCOUNT_COUNT].address(),
+                true,
+                false,
+            ),
+            _ => InstructionAccount::new(risk_program.address(), false, false),
+        });
+
+    let mut account_infos = [risk_program; MAX_ACCOUNT_COUNT];
+    account_infos[0] = trigger_authority;
+    account_infos[1] = open_orders_account;
+    account_infos[2] = market;
+    account_infos[3] = bids;
+    account_infos[4] = asks;
+    account_infos[5] = fills_log;
+    account_infos[6] = system_program;
+    account_infos[7] = user_account;
+    account_infos[8] = market_config;
+    account_infos[9] = risk_program;
+    for i in 0..maker_count {
+        account_infos[FIXED_ACCOUNT_COUNT + i] = &maker_open_orders[i];
+    }
 
     let ix = InstructionView {
         program_id: orderbook_program.address(),
-        accounts: &account_metas,
+        accounts: &account_metas[..account_count],
         data: &ix_data,
     };
 
@@ -167,7 +182,11 @@ pub fn place_take_order_cpi(
         Seed::from(bump_bytes.as_ref()),
     ];
 
-    invoke_signed::<10>(&ix, &account_infos, &[Signer::from(&seeds)])?;
+    invoke_signed_with_bounds::<MAX_ACCOUNT_COUNT>(
+        &ix,
+        &account_infos[..account_count],
+        &[Signer::from(&seeds)],
+    )?;
 
     Ok(())
 }

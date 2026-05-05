@@ -124,7 +124,7 @@ export function AccountPanel() {
         />
         <Stat label="Free" v={free !== null ? `$${fmtUsdc(free)}` : "—"} />
         <Stat
-          label="Positions"
+          label="Net Positions"
           v={posCount !== null ? String(posCount) : "—"}
         />
         <Stat

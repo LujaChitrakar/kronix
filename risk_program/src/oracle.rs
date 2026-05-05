@@ -8,6 +8,7 @@ use crate::{
 
 const SWITCHBOARD_PULL_FEED_DISCRIMINATOR: [u8; 8] = [196, 27, 108, 196, 10, 215, 219, 40];
 const SWITCHBOARD_PRICE_SCALE: i128 = 1_000_000_000_000; // 1e18 -> 1e6
+const MIN_ACCEPTED_STALENESS_SLOTS: u64 = 150;
 
 /// Read market price from an existing Switchboard On-Demand pull feed.
 /// Returns price in USD * 10^6.
@@ -47,7 +48,8 @@ pub fn validate_switchboard_price(
     let staleness = clock_slot
         .checked_sub(result_slot)
         .ok_or(RiskProgramError::StalePriceFeed)?;
-    if staleness > feed.max_staleness as u64 {
+    let max_staleness = (feed.max_staleness as u64).max(MIN_ACCEPTED_STALENESS_SLOTS);
+    if staleness > max_staleness {
         return Err(RiskProgramError::StalePriceFeed.into());
     }
 

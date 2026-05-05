@@ -5,8 +5,8 @@ use shank::ShankType;
 use crate::{
     constants::{
         OPEN_ORDERS_AUTHORITY_BYTES, OPEN_ORDERS_DELEGATE_OFFSET, OPEN_ORDERS_OWNER_OFFSET,
-        ORDERBOOK_PROGRAM_ID, STRATEGY_AUTHORITY_SEED, STRATEGY_PROGRAM_ID,
-        TRIGGER_AUTHORITY_SEED, TRIGGER_PROGRAM_ID, USER_ACCOUNT_SEED,
+        ORDERBOOK_PROGRAM_ID, STRATEGY_AUTHORITY_SEED, STRATEGY_PROGRAM_ID, TRIGGER_AUTHORITY_SEED,
+        TRIGGER_PROGRAM_ID, USER_ACCOUNT_SEED,
     },
     errors::RiskProgramError,
     helper::{
@@ -91,7 +91,9 @@ fn verify_margin_authority(
         }
     }
 
-    let open_orders_account = remaining.first().ok_or(ProgramError::NotEnoughAccountKeys)?;
+    let open_orders_account = remaining
+        .first()
+        .ok_or(ProgramError::NotEnoughAccountKeys)?;
     verify_initialized(open_orders_account)?;
     unsafe {
         verify_account_owner(open_orders_account, &ORDERBOOK_PROGRAM_ID)?;
@@ -106,8 +108,7 @@ fn verify_margin_authority(
         return Err(RiskProgramError::InvalidOwner.into());
     }
 
-    let delegate =
-        &data[OPEN_ORDERS_DELEGATE_OFFSET..OPEN_ORDERS_DELEGATE_OFFSET + 32];
+    let delegate = &data[OPEN_ORDERS_DELEGATE_OFFSET..OPEN_ORDERS_DELEGATE_OFFSET + 32];
     if delegate == [0u8; 32].as_ref() || delegate != signer_key.as_ref() {
         return Err(RiskProgramError::InvalidOwner.into());
     }

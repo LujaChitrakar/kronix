@@ -18,7 +18,7 @@ type Tab =
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "account", label: "Account" },
-  { id: "position", label: "Position" },
+  { id: "position", label: "Net Position" },
   { id: "open", label: "Open Orders" },
   // { id: "trigger", label: "Trigger Orders" },
   { id: "strategy", label: "Strategy Orders" },

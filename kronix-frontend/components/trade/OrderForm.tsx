@@ -13,8 +13,15 @@ import {
   findMarketPda,
   findMarketConfigPda,
   findUserAccountPda,
+  findPositionPda,
 } from "@/lib/kronix/pdas";
-import { fetchOpenOrders, fetchMarketConfig, fetchUser } from "@/lib/kronix/state";
+import { fetchOpenOrders, fetchMarketConfig, fetchUser, fetchPosition } from "@/lib/kronix/state";
+import {
+  formatNetPositionPreview,
+  simulateNetPosition,
+  type NetPosition,
+  type NetSide,
+} from "@/lib/kronix/net-position";
 import { useStore } from "@/lib/store";
 import {
   notifyError,
@@ -25,6 +32,10 @@ import {
 import { sendTx, formatTxError } from "./tx";
 
 type OwnOrder = { clientId: bigint; priceLots: bigint; side: number };
+
+function netSideFromOrderSide(side: number): NetSide {
+  return side === Side.Bid ? "long" : "short";
+}
 
 function priceFromOrderId(id: Uint8Array | ArrayLike<number>): bigint {
   const bytes = Uint8Array.from(id);
@@ -69,6 +80,7 @@ export function OrderForm() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [myOrders, setMyOrders] = useState<OwnOrder[]>([]);
+  const [netPosition, setNetPosition] = useState<NetPosition | null>(null);
   const [cfg, setCfg] = useState<{
     quoteLotSize: bigint;
     initialMarginBps: number;
@@ -105,6 +117,34 @@ export function OrderForm() {
       })
       .catch(() => null);
   }, [connection, marketIndex]);
+
+  useEffect(() => {
+    if (!owner) {
+      setNetPosition(null);
+      return;
+    }
+    let alive = true;
+    const refresh = async () => {
+      const [positionPda] = findPositionPda(owner, marketIndex);
+      const pos = await fetchPosition(connection, positionPda);
+      if (!alive) return;
+      if (!pos || pos.size === 0n) {
+        setNetPosition(null);
+        return;
+      }
+      setNetPosition({
+        side: pos.side === Side.Bid ? "long" : "short",
+        sizeLots: pos.size,
+        entryPriceLots: pos.entryPrice,
+      });
+    };
+    refresh().catch(() => null);
+    const t = setInterval(() => refresh().catch(() => null), 5000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [connection, owner, marketIndex]);
 
   // Live refresh of own resting orders so we can warn before submit.
   useEffect(() => {
@@ -154,6 +194,30 @@ export function OrderForm() {
       : priceLotsParsed > 0n
         ? crossesOwn(myOrders, side, priceLotsParsed)
         : [];
+
+  const orderSizeLotsPreview = (() => {
+    try {
+      return BigInt(parseInt(size || "0", 10));
+    } catch {
+      return 0n;
+    }
+  })();
+
+  const orderPriceLotsPreview = (() => {
+    if (orderType !== PlaceOrderType.Market) return priceLotsParsed;
+    return BigInt(Math.max(0, Math.round(selectedPrice ?? 0)));
+  })();
+
+  const estimatedNetPosition =
+    orderSizeLotsPreview > 0n && orderPriceLotsPreview > 0n
+      ? simulateNetPosition(netPosition, {
+          side: netSideFromOrderSide(side),
+          sizeLots: orderSizeLotsPreview,
+          priceLots: orderPriceLotsPreview,
+        })
+      : null;
+  const oppositeSideNet =
+    !!netPosition && netPosition.side !== netSideFromOrderSide(side);
 
   const cancelConflicts = async () => {
     if (!owner || conflicts.length === 0) return;
@@ -502,6 +566,37 @@ export function OrderForm() {
           >
             Cancel conflicting orders
           </button>
+        </div>
+      )}
+
+      {estimatedNetPosition && (
+        <div
+          className={`p-2.5 rounded-lg border text-[10px] font-mono ${
+            oppositeSideNet
+              ? "border-[#ffb86b]/40 bg-[#ffb86b]/10 text-[#ffb86b]"
+              : "kx-border bg-kx-surface-lo text-on-surface-variant"
+          }`}
+        >
+          {oppositeSideNet && (
+            <div className="mb-1 font-bold">
+              This will reduce or flip your current position
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-2">
+            <span className="uppercase opacity-70">Estimated position after fill</span>
+            <span className="text-on-surface font-bold">
+              {formatNetPositionPreview(estimatedNetPosition)}
+            </span>
+          </div>
+          {netPosition && (
+            <div className="mt-1 opacity-80">
+              Current: {netPosition.side.toUpperCase()} {netPosition.sizeLots} @{" "}
+              {netPosition.entryPriceLots}
+            </div>
+          )}
+          <div className="mt-1 opacity-70">
+            Actual result may differ due to partial fills or slippage
+          </div>
         </div>
       )}
 

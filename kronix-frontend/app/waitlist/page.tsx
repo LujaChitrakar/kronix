@@ -19,7 +19,7 @@ export default function WaitlistForm() {
   useEffect(() => {
     if (!submitted) return;
     if (countdown === 0) {
-      router.push("/");
+      router.push("/about");
       return;
     }
     const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
@@ -69,7 +69,7 @@ export default function WaitlistForm() {
 
       {/* Back link */}
       <Link
-        href="/"
+        href="/about"
         className="absolute top-6 left-6 font-mono text-[11px] tracking-[0.2em] uppercase text-white/40 hover:text-[#4DFFB4] transition-colors flex items-center gap-2 z-20"
       >
         <span>←</span>

@@ -94,6 +94,12 @@ export function TradeNav() {
           </span>
         </div>*/}
         <div className="flex items-center gap-2">
+          {/*<Link
+            href="/about"
+            className="px-3 h-9 inline-flex items-center rounded-md bg-kx-surface-hi border kx-border text-xs font-bold text-on-surface hover:text-[#4DFFB4] transition-colors"
+          >
+            About
+          </Link>*/}
           <button
             type="button"
             disabled={!wallet.publicKey || usdcBusy}
