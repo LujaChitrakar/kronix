@@ -12,12 +12,14 @@ import {
 const FAUCET_LAMPORTS = LAMPORTS_PER_SOL / 10;
 
 function loadMintAuthority(): Keypair {
-  const raw = process.env.MINT_AUTHORITY;
-  if (!raw) throw new Error("MINT_AUTHORITY missing");
+  const raw = process.env.MINT_AUTHORITY ?? process.env.KEEPER_KEYPAIR_PATH;
+  if (!raw) throw new Error("MINT_AUTHORITY or KEEPER_KEYPAIR_PATH missing");
 
   const parsed = JSON.parse(raw) as number[];
   if (!Array.isArray(parsed) || parsed.length !== 64) {
-    throw new Error("MINT_AUTHORITY must be a 64-byte JSON array");
+    throw new Error(
+      "MINT_AUTHORITY or KEEPER_KEYPAIR_PATH must be a 64-byte JSON array",
+    );
   }
 
   return Keypair.fromSecretKey(Uint8Array.from(parsed));

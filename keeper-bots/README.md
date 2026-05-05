@@ -40,7 +40,7 @@ crypto-exchange/
 ```sh
 cd keeper-bots
 cp .env.example .env.local
-# edit .env.local — point KEEPER_KEYPAIR_PATH at a funded devnet keypair
+# edit .env.local — set KEEPER_KEYPAIR_PATH to a funded devnet keypair JSON array
 pnpm install
 pnpm keeper
 ```
@@ -49,7 +49,7 @@ Required env vars (read from `.env.local`):
 
 | Var                              | Default                              | Purpose                                          |
 | -------------------------------- | ------------------------------------ | ------------------------------------------------ |
-| `KEEPER_KEYPAIR_PATH`            | `~/.config/solana/id.json`           | JSON keypair file the keeper signs with         |
+| `KEEPER_KEYPAIR_PATH`            | `~/.config/solana/id.json`           | 64-byte JSON keypair array; file paths still work |
 | `NEXT_PUBLIC_RPC_URL`            | `https://api.devnet.solana.com`      | Solana RPC endpoint                              |
 | `NEXT_PUBLIC_USDC_MINT`          | devnet test mint                     | USDC mint for vault / liquidator ATA            |
 | `NEXT_PUBLIC_MARKET_INDEX`       | `32`                                 | SOL market index                                |
@@ -57,14 +57,14 @@ Required env vars (read from `.env.local`):
 | `NEXT_PUBLIC_MARKET_INDEXES`     | `32,31`                              | Markets keeper scans                            |
 | `NEXT_PUBLIC_TRIGGER_PROGRAM_ID` | hardcoded                            | Override deployed trigger program               |
 | `NEXT_PUBLIC_STRATEGY_PROGRAM_ID`| hardcoded                            | Override deployed strategy program              |
-| `KEEPER_PRICE_HISTORY_PATH`      | sibling of keypair file              | JSON file persisting mark-price samples         |
+| `KEEPER_PRICE_HISTORY_PATH`      | `keeper-bots/kronix-price-history.json` | JSON file persisting mark-price samples      |
 | `KEEPER_DEV_SKIP_CORRUPTED_ACCOUNTS` | unset                            | Dev-only: set `1` to skip legacy corrupted accounts |
 | `KEEPER_DEV_CORRUPTED_COLLATERAL_FLOOR` | `-100000000000`               | Dev-only collateral floor used by skip mode     |
 | `KEEPER_DEV_CORRUPTED_ACCOUNTS`  | unset                                | Dev-only comma list of owner/user/position pubkeys to skip |
 
-The frontend's `lib/kronix/config.ts` reads the same `NEXT_PUBLIC_*` env vars,
-so the same value set works for both processes (or copy
-`kronix-frontend/.env.local` here).
+The frontend's `lib/kronix/config.ts` reads the same `NEXT_PUBLIC_*` env vars.
+Faucet API routes also accept `KEEPER_KEYPAIR_PATH` from
+`kronix-frontend/.env.local` when `MINT_AUTHORITY` is unset.
 
 ## Strategy signal computation
 

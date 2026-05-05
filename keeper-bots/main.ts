@@ -12,8 +12,8 @@
  *
  * Run with:  pnpm keeper
  *
- * Env (place in kronix-frontend/.env.local):
- *   KEEPER_KEYPAIR_PATH  – path to a Solana JSON keypair file (default ~/.config/solana/id.json)
+ * Env (place in keeper-bots/.env.local):
+ *   KEEPER_KEYPAIR_PATH  – 64-byte Solana keypair JSON array, or path to JSON file
  *   NEXT_PUBLIC_RPC_URL  – RPC endpoint
  *   NEXT_PUBLIC_USDC_MINT
  *   NEXT_PUBLIC_MARKET_INDEX
@@ -96,9 +96,12 @@ import {
 
 const RPC_URL =
   process.env.NEXT_PUBLIC_RPC_URL ?? "https://api.devnet.solana.com";
-const KEYPAIR_PATH =
-  process.env.KEEPER_KEYPAIR_PATH ??
-  path.join(os.homedir(), ".config", "solana", "id.json");
+const DEFAULT_KEYPAIR_PATH = path.join(
+  os.homedir(),
+  ".config",
+  "solana",
+  "id.json",
+);
 const MARKET_INDEXES = (
   process.env.NEXT_PUBLIC_MARKET_INDEXES
     ? process.env.NEXT_PUBLIC_MARKET_INDEXES.split(",").map((s) => Number(s.trim()))
@@ -139,8 +142,48 @@ const addr = (pk: PublicKey): Address => pk.toBase58() as Address;
 // ── Bootstrap ────────────────────────────────────────────────────────────
 
 const conn = new Connection(RPC_URL, "confirmed");
-const secret = JSON.parse(fs.readFileSync(KEYPAIR_PATH, "utf8")) as number[];
-const keeper = Keypair.fromSecretKey(Uint8Array.from(secret));
+
+function expandHome(p: string): string {
+  return p === "~" || p.startsWith("~/")
+    ? path.join(os.homedir(), p.slice(2))
+    : p;
+}
+
+function parseKeypairJson(raw: string, source: string): Keypair {
+  const parsed = JSON.parse(raw) as unknown;
+  if (!Array.isArray(parsed) || parsed.length !== 64) {
+    throw new Error(`${source} must be a 64-byte JSON array`);
+  }
+  return Keypair.fromSecretKey(Uint8Array.from(parsed as number[]));
+}
+
+function loadKeeperKeypair(): Keypair {
+  const raw = process.env.KEEPER_KEYPAIR_PATH?.trim();
+  if (!raw) {
+    return parseKeypairJson(
+      fs.readFileSync(DEFAULT_KEYPAIR_PATH, "utf8"),
+      DEFAULT_KEYPAIR_PATH,
+    );
+  }
+
+  if (raw.startsWith("[")) {
+    return parseKeypairJson(raw, "KEEPER_KEYPAIR_PATH");
+  }
+
+  const maybePath = expandHome(raw);
+  if (fs.existsSync(maybePath)) {
+    return parseKeypairJson(
+      fs.readFileSync(maybePath, "utf8"),
+      "KEEPER_KEYPAIR_PATH file",
+    );
+  }
+
+  throw new Error(
+    "KEEPER_KEYPAIR_PATH must be a 64-byte JSON array or path to a Solana keypair JSON file",
+  );
+}
+
+const keeper = loadKeeperKeypair();
 console.log(`keeper pubkey: ${keeper.publicKey.toBase58()}`);
 console.log(`rpc:           ${RPC_URL}`);
 console.log(`market_indexes:${MARKET_INDEXES.join(",")}`);
@@ -1118,7 +1161,7 @@ async function runPruneOrders(): Promise<void> {
 // to disk so a keeper restart does not blow away the warmup window.
 const PRICE_HISTORY_PATH =
   process.env.KEEPER_PRICE_HISTORY_PATH ??
-  path.join(path.dirname(KEYPAIR_PATH), "kronix-price-history.json");
+  path.join(process.cwd(), "kronix-price-history.json");
 
 const priceHistory = new Map<number, bigint[]>();
 
