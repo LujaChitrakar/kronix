@@ -365,19 +365,22 @@ export function OrderForm() {
         (ixs, c) => sendTx(wallet, c, ixs),
       );
       const settled = res.settleSigs.length;
-      const triggerCount = attachedTriggers.length;
+      const triggerCount = res.triggerSigs.length;
       setMsg(
         `Placed ${res.placeSig.slice(0, 8)}…  fills=${res.fillCount}  ` +
-          `settle TXs=${settled}  triggers=${triggerCount}` +
+          `settlement=${res.fillCount > 0 ? "keeper pending" : "none"}  triggers=${triggerCount}` +
           (settled ? ` [${res.settleSigs.map((s) => s.slice(0, 6)).join(", ")}]` : ""),
       );
       notifyTxSuccess(
         "Order placed",
         res.placeSig,
-        `fills=${res.fillCount} settle TXs=${settled} triggers=${triggerCount}`,
+        `fills=${res.fillCount} settlement=${res.fillCount > 0 ? "keeper pending" : "none"} triggers=${triggerCount}`,
       );
       for (const sig of res.settleSigs) {
         notifyTxSuccess("Fill settled", sig);
+      }
+      for (const sig of res.triggerSigs) {
+        notifyTxSuccess("TP/SL attached", sig);
       }
     } catch (e) {
       const err = formatTxError(e);

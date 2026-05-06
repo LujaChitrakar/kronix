@@ -77,7 +77,6 @@ import {
 } from "./pdas";
 import { toLegacyIx, fakeSigner } from "./ix-bridge";
 import { fetchFillsLog } from "./fills-log";
-import { buildSettleFillsIx, MAX_FILLS_PER_TX } from "./settle-fills";
 import { scanBook } from "./book-scan";
 
 type Send = (
@@ -95,7 +94,22 @@ type PlaceTriggerOrderArgs = {
   marketIndex?: number;
 };
 
+type PlaceOrderArgs = {
+  side: number;
+  orderType: number;
+  priceLots: bigint;
+  maxBaseLots: bigint;
+  maxQuoteLots: bigint;
+  clientOrderId: bigint;
+  expiryTimestamp: bigint;
+  limit: number;
+  leverage?: number;
+  marketIndex?: number;
+  attachedTriggers?: PlaceTriggerOrderArgs[];
+};
+
 const TERMINAL_TRIGGER_STATUSES = new Set([1, 2]); // Triggered, Canceled
+const TRIGGER_ORDER_SIZE = 144;
 
 const PADDING_3 = new Uint8Array(3);
 const PADDING_4 = new Uint8Array(4);
@@ -112,6 +126,21 @@ function priorityFeeIxs(): TransactionInstruction[] {
     ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 }),
     ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 10_000 }),
   ];
+}
+
+async function sendLabeled(
+  send: Send,
+  ixs: TransactionInstruction[],
+  conn: Connection,
+  label: string,
+): Promise<string> {
+  try {
+    return await send(ixs, conn);
+  } catch (e) {
+    const err = e instanceof Error ? e : new Error(String(e));
+    err.message = `${label}: ${err.message}`;
+    throw err;
+  }
 }
 
 async function makerOpenOrdersForMatch(
@@ -367,24 +396,11 @@ export async function sendSettleFunding(
 
 // ───────── Orders ─────────
 
-export async function sendPlaceOrder(
+async function buildPlaceOrderIxs(
   owner: PublicKey,
-  args: {
-    side: number;
-    orderType: number;
-    priceLots: bigint;
-    maxBaseLots: bigint;
-    maxQuoteLots: bigint;
-    clientOrderId: bigint;
-    expiryTimestamp: bigint;
-    limit: number;
-    leverage?: number;
-    marketIndex?: number;
-    attachedTriggers?: PlaceTriggerOrderArgs[];
-  },
+  args: PlaceOrderArgs,
   conn: Connection,
-  send: Send,
-): Promise<string> {
+): Promise<TransactionInstruction[]> {
   const marketIndex = args.marketIndex ?? MARKET_INDEX;
   const [market] = findMarketPda(marketIndex);
   const [bids] = findBidsPda(marketIndex);
@@ -453,29 +469,21 @@ export async function sendPlaceOrder(
     ...makerOos.map((pubkey) => ({ pubkey, isSigner: false, isWritable: true })),
   );
 
-  const attachedTriggers = args.attachedTriggers ?? [];
-  const delegateIxs =
-    attachedTriggers.length > 0
-      ? [buildSetDelegateIx(owner, findTriggerAuthorityPda(owner)[0], marketIndex)]
-      : [];
-  const triggerIxs = attachedTriggers.map((trigger) =>
-    buildPlaceTriggerOrderIx(owner, trigger),
-  );
+  return [...priorityFeeIxs(), toLegacyIx(initFillsLog), placeIx];
+}
 
-  return send(
-    [
-      ...priorityFeeIxs(),
-      toLegacyIx(initFillsLog),
-      placeIx,
-      ...delegateIxs,
-      ...triggerIxs,
-    ],
-    conn,
-  );
+export async function sendPlaceOrder(
+  owner: PublicKey,
+  args: PlaceOrderArgs,
+  conn: Connection,
+  send: Send,
+): Promise<string> {
+  return send(await buildPlaceOrderIxs(owner, args, conn), conn);
 }
 
 export type PlaceAndSettleResult = {
   placeSig: string;
+  triggerSigs: string[];
   settleSigs: string[];
   fillCount: number;
 };
@@ -492,23 +500,16 @@ export type PlaceAndSettleResult = {
  */
 export async function sendPlaceOrderAndSettle(
   owner: PublicKey,
-  args: {
-    side: number;
-    orderType: number;
-    priceLots: bigint;
-    maxBaseLots: bigint;
-    maxQuoteLots: bigint;
-    clientOrderId: bigint;
-    expiryTimestamp: bigint;
-    limit: number;
-    leverage?: number;
-    marketIndex?: number;
-    attachedTriggers?: PlaceTriggerOrderArgs[];
-  },
+  args: PlaceOrderArgs,
   conn: Connection,
   send: Send,
 ): Promise<PlaceAndSettleResult> {
-  const placeSig = await sendPlaceOrder(owner, args, conn, send);
+  const placeSig = await sendLabeled(
+    send,
+    await buildPlaceOrderIxs(owner, args, conn),
+    conn,
+    "place order",
+  );
   console.log("✅ place_order sig:", placeSig);
   console.log(
     "🔍 https://explorer.solana.com/tx/" + placeSig + "?cluster=devnet",
@@ -523,33 +524,33 @@ export async function sendPlaceOrderAndSettle(
 
   if (!log || log.fillCount === 0) {
     console.warn("⚠️ No fills found — order did not match");
-    return { placeSig, settleSigs: [], fillCount: 0 };
   }
 
-  const settleSigs: string[] = [];
-  for (let start = 0; start < log.fillCount; start += MAX_FILLS_PER_TX) {
-    const end = Math.min(log.fillCount, start + MAX_FILLS_PER_TX);
-    const ix = buildSettleFillsIx(
+  const triggerSigs: string[] = [];
+  const triggerIxs = (args.attachedTriggers ?? []).map((trigger) =>
+    buildPlaceTriggerOrderIx(owner, trigger),
+  );
+  if (triggerIxs.length > 0) {
+    const cancelIxs = await replacementTriggerCancelIxs(
       owner,
       args.marketIndex ?? MARKET_INDEX,
-      fillsLog,
-      log.fills,
-      start,
-      end,
+      args.attachedTriggers?.[0]?.side,
+      conn,
     );
-    try {
-      const sig = await send([...priorityFeeIxs(), ix], conn);
-      console.log("✅ settle_fills sig:", sig);
-      console.log(
-        "🔍 https://explorer.solana.com/tx/" + sig + "?cluster=devnet",
-      );
-      settleSigs.push(sig);
-    } catch (err) {
-      console.error("❌ settle_fills FAILED:", err);
-      throw err;
-    }
+    const sig = await sendLabeled(
+      send,
+      [...priorityFeeIxs(), ...cancelIxs, ...triggerIxs],
+      conn,
+      "TP/SL triggers",
+    );
+    console.log("✅ place_trigger_order batch sig:", sig);
+    console.log(
+      "🔍 https://explorer.solana.com/tx/" + sig + "?cluster=devnet",
+    );
+    triggerSigs.push(sig);
   }
-  return { placeSig, settleSigs, fillCount: log.fillCount };
+
+  return { placeSig, triggerSigs, settleSigs: [], fillCount: log?.fillCount ?? 0 };
 }
 
 export async function sendCancelOrderByClientId(
@@ -742,11 +743,9 @@ export async function sendPlaceTriggerOrder(
   conn: Connection,
   send: Send,
 ): Promise<string> {
-  const marketIndex = args.marketIndex ?? MARKET_INDEX;
   return send(
     [
       ...priorityFeeIxs(),
-      buildSetDelegateIx(owner, findTriggerAuthorityPda(owner)[0], marketIndex),
       buildPlaceTriggerOrderIx(owner, args),
     ],
     conn,
@@ -842,6 +841,38 @@ async function attachedTriggerCancelIxs(
     }
   });
 
+  return ixs;
+}
+
+async function replacementTriggerCancelIxs(
+  owner: PublicKey,
+  marketIndex: number,
+  triggerSide: number | undefined,
+  conn: Connection,
+): Promise<TransactionInstruction[]> {
+  if (triggerSide === undefined) return [];
+  const accs = await conn.getProgramAccounts(TRIGGER_PROGRAM_ID, {
+    commitment: "confirmed",
+    filters: [
+      { dataSize: TRIGGER_ORDER_SIZE },
+      { memcmp: { offset: 48, bytes: owner.toBase58() } },
+    ],
+  });
+  const decoder = getTriggerOrderDecoder();
+  const ixs: TransactionInstruction[] = [];
+  for (const { pubkey, account } of accs) {
+    try {
+      const trigger = decoder.decode(account.data);
+      if (TERMINAL_TRIGGER_STATUSES.has(trigger.status)) continue;
+      const suffix = trigger.clientOrderId % 10n;
+      if (suffix !== 1n && suffix !== 2n) continue;
+      if (trigger.marketIndex !== marketIndex) continue;
+      if (trigger.side !== triggerSide) continue;
+      ixs.push(buildCancelTriggerOrderIx(owner, pubkey));
+    } catch {
+      continue;
+    }
+  }
   return ixs;
 }
 

@@ -78,7 +78,7 @@
 /* ── HL-style surfaces + dividers ─────────────────────────────────────── */
 .bg-kx-surface      { background-color: #14181A; }
 .bg-kx-surface-hi   { background-color: #181D1F; }
-.bg-kx-surface-lo   { background-color: #10141D; }
+.bg-kx-surface-lo   { background-color: #101315; }
 .bg-kx-base         { background-color: #0B0F0D; }
 
 .kx-border          { border-color: rgba(77, 255, 180, 0.08); }

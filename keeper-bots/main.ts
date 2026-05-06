@@ -51,6 +51,8 @@ import {
   getOpenOrdersAccountDecoder,
   getPruneOrdersInstruction,
 } from "../kronix-frontend/lib/orderbook-sdk";
+import { decodeFillsLog } from "../kronix-frontend/lib/kronix/fills-log";
+import { buildSettleFillsIx } from "../kronix-frontend/lib/kronix/settle-fills";
 
 import {
   ORDERBOOK_PROGRAM_ID,
@@ -607,6 +609,61 @@ async function runSettleFunding(): Promise<void> {
   }
 }
 
+async function runSettleFills(): Promise<void> {
+  const accs = await conn.getProgramAccounts(ORDERBOOK_PROGRAM_ID, {
+    commitment: "confirmed",
+    filters: [{ dataSize: FILLS_LOG_SIZE }],
+  });
+  let pending = 0;
+  for (const { pubkey, account } of accs) {
+    let log: ReturnType<typeof decodeFillsLog>;
+    try {
+      log = decodeFillsLog(new Uint8Array(account.data));
+    } catch {
+      continue;
+    }
+    if (log.fillCount === 0 || log.allSettled === 1) continue;
+    const marketIndex = log.fills[0]?.marketIndex;
+    if (marketIndex === undefined) continue;
+    pending++;
+    for (let start = 0; start < log.fillCount; start++) {
+      const fill = log.fills[start];
+      if (!fill || fill.settled === 1) continue;
+      const [takerUa] = findUserAccountPda(fill.takerPubkey);
+      const [makerUa] = findUserAccountPda(fill.makerPubkey);
+      const [takerUaAcc, makerUaAcc] = await conn.getMultipleAccountsInfo(
+        [takerUa, makerUa],
+        "confirmed",
+      );
+      if (
+        !takerUaAcc ||
+        takerUaAcc.data.length !== USER_ACCOUNT_SIZE ||
+        !makerUaAcc ||
+        makerUaAcc.data.length !== USER_ACCOUNT_SIZE
+      ) {
+        console.log(
+          `[settle-fills ${pubkey.toBase58().slice(0, 6)} ${start}] skip — missing risk user account`,
+        );
+        continue;
+      }
+      const end = start + 1;
+      const ix = buildSettleFillsIx(
+        keeper.publicKey,
+        marketIndex,
+        pubkey,
+        log.fills,
+        start,
+        end,
+      );
+      await send(
+        [...priorityFeeIxs(), ix],
+        `settle-fills ${pubkey.toBase58().slice(0, 6)} ${start}-${end}`,
+      );
+    }
+  }
+  if (pending > 0) console.log(`[settle-fills] pending logs=${pending}`);
+}
+
 async function runLiquidate(): Promise<void> {
   const markets = await loadMarkets();
   const positions = await scanPositions();
@@ -803,6 +860,21 @@ async function parentOrderStillResting(
     return oo.openOrders.some(
       (order) => order.isFree === 0 && order.clientId === parentClientId,
     );
+  } catch {
+    return false;
+  }
+}
+
+async function parentFillsUnsettled(
+  owner: PublicKey,
+  parentClientId: bigint,
+): Promise<boolean> {
+  const [fillsLog] = findFillsLogPda(owner, parentClientId);
+  const acc = await conn.getAccountInfo(fillsLog, "confirmed");
+  if (!acc || acc.data.length !== FILLS_LOG_SIZE) return false;
+  try {
+    const log = decodeFillsLog(new Uint8Array(acc.data));
+    return log.fillCount > 0 && log.allSettled === 0;
   } catch {
     return false;
   }
@@ -1035,6 +1107,15 @@ async function runExecuteTriggers(): Promise<void> {
     ) {
       console.log(
         `[execute-trigger ${t.owner.toBase58().slice(0, 6)}/${t.clientId}] skip — parent order still resting`,
+      );
+      continue;
+    }
+    if (
+      parentClientId !== null &&
+      (await parentFillsUnsettled(t.owner, parentClientId))
+    ) {
+      console.log(
+        `[execute-trigger ${t.owner.toBase58().slice(0, 6)}/${t.clientId}] skip — parent fills not settled`,
       );
       continue;
     }
@@ -1835,6 +1916,7 @@ const jobs: Job[] = [
   { name: "liquidate", intervalMs: 30_000, run: runLiquidate, running: false },
   { name: "cover-bad-debt", intervalMs: 60_000, run: runCoverBadDebt, running: false },
   { name: "prune-orders", intervalMs: 60_000, run: runPruneOrders, running: false },
+  { name: "settle-fills", intervalMs: 10_000, run: runSettleFills, running: false },
   { name: "settle-funding", intervalMs: 8 * 3_600_000, run: runSettleFunding, running: false },
   { name: "execute-triggers", intervalMs: 10_000, run: runExecuteTriggers, running: false },
   { name: "prune-expired-triggers", intervalMs: 60_000, run: runPruneExpiredTriggers, running: false },

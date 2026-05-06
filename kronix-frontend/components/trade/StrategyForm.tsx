@@ -208,19 +208,19 @@ export function StrategyForm() {
 
       <SectionLabel>Order</SectionLabel>
       <div className="space-y-2">
-        <Field 
-          id="strategy-size"
-          label="Size (base lots)" 
-          value={sizeLots} 
-          onChange={setSizeLots} 
-          onFocus={() => setLastFocusedInputId("strategy-size")}
-        />
         <Field
           id="strategy-limit"
           label="Limit Price (lots, 0 = market)"
           value={limitPriceLots}
           onChange={setLimitPriceLots}
           onFocus={() => setLastFocusedInputId("strategy-limit")}
+        />
+        <Field
+          id="strategy-size"
+          label="Size (base lots)"
+          value={sizeLots}
+          onChange={setSizeLots}
+          onFocus={() => setLastFocusedInputId("strategy-size")}
         />
         <div className="space-y-2">
           <div className="flex items-center justify-between text-[10px] font-mono uppercase text-on-surface-variant">

@@ -66,6 +66,18 @@ function formatTriggers(triggers: PositionTrigger[]): string {
     .join(", ");
 }
 
+function dedupeTriggers(triggers: PositionTrigger[]): PositionTrigger[] {
+  const seen = new Set<string>();
+  const out: PositionTrigger[] = [];
+  for (const t of triggers) {
+    const key = `${t.price}:${t.sizeLots}:${t.status}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(t);
+  }
+  return out;
+}
+
 export function PositionPanel() {
   const { connection } = useConnection();
   const wallet = useWallet();
@@ -151,7 +163,10 @@ export function PositionPanel() {
       nextTriggers.stopLoss.sort((a, b) =>
         a.price > b.price ? 1 : a.price < b.price ? -1 : 0,
       );
-      setPositionTriggers(nextTriggers);
+      setPositionTriggers({
+        takeProfit: dedupeTriggers(nextTriggers.takeProfit),
+        stopLoss: dedupeTriggers(nextTriggers.stopLoss),
+      });
     } else {
       setPos(null);
       setPositionTriggers({ takeProfit: [], stopLoss: [] });
