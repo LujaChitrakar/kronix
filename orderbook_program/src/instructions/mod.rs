@@ -5,6 +5,7 @@ pub mod cancel_all_orders;
 pub mod cancel_order;
 pub mod cancel_order_by_client_id;
 pub mod claim_fill;
+pub mod close_orderbook_market;
 pub mod create_open_orders_account;
 pub mod create_orderbook_market;
 pub mod edit_order;
@@ -19,6 +20,7 @@ pub use cancel_all_orders::*;
 pub use cancel_order::*;
 pub use cancel_order_by_client_id::*;
 pub use claim_fill::*;
+pub use close_orderbook_market::*;
 pub use create_open_orders_account::*;
 pub use create_orderbook_market::*;
 pub use edit_order::*;
@@ -129,6 +131,18 @@ pub enum OrderbookInstruction {
     #[account(0, name = "signer", desc = "signer", signer)]
     #[account(1, name = "open_orders_account", desc = "OO account", writable)]
     SetDelegate(SetDelegateParams),
+
+    #[account(
+        0,
+        name = "admin",
+        desc = "Market admin / rent receiver",
+        signer,
+        writable
+    )]
+    #[account(1, name = "market", desc = "Market state PDA", writable)]
+    #[account(2, name = "bids", desc = "Bids BookSide PDA", writable)]
+    #[account(3, name = "asks", desc = "Asks BookSide PDA", writable)]
+    CloseOrderbookMarket(CloseOrderbookMarketParams),
 }
 
 #[repr(u8)]
@@ -146,6 +160,7 @@ pub enum OrderbookProgramInstruction {
     // ClaimFill = 8,
     PruneOrders = 10,
     SetDelegate = 11,
+    CloseOrderbookMarket = 12,
 }
 
 impl TryFrom<&u8> for OrderbookProgramInstruction {
@@ -166,6 +181,7 @@ impl TryFrom<&u8> for OrderbookProgramInstruction {
             // 9 => Ok(Self::ClaimFill),
             10 => Ok(Self::PruneOrders),
             11 => Ok(Self::SetDelegate),
+            12 => Ok(Self::CloseOrderbookMarket),
             _ => Err(ProgramError::InvalidInstructionData),
         }
     }

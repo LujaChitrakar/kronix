@@ -86,6 +86,11 @@ import {
   findTriggerOrderPda,
 } from "../kronix-frontend/lib/kronix/pdas";
 import { toLegacyIx, fakeSigner } from "../kronix-frontend/lib/kronix/ix-bridge";
+import { fetchFillsLog } from "../kronix-frontend/lib/kronix/fills-log";
+import {
+  buildSettleFillsIx,
+  MAX_FILLS_PER_TX,
+} from "../kronix-frontend/lib/kronix/settle-fills";
 import { getTriggerOrderDecoder } from "../kronix-frontend/lib/trigger-sdk";
 import {
   getStrategyAccountDecoder,
@@ -110,10 +115,14 @@ const MARKET_INDEXES = (
 
 const POSITION_SIZE = 104;
 const USER_ACCOUNT_SIZE = 88;
+const MARKET_CONFIG_SIZE = 96;
+const MARKET_STATE_SIZE = 224;
 const TRIGGER_ORDER_SIZE = 144;
 const FILLS_LOG_SIZE = 1336; // FillsLog::LEN — orderbook_program/src/states/fills_log.rs
 const PRUNE_BATCH = 16;
 const MAX_TRIGGER_MAKER_ACCOUNTS = 6;
+const CLOSE_ORDERBOOK_MARKET_DISC = 12;
+const CLOSE_RISK_MARKET_DISC = 17;
 const INITIALIZE_FILLS_LOG_DISC = 2;
 const EXECUTE_TRIGGER_DISC = 2;
 const PRUNE_EXPIRED_TRIGGER_DISC = 4;
@@ -736,6 +745,7 @@ type TriggerRow = {
   pubkey: PublicKey;
   clientId: bigint;
   triggerPrice: bigint;
+  sizeLots: bigint;
   expiry: bigint;
   marketIndex: number;
   triggerType: number;
@@ -758,6 +768,7 @@ async function scanTriggerOrders(): Promise<TriggerRow[]> {
         pubkey,
         clientId: t.clientOrderId,
         triggerPrice: t.triggerPrice,
+        sizeLots: t.sizeLots,
         expiry: t.expiry,
         marketIndex: t.marketIndex,
         triggerType: t.triggerType,
@@ -819,6 +830,92 @@ async function openOrdersHasDelegate(
     return Buffer.from(oo.delegate).equals(delegate.toBuffer());
   } catch {
     return false;
+  }
+}
+
+type RestingOrderInfo = {
+  clientId: bigint;
+  side: number;
+  remainingBaseLots: bigint;
+};
+
+function absBigint(v: bigint): bigint {
+  return v < 0n ? -v : v;
+}
+
+async function strategyRestingOrder(
+  openOrdersAccount: PublicKey,
+): Promise<RestingOrderInfo | null> {
+  const acc = await conn.getAccountInfo(openOrdersAccount, "confirmed");
+  if (!acc) return null;
+  try {
+    const oo = getOpenOrdersAccountDecoder().decode(new Uint8Array(acc.data));
+    for (const order of oo.openOrders) {
+      if (order.isFree !== 0 || order.makerOut !== 0) continue;
+      const original = absBigint(order.originalBaseLots);
+      const filled = absBigint(order.filledBaseLots);
+      if (original <= filled) continue;
+      return {
+        clientId: order.clientId,
+        side: order.side,
+        remainingBaseLots: original - filled,
+      };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+async function readOwnerPosition(
+  owner: PublicKey,
+  marketIndex: number,
+): Promise<PositionRow | null> {
+  const [position] = findPositionPda(owner, marketIndex);
+  const acc = await conn.getAccountInfo(position, "confirmed");
+  if (!acc || !acc.owner.equals(RISK_PROGRAM_ID) || acc.data.length !== POSITION_SIZE) {
+    return null;
+  }
+  const d = acc.data;
+  const size = d.readBigInt64LE(0);
+  if (size <= 0n) return null;
+  const positionMarketIndex = d.readUInt16LE(32);
+  const positionOwner = new PublicKey(d.subarray(40, 72));
+  if (positionMarketIndex !== marketIndex || !positionOwner.equals(owner)) return null;
+  return {
+    pubkey: position,
+    owner: positionOwner,
+    entryPrice: d.readBigInt64LE(8),
+    entryFundingIndex: d.readBigInt64LE(16),
+    initialMargin: d.readBigInt64LE(24),
+    marketIndex: positionMarketIndex,
+    side: d.readUInt8(35),
+    size,
+  };
+}
+
+async function settleTriggerFills(
+  label: string,
+  marketIndex: number,
+  fillsLog: PublicKey,
+): Promise<void> {
+  const log = await fetchFillsLog(conn, fillsLog);
+  if (!log || log.fillCount === 0 || log.allSettled === 1) return;
+
+  for (let start = 0; start < log.fillCount; start += MAX_FILLS_PER_TX) {
+    const end = Math.min(log.fillCount, start + MAX_FILLS_PER_TX);
+    const ix = buildSettleFillsIx(
+      keeper.publicKey,
+      marketIndex,
+      fillsLog,
+      log.fills,
+      start,
+      end,
+    );
+    await send(
+      [...priorityFeeIxs(), ix],
+      `${label} settle-fills ${start}-${end}`,
+    );
   }
 }
 
@@ -993,7 +1090,9 @@ async function runExecuteTriggers(): Promise<void> {
     if (!m) continue;
     const markNative = await getMarkPriceNative(m);
     if (markNative === null) continue;
-    if (!shouldTrigger(t.triggerType, t.side, t.triggerPrice, markNative)) {
+    const markLots = markNative / QUOTE_NATIVE_UNIT;
+    if (markLots <= 0n) continue;
+    if (!shouldTrigger(t.triggerType, t.side, t.triggerPrice, markLots)) {
       continue;
     }
 
@@ -1038,6 +1137,22 @@ async function runExecuteTriggers(): Promise<void> {
       );
       continue;
     }
+
+    const position = await readOwnerPosition(t.owner, t.marketIndex);
+    const expectedPositionSide = t.side === 0 ? 1 : 0;
+    if (!position || position.side !== expectedPositionSide) {
+      console.log(
+        `[execute-trigger ${t.owner.toBase58().slice(0, 6)}/${t.clientId}] skip — no matched position`,
+      );
+      continue;
+    }
+    if (position.size < t.sizeLots) {
+      console.log(
+        `[execute-trigger ${t.owner.toBase58().slice(0, 6)}/${t.clientId}] skip — position not fully matched (${position.size}/${t.sizeLots})`,
+      );
+      continue;
+    }
+
     if (!(await openOrdersHasDelegate(openOrdersAccount, triggerAuthority))) {
       console.log(
         `[execute-trigger ${t.owner.toBase58().slice(0, 6)}/${t.clientId}] skip — trigger authority not OpenOrders delegate`,
@@ -1090,10 +1205,14 @@ async function runExecuteTriggers(): Promise<void> {
       bumpFillsLog,
       bumpAuthority,
     });
-    await send(
+    const label = `execute-trigger ${t.owner.toBase58().slice(0, 6)}/${t.clientId}`;
+    const executeSig = await send(
       [...priorityFeeIxs(), ...(initFillsLogIx ? [initFillsLogIx] : []), ix],
-      `execute-trigger ${t.owner.toBase58().slice(0, 6)}/${t.clientId}`,
+      label,
     );
+    if (executeSig) {
+      await settleTriggerFills(label, t.marketIndex, fillsLog);
+    }
   }
 }
 
@@ -1458,8 +1577,8 @@ function computeSignal(s: StrategyRow, markLots: bigint): number | null {
   if (s.strategyType === StrategyType.RSI) {
     const rsi = computeRsi(hist, s.rsiPeriod);
     if (rsi === null) return null;
-    if (rsi < s.rsiOversold) return 0;
-    if (rsi > s.rsiOverbought) return 1;
+    if (s.side === 0 && rsi < s.rsiOversold) return 0;
+    if (s.side === 1 && rsi > s.rsiOverbought) return 1;
     return null;
   }
 
@@ -1477,8 +1596,8 @@ function computeSignal(s: StrategyRow, markLots: bigint): number | null {
       return null;
     const bullishCross = fastPrev <= slowPrev && fastNow > slowNow;
     const bearishCross = fastPrev >= slowPrev && fastNow < slowNow;
-    if (bullishCross) return 0;
-    if (bearishCross) return 1;
+    if (s.side === 0 && bullishCross) return 0;
+    if (s.side === 1 && bearishCross) return 1;
     return null;
   }
 
@@ -1534,7 +1653,8 @@ function computeSignal(s: StrategyRow, markLots: bigint): number | null {
     const fuzz = (price * s.orderBlockSensitivity) / 10_000;
     const inOb = price >= ob.low - fuzz && price <= ob.high + fuzz;
     if (!inOb) return null;
-    return ob.isBullish ? 0 : 1;
+    const signal = ob.isBullish ? 0 : 1;
+    return signal === s.side ? signal : null;
   }
 
   return null;
@@ -1674,6 +1794,35 @@ async function runExecuteStrategies(): Promise<void> {
 
     const signal = computeSignal(s, markLots);
     if (signal === null) continue;
+    if (signal !== s.side) {
+      console.log(
+        `[execute-strategy ${s.owner.toBase58().slice(0, 6)}/t${s.strategyType}/sig${signal}] skip side mismatch configured=${s.side}`,
+      );
+      continue;
+    }
+
+    const [strategyAuthority, bumpAuthority] = findStrategyAuthorityPda(s.owner);
+    const [market] = findMarketPda(s.marketIndex);
+    const [bids] = findBidsPda(s.marketIndex);
+    const [asks] = findAsksPda(s.marketIndex);
+    const [openOrdersAccount, bumpOoAccount] = findOpenOrdersPda(
+      strategyAuthority,
+      market,
+    );
+    const [fillsLog, bumpFillsLog] = findFillsLogPda(
+      strategyAuthority,
+      s.clientOrderId,
+    );
+    const [userAccount] = findUserAccountPda(s.owner);
+    const [marketConfig] = findMarketConfigPda(s.marketIndex);
+
+    const restingOrder = await strategyRestingOrder(openOrdersAccount);
+    if (restingOrder) {
+      console.log(
+        `[execute-strategy ${s.owner.toBase58().slice(0, 6)}/t${s.strategyType}/sig${signal}] skip open order client=${restingOrder.clientId} side=${restingOrder.side} remaining=${restingOrder.remainingBaseLots}`,
+      );
+      continue;
+    }
 
     const ua = users.get(s.owner.toBase58());
     if (!ua) continue;
@@ -1698,21 +1847,6 @@ async function runExecuteStrategies(): Promise<void> {
       );
       continue;
     }
-
-    const [strategyAuthority, bumpAuthority] = findStrategyAuthorityPda(s.owner);
-    const [market] = findMarketPda(s.marketIndex);
-    const [bids] = findBidsPda(s.marketIndex);
-    const [asks] = findAsksPda(s.marketIndex);
-    const [openOrdersAccount, bumpOoAccount] = findOpenOrdersPda(
-      strategyAuthority,
-      market,
-    );
-    const [fillsLog, bumpFillsLog] = findFillsLogPda(
-      strategyAuthority,
-      s.clientOrderId,
-    );
-    const [userAccount] = findUserAccountPda(s.owner);
-    const [marketConfig] = findMarketConfigPda(s.marketIndex);
 
     const hasTp = s.takeProfitPrice > 0n;
     const hasSl = s.stopLossPrice > 0n;
@@ -1821,6 +1955,115 @@ function rentExemptLamports(size: number): number {
   return (size + 128) * 6960;
 }
 
+// ── Dev market cleanup ──────────────────────────────────────────────────
+
+function closeMarketData(disc: number, marketIndex: number): Buffer {
+  const data = Buffer.alloc(1 + 8);
+  data.writeUInt8(disc, 0);
+  data.writeUInt16LE(marketIndex, 1);
+  return data;
+}
+
+function buildCloseRiskMarketIx(marketIndex: number): TransactionInstruction {
+  const [marketConfig] = findMarketConfigPda(marketIndex);
+  const [fundingState] = findFundingStatePda(marketIndex);
+  return new TransactionInstruction({
+    programId: RISK_PROGRAM_ID,
+    keys: [
+      { pubkey: keeper.publicKey, isSigner: true, isWritable: true },
+      { pubkey: marketConfig, isSigner: false, isWritable: true },
+      { pubkey: fundingState, isSigner: false, isWritable: true },
+    ],
+    data: closeMarketData(CLOSE_RISK_MARKET_DISC, marketIndex),
+  });
+}
+
+function buildCloseOrderbookMarketIx(marketIndex: number): TransactionInstruction {
+  const [market] = findMarketPda(marketIndex);
+  const [bids] = findBidsPda(marketIndex);
+  const [asks] = findAsksPda(marketIndex);
+  return new TransactionInstruction({
+    programId: ORDERBOOK_PROGRAM_ID,
+    keys: [
+      { pubkey: keeper.publicKey, isSigner: true, isWritable: true },
+      { pubkey: market, isSigner: false, isWritable: true },
+      { pubkey: bids, isSigner: false, isWritable: true },
+      { pubkey: asks, isSigner: false, isWritable: true },
+    ],
+    data: closeMarketData(CLOSE_ORDERBOOK_MARKET_DISC, marketIndex),
+  });
+}
+
+async function scanMarketIndexesForClose(): Promise<number[]> {
+  const indexes = new Set(MARKET_INDEXES);
+  const riskMarkets = await conn.getProgramAccounts(RISK_PROGRAM_ID, {
+    commitment: "confirmed",
+    filters: [{ dataSize: MARKET_CONFIG_SIZE }],
+  });
+  for (const { account } of riskMarkets) {
+    if (account.data.length >= 18) indexes.add(account.data.readUInt16LE(16));
+  }
+
+  const orderbookMarkets = await conn.getProgramAccounts(ORDERBOOK_PROGRAM_ID, {
+    commitment: "confirmed",
+    filters: [{ dataSize: MARKET_STATE_SIZE }],
+  });
+  for (const { account } of orderbookMarkets) {
+    if (account.data.length >= 2) indexes.add(account.data.readUInt16LE(0));
+  }
+
+  return [...indexes].sort((a, b) => a - b);
+}
+
+function bookSideLeafCount(data: Buffer): number {
+  return data.length >= 8 ? data.readUInt32LE(4) : 0;
+}
+
+async function runCloseAllMarkets(): Promise<void> {
+  const indexes = await scanMarketIndexesForClose();
+  console.log(`[close-markets] scan indexes=${indexes.join(",") || "(none)"}`);
+
+  for (const marketIndex of indexes) {
+    const [market] = findMarketPda(marketIndex);
+    const [bids] = findBidsPda(marketIndex);
+    const [asks] = findAsksPda(marketIndex);
+    const [marketConfig] = findMarketConfigPda(marketIndex);
+    const [fundingState] = findFundingStatePda(marketIndex);
+
+    const [marketAcc, bidsAcc, asksAcc, configAcc, fundingAcc] = await Promise.all([
+      conn.getAccountInfo(market, "confirmed"),
+      conn.getAccountInfo(bids, "confirmed"),
+      conn.getAccountInfo(asks, "confirmed"),
+      conn.getAccountInfo(marketConfig, "confirmed"),
+      conn.getAccountInfo(fundingState, "confirmed"),
+    ]);
+
+    const ixs: TransactionInstruction[] = [];
+    if (configAcc && fundingAcc) {
+      ixs.push(buildCloseRiskMarketIx(marketIndex));
+    }
+
+    if (marketAcc || bidsAcc || asksAcc) {
+      if (!marketAcc || !bidsAcc || !asksAcc) {
+        console.log(`[close-markets ${marketIndex}] skip orderbook — incomplete accounts`);
+      } else {
+        const bidLeaves = bookSideLeafCount(bidsAcc.data);
+        const askLeaves = bookSideLeafCount(asksAcc.data);
+        console.log(
+          `[close-markets ${marketIndex}] force-close orderbook bids=${bidLeaves} asks=${askLeaves}`,
+        );
+        ixs.push(buildCloseOrderbookMarketIx(marketIndex));
+      }
+    }
+
+    if (ixs.length === 0) {
+      console.log(`[close-markets ${marketIndex}] nothing to close`);
+      continue;
+    }
+    await send([...priorityFeeIxs(300_000), ...ixs], `close-markets ${marketIndex}`);
+  }
+}
+
 // ── Scheduler ────────────────────────────────────────────────────────────
 
 type Job = {
@@ -1860,6 +2103,11 @@ async function tick(j: Job): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  if (process.argv[2] === "close-markets") {
+    await runCloseAllMarkets();
+    return;
+  }
+
   await loadMarkets();
   await ensureKeeperUsdcAta();
   loadPriceHistory();

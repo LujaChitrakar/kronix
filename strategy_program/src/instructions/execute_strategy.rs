@@ -115,7 +115,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
             return Err(StrategyProgramError::DailyCapReached.into());
         }
     }
-    if params.signal > 1 {
+    if params.signal > 1 || params.signal != strategy.side {
         return Err(StrategyProgramError::InvalidSignal.into());
     }
     let order_type: u8 = if strategy.limit_price_lots > 0 {

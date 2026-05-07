@@ -7,12 +7,12 @@ use pinocchio::{
 use pinocchio_log::log;
 
 use crate::instructions::{
-    process_add_margin, process_close_position, process_cover_bad_debt, process_create_risk_market,
-    process_deposit, process_deposit_insurance, process_initialize_insurance_fund,
-    process_initialize_vault, process_liquidate, process_open_position,
-    process_release_order_margin, process_remove_margin, process_reserve_order_margin,
-    process_settle_fill, process_settle_funding, process_update_funding_rate, process_withdraw,
-    RiskProgramInstruction,
+    process_add_margin, process_close_position, process_close_risk_market, process_cover_bad_debt,
+    process_create_risk_market, process_deposit, process_deposit_insurance,
+    process_initialize_insurance_fund, process_initialize_vault, process_liquidate,
+    process_open_position, process_release_order_margin, process_remove_margin,
+    process_reserve_order_margin, process_settle_fill, process_settle_funding,
+    process_update_funding_rate, process_withdraw, RiskProgramInstruction,
 };
 
 program_entrypoint!(process_instruction);
@@ -50,6 +50,7 @@ pub fn process_instruction(
         RiskProgramInstruction::DepositInsurance => process_deposit_insurance(accounts, data)?,
         RiskProgramInstruction::ReserveOrderMargin => process_reserve_order_margin(accounts, data)?,
         RiskProgramInstruction::ReleaseOrderMargin => process_release_order_margin(accounts, data)?,
+        RiskProgramInstruction::CloseRiskMarket => process_close_risk_market(accounts, data)?,
     }
     Ok(())
 }

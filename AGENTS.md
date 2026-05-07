@@ -204,3 +204,12 @@ Next.js 16 + React 19 + Tailwind 4. Landing page with waitlist (Supabase). Requi
 ## Key Reference: `ix_desc.md`
 
 Full instruction flow for every IX in all four programs including account lists, CPI call graph, and setup sequence. Read before adding or modifying instructions.
+
+
+<claude-mem-context>
+# Memory Context
+
+# [crypto-exchange] recent context, 2026-05-08 12:10am GMT+5:45
+
+No previous sessions found.
+</claude-mem-context>

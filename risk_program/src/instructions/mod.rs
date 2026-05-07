@@ -3,6 +3,7 @@ use shank::ShankInstruction;
 
 pub mod add_margin;
 pub mod close_position;
+pub mod close_risk_market;
 pub mod cover_bad_debt;
 pub mod create_risk_market;
 pub mod deposit;
@@ -20,6 +21,7 @@ pub mod withdraw;
 
 pub use add_margin::*;
 pub use close_position::*;
+pub use close_risk_market::*;
 pub use cover_bad_debt::*;
 pub use create_risk_market::*;
 pub use deposit::*;
@@ -173,6 +175,17 @@ pub enum RiskInstruction {
     #[account(1, name = "user_account", desc = "UserAccount PDA", writable)]
     #[account(2, name = "market_config", desc = "MarketConfig")]
     ReleaseOrderMargin(OrderMarginParams),
+
+    #[account(
+        0,
+        name = "admin",
+        desc = "Market admin / rent receiver",
+        signer,
+        writable
+    )]
+    #[account(1, name = "market_config", desc = "MarketConfig PDA", writable)]
+    #[account(2, name = "funding_state", desc = "FundingState PDA", writable)]
+    CloseRiskMarket(CloseRiskMarketParams),
 }
 
 #[repr(u8)]
@@ -194,6 +207,7 @@ pub enum RiskProgramInstruction {
     DepositInsurance = 14,
     ReserveOrderMargin = 15,
     ReleaseOrderMargin = 16,
+    CloseRiskMarket = 17,
 }
 
 impl TryFrom<&u8> for RiskProgramInstruction {
@@ -218,6 +232,7 @@ impl TryFrom<&u8> for RiskProgramInstruction {
             14 => Ok(RiskProgramInstruction::DepositInsurance),
             15 => Ok(RiskProgramInstruction::ReserveOrderMargin),
             16 => Ok(RiskProgramInstruction::ReleaseOrderMargin),
+            17 => Ok(RiskProgramInstruction::CloseRiskMarket),
             _ => Err(ProgramError::InvalidInstructionData),
         }
     }

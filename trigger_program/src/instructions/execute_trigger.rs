@@ -7,7 +7,9 @@ use pinocchio::{
 use shank::ShankType;
 
 use crate::{
-    constants::{MAX_CPI_MAKER_ACCOUNTS, TRIGGER_AUTHORITY_SEED},
+    constants::{
+        MAX_CPI_MAKER_ACCOUNTS, QUOTE_NATIVE_UNIT, RISK_PROGRAM_ID, TRIGGER_AUTHORITY_SEED,
+    },
     cpi::place_take_order_cpi,
     errors::TriggerProgramError,
     helpers::{
@@ -56,6 +58,15 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
     let params = bytemuck::try_pod_read_unaligned::<ExecuteTriggerParams>(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
     let clock = Clock::get()?;
+    let [user_account, market_config, risk_program, maker_open_orders @ ..] = _remaining else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+    if risk_program.address().as_array() != &RISK_PROGRAM_ID {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+    unsafe {
+        verify_account_owner(market_config, &RISK_PROGRAM_ID)?;
+    }
 
     let bump_bytes = [params.bump_authority];
 
@@ -84,7 +95,27 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
         &crate::ID,
     )?;
 
-    let mark_price = validate_switchboard_price(oracle, params.market_index, clock.slot)?;
+    let market_config_data = market_config.try_borrow()?;
+    if market_config_data.len() < 18 {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    let config_market_index = u16::from_le_bytes(
+        market_config_data[16..18]
+            .try_into()
+            .map_err(|_| ProgramError::InvalidAccountData)?,
+    );
+    if config_market_index != params.market_index {
+        return Err(TriggerProgramError::InvalidTriggerPrice.into());
+    }
+    drop(market_config_data);
+
+    let mark_price_native = validate_switchboard_price(oracle, params.market_index, clock.slot)?;
+    let mark_price = mark_price_native
+        .checked_div(QUOTE_NATIVE_UNIT)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    if mark_price <= 0 {
+        return Err(TriggerProgramError::InvalidTriggerPrice.into());
+    }
 
     if !order.should_trigger(mark_price) {
         return Err(TriggerProgramError::TriggerConditionNotMet.into());
@@ -94,9 +125,6 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
         .checked_mul(mark_price)
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
-    let [user_account, market_config, risk_program, maker_open_orders @ ..] = _remaining else {
-        return Err(ProgramError::NotEnoughAccountKeys);
-    };
     let maker_count = maker_open_orders.len().min(MAX_CPI_MAKER_ACCOUNTS);
     let limit = if maker_count > 0 {
         maker_count as u8

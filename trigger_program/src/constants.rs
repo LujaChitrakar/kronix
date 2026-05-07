@@ -1,11 +1,14 @@
 pub const TRIGGER_ORDER_SEED: &[u8] = b"trigger_order";
 pub const TRIGGER_AUTHORITY_SEED: &[u8] = b"trigger_authority";
 pub const MAX_CPI_MAKER_ACCOUNTS: usize = 6;
+pub const QUOTE_NATIVE_UNIT: i64 = 1_000_000;
+pub const RISK_PROGRAM_ID: [u8; 32] =
+    pinocchio_pubkey::from_str("5ivREpNsjSj4Gr27oxEfyAZ38KCfDDtDLdXQeHDtDpo4");
 
 pub const FUNDING_INTERVAL_SECS: i64 = 3_600;
 pub const FUNDING_PERIOD_SECS: i64 = 28_800;
 
-pub const KXI_MARKET_INDEX: u16 = 31;
+pub const KXI_MARKET_INDEX: u16 = 2;
 
 // Switchboard SOL/USD pull feed: GgGVgSLWAyL9Xf4fGaAQQCkmWetBjX7PCNz8kTK97DKB
 pub const SWITCHBOARD_SOL_USD_FEED: [u8; 32] = [

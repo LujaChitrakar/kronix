@@ -83,13 +83,17 @@ export const KXI_SWITCHBOARD_FEED = new PublicKey(
 export const MARKETS: Record<MarketSymbol, MarketInfo> = {
   SOL: {
     symbol: "SOL",
-    marketIndex: Number(process.env.NEXT_PUBLIC_SOL_MARKET_INDEX ?? process.env.NEXT_PUBLIC_MARKET_INDEX ?? 32),
+    marketIndex: Number(
+      process.env.NEXT_PUBLIC_SOL_MARKET_INDEX ??
+        process.env.NEXT_PUBLIC_MARKET_INDEX ??
+        1,
+    ),
     name: "SOL-PERP",
     oracle: SOL_SWITCHBOARD_FEED,
   },
   KXI: {
     symbol: "KXI",
-    marketIndex: Number(process.env.NEXT_PUBLIC_KXI_MARKET_INDEX ?? 31),
+    marketIndex: Number(process.env.NEXT_PUBLIC_KXI_MARKET_INDEX ?? 2),
     name: "KXI-PERP",
     oracle: KXI_SWITCHBOARD_FEED,
   },
@@ -102,10 +106,12 @@ export function isMarketSymbol(symbol: string | null | undefined): symbol is Mar
 const defaultMarketSymbolEnv = process.env.NEXT_PUBLIC_DEFAULT_MARKET_SYMBOL;
 export const DEFAULT_MARKET_SYMBOL: MarketSymbol = isMarketSymbol(defaultMarketSymbolEnv)
   ? defaultMarketSymbolEnv
-  : "KXI";
+  : "SOL";
 
 export function getMarketInfo(symbol: string | null | undefined): MarketInfo {
-  return isMarketSymbol(symbol ?? "") ? MARKETS[symbol as MarketSymbol] : MARKETS[DEFAULT_MARKET_SYMBOL];
+  return isMarketSymbol(symbol ?? "")
+    ? MARKETS[symbol as MarketSymbol]
+    : MARKETS[DEFAULT_MARKET_SYMBOL];
 }
 
 export function getMarketInfoByIndex(marketIndex: number): MarketInfo | null {

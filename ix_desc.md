@@ -121,6 +121,58 @@ Note:
 
 ---
 
+risk_program::close_risk_market
+
+```
+Called by:   Anyone (dev cleanup)
+CPI:         None
+
+What it does:
+  Closes MarketConfig PDA and FundingState PDA
+  Sends rent back to signer/rent receiver
+
+Flow:
+  Keeper/User TX
+    → risk_program::close_risk_market
+      → verify MarketConfig/FundingState PDAs match market_index
+      → close FundingState PDA
+      → close MarketConfig PDA
+
+Accounts:
+  signer/rent receiver (signer, writable)
+  market_config PDA (writable)
+  funding_state PDA (writable)
+```
+
+---
+
+orderbook_program::close_orderbook_market
+
+```
+Called by:   Anyone (dev cleanup)
+CPI:         None
+
+What it does:
+  Force-closes MarketState/Bids/Asks PDAs, even when book contains orders
+  Sends rent back to signer/rent receiver
+
+Flow:
+  Keeper/User TX
+    → orderbook_program::close_orderbook_market
+      → verify bids/asks match MarketState refs
+      → close bids PDA
+      → close asks PDA
+      → close market_state PDA
+
+Accounts:
+  signer/rent receiver (signer, writable)
+  market_state PDA (writable)
+  bids PDA (writable)
+  asks PDA (writable)
+```
+
+---
+
 --- USER ONBOARDING ---
 risk_program::deposit
 
@@ -1356,6 +1408,8 @@ ADMIN CALLS (one time):
   initialize_vault          → risk_program (token CPI)
   create_risk_market        → risk_program
   create_orderbook_market   → orderbook_program
+  close_risk_market         → risk_program
+  close_orderbook_market    → orderbook_program
 
 CPI ONLY (never called directly):
   settle_fill            → risk_program (called by orderbook CPI only)
@@ -1372,6 +1426,8 @@ initialize_insurance_fund      Admin        risk_program
 initialize_vault               Admin        risk_program
 create_risk_market             Admin        risk_program
 create_orderbook_market        Admin        orderbook_program
+close_risk_market              Anyone       risk_program
+close_orderbook_market         Anyone       orderbook_program
 deposit                        User         risk_program
 withdraw                       User         risk_program
 create_open_orders_account     User         orderbook_program

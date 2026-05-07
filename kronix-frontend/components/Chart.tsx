@@ -5,7 +5,7 @@ import { KLineChartPro, Datafeed, SymbolInfo, Period } from '@klinecharts/pro';
 import '@klinecharts/pro/dist/klinecharts-pro.css';
 import { fetchIndexHistory, fetchAssetHistory, createMarketWS, PriceTick } from '@/lib/api';
 import { useStore } from '@/lib/store';
-import { isMarketSymbol, type MarketSymbol } from '@/lib/kronix/config';
+import { getMarketInfo, isMarketSymbol, type MarketSymbol } from '@/lib/kronix/config';
 
 // To prevent duplicate charts in React StrictMode/Next.js Dev, 
 // we maintain a module-level reference to the active chart.
@@ -91,10 +91,10 @@ export default function Chart({ symbol = 'KXI' }: ChartProps) {
     // Build the datafeed adapter for KLineChartPro
     const datafeed: Datafeed = {
       searchSymbols: async () => {
-        const assets = ['KXI', 'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'LTC', 'XMR'];
+        const assets: MarketSymbol[] = ['KXI', 'SOL'];
         return assets.map(s => ({
           ticker: s,
-          name: s === 'KXI' ? 'Kronix Index Perpetual KXI' : `${s} Perpetual`,
+          name: getMarketInfo(s).name,
           shortName: s,
           exchange: 'Kronix',
           pricePrecision: 2,
@@ -268,7 +268,7 @@ export default function Chart({ symbol = 'KXI' }: ChartProps) {
       symbol: {
         exchange: 'KRONIX',
         market: selectedSymbol,
-        name: selectedSymbol === 'KXI' ? 'Kronix Index Perpetual KXI' : `${selectedSymbol} Perpetual`,
+        name: getMarketInfo(selectedSymbol).name,
         shortName: selectedSymbol,
         ticker: selectedSymbol,
         pricePrecision: 2,

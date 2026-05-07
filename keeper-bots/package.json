@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "keeper": "tsx --env-file=.env.local main.ts",
+    "close-markets": "tsx --env-file=.env.local main.ts close-markets",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

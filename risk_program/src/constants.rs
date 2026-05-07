@@ -24,7 +24,7 @@ pub const FUNDING_PERIOD_SECS: i64 = 28_800;
 
 pub const MAX_FUNDING_RATE_BPS: i64 = 500;
 
-pub const KXI_MARKET_INDEX: u16 = 31;
+pub const KXI_MARKET_INDEX: u16 = 2;
 
 // Switchboard SOL/USD pull feed: GgGVgSLWAyL9Xf4fGaAQQCkmWetBjX7PCNz8kTK97DKB
 pub const SWITCHBOARD_SOL_USD_FEED: [u8; 32] = [

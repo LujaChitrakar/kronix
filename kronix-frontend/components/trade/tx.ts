@@ -10,7 +10,7 @@ import { annotateOrderbookError } from "@/lib/kronix/errors";
 export class TxError extends Error {
   constructor(
     message: string,
-    public stage: "build" | "simulate" | "send" | "confirm",
+    public stage: "build" | "sign" | "simulate" | "send" | "confirm",
     public logs?: string[],
     public cause?: unknown,
   ) {
@@ -22,12 +22,31 @@ export class TxError extends Error {
 function extractLogs(err: unknown): string[] | undefined {
   const e = err as { logs?: string[] };
   if (Array.isArray(e?.logs) && e.logs.length) return e.logs;
+  const nested = err as {
+    cause?: unknown;
+    error?: unknown;
+    context?: { logs?: string[] };
+  };
+  if (Array.isArray(nested?.context?.logs) && nested.context.logs.length) {
+    return nested.context.logs;
+  }
+  if (nested?.cause && nested.cause !== err) return extractLogs(nested.cause);
+  if (nested?.error && nested.error !== err) return extractLogs(nested.error);
   return undefined;
 }
 
 function extractMessage(err: unknown): string {
   if (!err) return "unknown error";
-  if (err instanceof Error) return err.message || err.name;
+  if (err instanceof Error) {
+    const base = err.message || err.name;
+    const nested = err as { cause?: unknown; error?: unknown };
+    const cause = nested.cause ?? nested.error;
+    if (!cause || cause === err) return base;
+    const causeMessage = extractMessage(cause);
+    return causeMessage && causeMessage !== base
+      ? `${base}: ${causeMessage}`
+      : base;
+  }
   if (typeof err === "string") return err;
   try {
     return JSON.stringify(err);
@@ -83,6 +102,80 @@ export async function sendTx(
     tx.recentBlockhash = blockhash;
   } catch (e) {
     throw new TxError(`build failed: ${extractMessage(e)}`, "build", undefined, e);
+  }
+
+  if (wallet.signTransaction) {
+    let signed: Transaction;
+    try {
+      signed = await wallet.signTransaction(tx);
+    } catch (e) {
+      throw new TxError(`sign failed: ${extractMessage(e)}`, "sign", undefined, e);
+    }
+
+    try {
+      const sim = await conn.simulateTransaction(signed);
+      if (sim.value.err) {
+        const logs = sim.value.logs ?? undefined;
+        throw new TxError(
+          `simulation failed: ${JSON.stringify(sim.value.err)}` +
+            (logs ? ` — ${summarizeLogs(logs)}` : ""),
+          "simulate",
+          logs,
+          sim.value.err,
+        );
+      }
+    } catch (e) {
+      if (e instanceof TxError) throw e;
+      throw new TxError(
+        `simulation RPC failed: ${extractMessage(e)}`,
+        "simulate",
+        extractLogs(e),
+        e,
+      );
+    }
+
+    let sig: string;
+    try {
+      sig = await conn.sendRawTransaction(signed.serialize(), {
+        skipPreflight: true,
+        maxRetries: 3,
+      });
+    } catch (e) {
+      const logs = extractLogs(e);
+      const detail = logs ? ` — ${summarizeLogs(logs)}` : "";
+      throw new TxError(`send failed: ${extractMessage(e)}${detail}`, "send", logs, e);
+    }
+
+    try {
+      const conf = await conn.confirmTransaction(
+        { signature: sig, blockhash, lastValidBlockHeight },
+        "confirmed",
+      );
+      if (conf.value.err) {
+        const tr = await conn.getTransaction(sig, {
+          commitment: "confirmed",
+          maxSupportedTransactionVersion: 0,
+        });
+        const logs = tr?.meta?.logMessages ?? undefined;
+        throw new TxError(
+          `tx ${sig.slice(0, 8)} on-chain error: ${JSON.stringify(conf.value.err)}` +
+            (logs ? ` — ${summarizeLogs(logs)}` : ""),
+          "confirm",
+          logs,
+          conf.value.err,
+        );
+      }
+    } catch (e) {
+      if (e instanceof TxError) throw e;
+      throw new TxError(
+        `confirm failed: ${extractMessage(e)}`,
+        "confirm",
+        undefined,
+        e,
+      );
+    }
+
+    return sig;
   }
 
   // Pre-flight simulate to surface program errors before wallet popup.

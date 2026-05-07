@@ -1,7 +1,6 @@
 import {
   Connection,
   PublicKey,
-  Transaction,
   TransactionInstruction,
   ComputeBudgetProgram,
 } from "@solana/web3.js";
@@ -49,12 +48,12 @@ import {
 
 import {
   MARKET_INDEX,
+  PlaceOrderType,
   USDC_MINT,
   TOKEN_PROGRAM_ID,
   SYSTEM_PROGRAM_ID,
   TRIGGER_PROGRAM_ID,
   ORDERBOOK_PROGRAM_ID,
-  STRATEGY_PROGRAM_ID,
   RISK_PROGRAM_ID,
 } from "./config";
 import {
@@ -98,7 +97,6 @@ type PlaceTriggerOrderArgs = {
 const TERMINAL_TRIGGER_STATUSES = new Set([1, 2]); // Triggered, Canceled
 
 const PADDING_3 = new Uint8Array(3);
-const PADDING_4 = new Uint8Array(4);
 const PADDING_5 = new Uint8Array(5);
 const PADDING_6 = new Uint8Array(6);
 const PADDING_7 = new Uint8Array(7);
@@ -126,7 +124,7 @@ async function makerOpenOrdersForMatch(
 ): Promise<PublicKey[]> {
   const snap = await scanBook(conn, market, marketIndex);
   const opposing = side === 0 ? snap.asks : snap.bids;
-  const isMarket = orderType === 0;
+  const isMarket = orderType === PlaceOrderType.Market;
   const owners: PublicKey[] = [];
   const seen = new Set<string>();
 
@@ -393,6 +391,11 @@ export async function sendPlaceOrder(
   const [userAccount] = findUserAccountPda(owner);
   const [marketConfig] = findMarketConfigPda(marketIndex);
   const [fillsLog, bumpFillsLog] = findFillsLogPda(owner, args.clientOrderId);
+  const openOrdersInfo = await conn.getAccountInfo(oo, "confirmed");
+
+  if (!openOrdersInfo) {
+    await send([...priorityFeeIxs(), buildCreateOpenOrdersIx(owner, marketIndex)], conn);
+  }
 
   const initFillsLog = getInitializeFillsLogInstruction({
     feePayer: fakeSigner(owner),

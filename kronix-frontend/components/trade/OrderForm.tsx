@@ -298,20 +298,37 @@ export function OrderForm() {
     setBusy(true);
     setMsg("Placing…");
     try {
+      const [userPda] = findUserAccountPda(owner);
+      const user = await fetchUser(connection, userPda);
+      if (!user) {
+        const msg = "Deposit collateral first";
+        setMsg(msg);
+        notifyWarning("Order blocked", msg);
+        return;
+      }
+
+      const freeNative = user.collateral - user.marginUsed;
       const maxQuoteLots = isMarket
-        ? await (async () => {
-            const [userPda] = findUserAccountPda(owner);
-            const user = await fetchUser(connection, userPda);
-            if (!user) return 0n;
-            const freeNative = user.collateral - user.marginUsed;
-            return freeNative > 0n ? (freeNative / 1_000_000n) * BigInt(leverage) : 0n;
-          })()
+        ? freeNative > 0n
+          ? (freeNative / 1_000_000n) * BigInt(leverage)
+          : 0n
         : priceLots * maxBaseLots;
 
       if (maxQuoteLots <= 0n) {
         setMsg("No free collateral");
         notifyWarning("Order blocked", "No free collateral");
-        setBusy(false);
+        return;
+      }
+
+      const requiredMarginNative =
+        (maxQuoteLots * 1_000_000n + BigInt(leverage - 1)) / BigInt(leverage);
+      if (requiredMarginNative > freeNative) {
+        const shortfall = requiredMarginNative - freeNative;
+        const whole = shortfall / 1_000_000n;
+        const frac = (shortfall % 1_000_000n).toString().padStart(6, "0").slice(0, 2);
+        const msg = `Insufficient collateral: need about $${whole}.${frac} more`;
+        setMsg(msg);
+        notifyWarning("Order blocked", msg);
         return;
       }
 

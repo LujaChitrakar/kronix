@@ -9,7 +9,9 @@ use risk_program_cpi::{
 
 const USER_ACCOUNT_OWNER_OFFSET: usize = 24;
 
-fn user_account_owner(user_account: &AccountView) -> Result<[u8; 32], pinocchio::error::ProgramError> {
+fn user_account_owner(
+    user_account: &AccountView,
+) -> Result<[u8; 32], pinocchio::error::ProgramError> {
     let data = user_account.try_borrow()?;
     if data.len() < USER_ACCOUNT_OWNER_OFFSET + 32 {
         return Err(pinocchio::error::ProgramError::InvalidAccountData);

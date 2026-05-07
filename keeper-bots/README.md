@@ -52,9 +52,9 @@ Required env vars (read from `.env.local`):
 | `KEEPER_KEYPAIR_PATH`            | `~/.config/solana/id.json`           | 64-byte JSON keypair array; file paths still work |
 | `NEXT_PUBLIC_RPC_URL`            | `https://api.devnet.solana.com`      | Solana RPC endpoint                              |
 | `NEXT_PUBLIC_USDC_MINT`          | devnet test mint                     | USDC mint for vault / liquidator ATA            |
-| `NEXT_PUBLIC_MARKET_INDEX`       | `32`                                 | SOL market index                                |
-| `NEXT_PUBLIC_KXI_MARKET_INDEX`   | `31`                                 | KXI market index                                |
-| `NEXT_PUBLIC_MARKET_INDEXES`     | `32,31`                              | Markets keeper scans                            |
+| `NEXT_PUBLIC_MARKET_INDEX`       | `1`                                  | SOL market index                                |
+| `NEXT_PUBLIC_KXI_MARKET_INDEX`   | `2`                                  | KXI market index                                |
+| `NEXT_PUBLIC_MARKET_INDEXES`     | `1,2`                                | Markets keeper scans                            |
 | `NEXT_PUBLIC_TRIGGER_PROGRAM_ID` | hardcoded                            | Override deployed trigger program               |
 | `NEXT_PUBLIC_STRATEGY_PROGRAM_ID`| hardcoded                            | Override deployed strategy program              |
 | `KEEPER_PRICE_HISTORY_PATH`      | `keeper-bots/kronix-price-history.json` | JSON file persisting mark-price samples      |

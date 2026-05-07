@@ -74,3 +74,17 @@ pub fn verify_program_id(account: &AccountView, expected: &pinocchio::Address) -
     }
     Ok(())
 }
+
+pub fn close_account(account: &AccountView, destination: &AccountView) -> ProgramResult {
+    let account_lamports = account.lamports();
+    let dest_lamports = destination.lamports();
+    destination.set_lamports(
+        dest_lamports
+            .checked_add(account_lamports)
+            .ok_or(pinocchio::error::ProgramError::ArithmeticOverflow)?,
+    );
+    account.set_lamports(0);
+    let mut data = account.try_borrow_mut()?;
+    data.fill(0);
+    Ok(())
+}
