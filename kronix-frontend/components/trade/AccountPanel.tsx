@@ -1,23 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Connection, PublicKey } from "@solana/web3.js";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
-import {
-  findUserAccountPda,
-  findOpenOrdersPda,
-  findMarketPda,
-} from "@/lib/kronix/pdas";
-import { fetchUser, fetchOpenOrders } from "@/lib/kronix/state";
+import { findUserAccountPda } from "@/lib/kronix/pdas";
+import { fetchUser } from "@/lib/kronix/state";
 import { USDC_MINT, USDC_DECIMALS } from "@/lib/kronix/config";
 import {
   sendDeposit,
   sendWithdraw,
-  sendCreateOpenOrders,
-  sendSetDelegate,
 } from "@/lib/kronix/client";
-import { useStore } from "@/lib/store";
 import { notifyError, notifyInfo, notifyTxSuccess } from "@/lib/notifications";
 import { sendTx, formatTxError } from "./tx";
 
@@ -38,35 +30,28 @@ export function AccountPanel() {
   const [marginUsed, setMarginUsed] = useState<bigint | null>(null);
   const [posCount, setPosCount] = useState<number | null>(null);
   const [walletUsdc, setWalletUsdc] = useState<bigint | null>(null);
-  const [hasOO, setHasOO] = useState<boolean>(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
-  const [delegate, setDelegate] = useState("");
   const [msg, setMsg] = useState("");
-  const marketIndex = useStore((s) => s.selectedMarketIndex);
 
   const refresh = useCallback(async () => {
     if (!owner) return;
     const [userPda] = findUserAccountPda(owner);
-    const [market] = findMarketPda(marketIndex);
-    const [oo] = findOpenOrdersPda(owner, market);
     const ata = getAssociatedTokenAddressSync(USDC_MINT, owner);
 
-    const [u, ooInfo, ataInfo] = await Promise.all([
+    const [u, ataInfo] = await Promise.all([
       fetchUser(connection, userPda),
-      connection.getAccountInfo(oo, "confirmed"),
       connection.getParsedAccountInfo(ata, "confirmed"),
     ]);
     setCollateral(u?.collateral ?? null);
     setMarginUsed(u?.marginUsed ?? null);
     setPosCount(u?.positionCount ?? null);
-    setHasOO(!!ooInfo);
     const parsed = ataInfo.value?.data as
       | { parsed?: { info?: { tokenAmount?: { amount?: string } } } }
       | undefined;
     const raw = parsed?.parsed?.info?.tokenAmount?.amount;
     setWalletUsdc(raw ? BigInt(raw) : 0n);
-  }, [connection, owner, marketIndex]);
+  }, [connection, owner]);
 
   useEffect(() => {
     refresh().catch(console.error);
@@ -113,7 +98,7 @@ export function AccountPanel() {
 
   return (
     <div className="p-4">
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-4">
         <Stat
           label="Collateral"
           v={collateral !== null ? `$${fmtUsdc(collateral)}` : "—"}
@@ -131,27 +116,7 @@ export function AccountPanel() {
           label="Wallet USDC"
           v={walletUsdc !== null ? `$${fmtUsdc(walletUsdc)}` : "—"}
         />
-        <Stat label="Open Orders" v={hasOO ? "Initialized" : "Missing"} />
       </div>
-
-      {!hasOO && (
-        <button
-          disabled={!!busy}
-          onClick={() =>
-            run("Init OO", () =>
-              sendCreateOpenOrders(
-                owner,
-                connection,
-                (ixs, c) => sendTx(wallet, c, ixs),
-                marketIndex,
-              ),
-            )
-          }
-          className="w-full mb-3 px-3 py-2 text-xs font-headline font-bold uppercase tracking-wider rounded-md bg-[#4dffb4]/10 border border-[#4dffb4]/30 text-[#4dffb4] hover:bg-[#4dffb4]/20 transition-colors disabled:opacity-50"
-        >
-          Initialize Open Orders Account
-        </button>
-      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         <div className="space-y-2">

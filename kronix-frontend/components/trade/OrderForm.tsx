@@ -6,6 +6,7 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import {
   sendPlaceOrderAndSettle,
   sendCancelOrderByClientId,
+  sendCreateOpenOrders,
 } from "@/lib/kronix/client";
 import { Side, PlaceOrderType, TriggerType } from "@/lib/kronix/config";
 import {
@@ -77,9 +78,12 @@ export function OrderForm() {
   const [tpslOpen, setTpslOpen] = useState(false);
   const [takeProfitPrice, setTakeProfitPrice] = useState("");
   const [stopLossPrice, setStopLossPrice] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busyAction, setBusyAction] = useState<
+    "cancel-conflicts" | "initialize" | "place" | null
+  >(null);
   const [msg, setMsg] = useState("");
   const [myOrders, setMyOrders] = useState<OwnOrder[]>([]);
+  const [hasOpenOrders, setHasOpenOrders] = useState<boolean | null>(null);
   const [netPosition, setNetPosition] = useState<NetPosition | null>(null);
   const [cfg, setCfg] = useState<{
     quoteLotSize: bigint;
@@ -91,6 +95,7 @@ export function OrderForm() {
   const marketIndex = useStore(s => s.selectedMarketIndex);
   const lastFocusedInputId = useStore(s => s.lastFocusedInputId);
   const setLastFocusedInputId = useStore(s => s.setLastFocusedInputId);
+  const busy = busyAction !== null;
 
   useEffect(() => {
     setMounted(true);
@@ -148,13 +153,19 @@ export function OrderForm() {
 
   // Live refresh of own resting orders so we can warn before submit.
   useEffect(() => {
-    if (!owner) return;
+    if (!owner) {
+      setHasOpenOrders(null);
+      setMyOrders([]);
+      return;
+    }
+    setHasOpenOrders(null);
     let alive = true;
     const refresh = async () => {
       const [market] = findMarketPda(marketIndex);
       const [oo] = findOpenOrdersPda(owner, market);
       const acct = await fetchOpenOrders(connection, oo);
       if (!alive) return;
+      setHasOpenOrders(!!acct);
       if (!acct) {
         setMyOrders([]);
         return;
@@ -177,6 +188,30 @@ export function OrderForm() {
       clearInterval(t);
     };
   }, [connection, owner, marketIndex]);
+
+  const initializeAccount = async () => {
+    if (!owner) return;
+    setBusyAction("initialize");
+    setMsg("Initializing account...");
+    try {
+      const sig = await sendCreateOpenOrders(
+        owner,
+        connection,
+        (ixs, c) => sendTx(wallet, c, ixs),
+        marketIndex,
+      );
+      setHasOpenOrders(true);
+      setMsg(sig ? `Initialized ${sig.slice(0, 8)}...` : "Account already initialized");
+      if (sig) notifyTxSuccess("Account initialized", sig);
+      else notifyInfo("Account initialized", "Open orders account already exists");
+    } catch (e) {
+      const err = formatTxError(e);
+      setMsg(`Initialize failed:\n${err}`);
+      notifyError("Initialize account failed", err);
+    } finally {
+      setBusyAction(null);
+    }
+  };
 
   const priceLotsParsed = (() => {
     try {
@@ -221,7 +256,7 @@ export function OrderForm() {
 
   const cancelConflicts = async () => {
     if (!owner || conflicts.length === 0) return;
-    setBusy(true);
+    setBusyAction("cancel-conflicts");
     setMsg(`Cancelling ${conflicts.length} own order(s)…`);
     notifyInfo("Cancelling conflicting orders", `${conflicts.length} order(s)`);
     try {
@@ -243,12 +278,18 @@ export function OrderForm() {
       setMsg(`Cancel failed:\n${err}`);
       notifyError("Cancel failed", err);
     } finally {
-      setBusy(false);
+      setBusyAction(null);
     }
   };
 
   const submit = async () => {
     if (!owner) return;
+    if (hasOpenOrders !== true) {
+      const msg = "Initialize account first";
+      setMsg(msg);
+      notifyWarning("Order blocked", msg);
+      return;
+    }
     const isMarket = orderType === PlaceOrderType.Market;
     const priceLots = isMarket
       ? 1n
@@ -295,7 +336,7 @@ export function OrderForm() {
         return;
       }
     }
-    setBusy(true);
+    setBusyAction("place");
     setMsg("Placing…");
     try {
       const [userPda] = findUserAccountPda(owner);
@@ -401,7 +442,7 @@ export function OrderForm() {
       setMsg(`Failed:\n${err}`);
       notifyError("Order failed", err);
     } finally {
-      setBusy(false);
+      setBusyAction(null);
     }
   };
 
@@ -617,8 +658,19 @@ export function OrderForm() {
         </div>
       )}
 
+      {owner && hasOpenOrders === false && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={initializeAccount}
+          className="w-full py-3 text-sm font-headline font-bold uppercase tracking-wider rounded-lg bg-[#4dffb4]/10 border border-[#4dffb4]/30 text-[#4dffb4] transition-colors hover:bg-[#4dffb4]/20 disabled:opacity-50"
+        >
+          {busyAction === "initialize" ? "Initializing..." : "Initialize Account"}
+        </button>
+      )}
+
       <button
-        disabled={busy || !owner}
+        disabled={busy || !owner || hasOpenOrders !== true}
         onClick={submit}
         className={`w-full py-3 text-sm font-headline font-bold uppercase tracking-wider rounded-lg transition-all disabled:opacity-50 hover:brightness-110 active:scale-[0.99] shadow-lg ${
           side === Side.Bid
@@ -626,7 +678,7 @@ export function OrderForm() {
             : "bg-[#ff6b6b] text-white shadow-[#ff6b6b]/20"
         }`}
       >
-        {busy ? "Placing…" : owner ? `Place ${side === Side.Bid ? "Buy" : "Sell"} Order` : "Connect Wallet"}
+        {busyAction === "place" ? "Placing…" : owner ? `Place ${side === Side.Bid ? "Buy" : "Sell"} Order` : "Connect Wallet"}
       </button>
 
     </div>

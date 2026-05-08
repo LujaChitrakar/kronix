@@ -9,7 +9,7 @@ import {
   sendCancelAllOrders,
   sendEditOrder,
 } from "@/lib/kronix/client";
-import { PlaceOrderType, TriggerStatus, TriggerType } from "@/lib/kronix/config";
+import { PlaceOrderType, Side, TriggerStatus, TriggerType } from "@/lib/kronix/config";
 import { useStore } from "@/lib/store";
 import { notifyError, notifyTxSuccess, notifyWarning } from "@/lib/notifications";
 import { sendTx, formatTxError } from "./tx";
@@ -19,6 +19,7 @@ type Row = {
   slot: number;
   clientId: bigint;
   lockedPrice: bigint;
+  baseLots: bigint;
   reservedMargin: bigint;
   side: number;
   isFilled: boolean;
@@ -27,7 +28,13 @@ type Row = {
   stopLoss?: AttachedTrigger;
 };
 
-type EditDraft = { price: string; size: string; leverage: string };
+type EditDraft = {
+  price: string;
+  size: string;
+  leverage: string;
+  takeProfit: string;
+  stopLoss: string;
+};
 type AttachedTrigger = { price: bigint; status: number };
 
 const headCellClass = "py-1 pr-5 whitespace-nowrap";
@@ -38,6 +45,12 @@ function priceFromOrderId(id: Uint8Array | ArrayLike<number>): bigint {
   let out = 0n;
   for (let i = 15; i >= 8; i--) out = (out << 8n) + BigInt(bytes[i] ?? 0);
   return out;
+}
+
+function parseLots(value: string): bigint {
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) return 0n;
+  return BigInt(trimmed);
 }
 
 function statusLabel(s: number): string {
@@ -75,7 +88,13 @@ export function OpenOrders() {
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
   const [editing, setEditing] = useState<bigint | null>(null);
-  const [draft, setDraft] = useState<EditDraft>({ price: "", size: "", leverage: "1" });
+  const [draft, setDraft] = useState<EditDraft>({
+    price: "",
+    size: "",
+    leverage: "1",
+    takeProfit: "",
+    stopLoss: "",
+  });
   const marketIndex = useStore((s) => s.selectedMarketIndex);
 
   const refresh = useCallback(async () => {
@@ -97,6 +116,10 @@ export function OpenOrders() {
         slot: i,
         clientId: o.clientId,
         lockedPrice: priceFromOrderId(o.id),
+        baseLots:
+          o.originalBaseLots > o.filledBaseLots
+            ? o.originalBaseLots - o.filledBaseLots
+            : o.originalBaseLots,
         reservedMargin: o.lockedPrice,
         side: o.side,
         isFilled: o.makerOut === 1,
@@ -123,6 +146,12 @@ export function OpenOrders() {
         if (!row) return;
         try {
           const trigger = decoder.decode(new Uint8Array(account.data));
+          if (
+            trigger.status !== TriggerStatus.Active &&
+            trigger.status !== TriggerStatus.Paused
+          ) {
+            return;
+          }
           const value = {
             price: trigger.triggerPrice,
             status: trigger.status,
@@ -207,17 +236,64 @@ export function OpenOrders() {
 
   const submitEdit = async (r: Row) => {
     if (!owner) return;
-    const newPrice = BigInt(parseInt(draft.price || "0", 10));
-    const newBase = BigInt(parseInt(draft.size || "0", 10));
+    const newPrice = parseLots(draft.price);
+    const newBase = parseLots(draft.size);
+    const tpLots = parseLots(draft.takeProfit);
+    const slLots = parseLots(draft.stopLoss);
     if (newPrice <= 0n || newBase <= 0n) {
       setMsg("Edit: price + size required");
       notifyWarning("Edit blocked", "Price + size required");
+      return;
+    }
+    const invalidTp =
+      tpLots > 0n &&
+      (r.side === Side.Bid ? tpLots <= newPrice : tpLots >= newPrice);
+    const invalidSl =
+      slLots > 0n &&
+      (r.side === Side.Bid ? slLots >= newPrice : slLots <= newPrice);
+    if (invalidTp || invalidSl) {
+      const msg =
+        r.side === Side.Bid
+          ? "For a bid/long order, TP must be above price and SL below price"
+          : "For an ask/short order, TP must be below price and SL above price";
+      setMsg(msg);
+      notifyWarning("Invalid TP/SL", msg);
       return;
     }
     setBusy(`edit ${r.clientId}`);
     setMsg("");
     try {
       const newClientId = BigInt(Date.now());
+      const triggerSide = r.side === Side.Bid ? Side.Ask : Side.Bid;
+      const triggerBaseId = newClientId * 10n;
+      const attachedTriggers = [
+        ...(tpLots > 0n
+          ? [
+              {
+                clientOrderId: triggerBaseId + 1n,
+                triggerPrice: tpLots,
+                sizeLots: newBase,
+                expiry: 0n,
+                triggerType: TriggerType.TakeProfit,
+                side: triggerSide,
+                marketIndex,
+              },
+            ]
+          : []),
+        ...(slLots > 0n
+          ? [
+              {
+                clientOrderId: triggerBaseId + 2n,
+                triggerPrice: slLots,
+                sizeLots: newBase,
+                expiry: 0n,
+                triggerType: TriggerType.StopLoss,
+                side: triggerSide,
+                marketIndex,
+              },
+            ]
+          : []),
+      ];
       const sig = await sendEditOrder(
         owner,
         {
@@ -232,6 +308,8 @@ export function OpenOrders() {
           limit: 16,
           leverage: Math.max(1, Math.min(10, parseInt(draft.leverage || "1", 10) || 1)),
           marketIndex,
+          oldClientId: r.clientId,
+          attachedTriggers,
         },
         connection,
         (ixs, c) => sendTx(wallet, c, ixs),
@@ -239,7 +317,13 @@ export function OpenOrders() {
       setMsg(`Edit → ${sig.slice(0, 8)}…`);
       notifyTxSuccess("Order edited", sig);
       setEditing(null);
-      setDraft({ price: "", size: "", leverage: "1" });
+      setDraft({
+        price: "",
+        size: "",
+        leverage: "1",
+        takeProfit: "",
+        stopLoss: "",
+      });
       await refresh();
     } catch (e) {
       const err = formatTxError(e);
@@ -327,8 +411,10 @@ export function OpenOrders() {
                             setEditing(r.clientId);
                             setDraft({
                               price: String(r.lockedPrice),
-                              size: "",
+                              size: String(r.baseLots),
                               leverage: "1",
+                              takeProfit: r.takeProfit ? String(r.takeProfit.price) : "",
+                              stopLoss: r.stopLoss ? String(r.stopLoss.price) : "",
                             });
                           }
                         }}
@@ -349,8 +435,8 @@ export function OpenOrders() {
                 {editing === r.clientId && (
                   <tr className="border-t kx-border bg-kx-surface-lo">
                     <td colSpan={8} className="p-3">
-                      <div className="flex gap-3 items-end">
-                        <div className="flex-1">
+                      <div className="grid gap-3 items-end sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_88px_minmax(0,1fr)_minmax(0,1fr)_auto]">
+                        <div>
                           <div className="text-[11px] uppercase tracking-wider text-on-surface-variant/70 mb-1">
                             new price (lots)
                           </div>
@@ -363,7 +449,7 @@ export function OpenOrders() {
                             className="w-full bg-kx-surface border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface"
                           />
                         </div>
-                        <div className="flex-1">
+                        <div>
                           <div className="text-[11px] uppercase tracking-wider text-on-surface-variant/70 mb-1">
                             new size (base lots)
                           </div>
@@ -376,7 +462,7 @@ export function OpenOrders() {
                             className="w-full bg-kx-surface border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface"
                           />
                         </div>
-                        <div className="w-24">
+                        <div>
                           <div className="text-[11px] uppercase tracking-wider text-on-surface-variant/70 mb-1">
                             lev
                           </div>
@@ -389,10 +475,36 @@ export function OpenOrders() {
                             className="w-full bg-kx-surface border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface"
                           />
                         </div>
+                        <div>
+                          <div className="text-[11px] uppercase tracking-wider text-on-surface-variant/70 mb-1">
+                            tp (lots)
+                          </div>
+                          <input
+                            value={draft.takeProfit}
+                            onChange={(e) =>
+                              setDraft({ ...draft, takeProfit: e.target.value })
+                            }
+                            inputMode="numeric"
+                            className="w-full bg-kx-surface border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface"
+                          />
+                        </div>
+                        <div>
+                          <div className="text-[11px] uppercase tracking-wider text-on-surface-variant/70 mb-1">
+                            sl (lots)
+                          </div>
+                          <input
+                            value={draft.stopLoss}
+                            onChange={(e) =>
+                              setDraft({ ...draft, stopLoss: e.target.value })
+                            }
+                            inputMode="numeric"
+                            className="w-full bg-kx-surface border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface"
+                          />
+                        </div>
                         <button
                           disabled={!!busy}
                           onClick={() => submitEdit(r)}
-                          className="text-[11px] font-headline font-bold uppercase tracking-wider px-4 py-2 rounded-md bg-[#4dffb4] text-on-primary-fixed shadow-md shadow-[#4dffb4]/20 hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50"
+                          className="text-[11px] font-headline font-bold uppercase tracking-wider px-4 py-2 rounded-md bg-[#4dffb4] text-on-primary-fixed shadow-md shadow-[#4dffb4]/20 hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50 sm:col-span-2 lg:col-span-1"
                         >
                           {busy === `edit ${r.clientId}` ? "…" : "Submit"}
                         </button>

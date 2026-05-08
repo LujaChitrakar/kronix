@@ -45,10 +45,10 @@
   --color-surface-tint: #17e29a;
 
   --color-surface-container-lowest: #0d0e14;
-  --color-surface-container-low: #1a1b21;
-  --color-surface-container: #1e1f26;
-  --color-surface-container-high: #292a30;
-  --color-surface-container-highest: #34343b;
+  --color-surface-container-low: #101315;
+  --color-surface-container: #14181A;
+  --color-surface-container-high: #181D1F;
+  --color-surface-container-highest: #222829;
 
   --color-outline: #859589;
   --color-outline-variant: #3b4a41;
@@ -78,7 +78,7 @@
 /* ── HL-style surfaces + dividers ─────────────────────────────────────── */
 .bg-kx-surface      { background-color: #14181A; }
 .bg-kx-surface-hi   { background-color: #181D1F; }
-.bg-kx-surface-lo   { background-color: #10141D; }
+.bg-kx-surface-lo   { background-color: #101315; }
 .bg-kx-base         { background-color: #0B0F0D; }
 
 .kx-border          { border-color: rgba(77, 255, 180, 0.08); }
@@ -149,10 +149,10 @@
 .text-secondary           { color: #b5ccc1; }
 
 /* Background utilities */
-.bg-surface-container-low    { background-color: #1a1b21; }
+.bg-surface-container-low    { background-color: #101315; }
 .bg-surface-container-lowest { background-color: #0d0e14; }
-.bg-surface-container        { background-color: #1e1f26; }
-.bg-surface-container-high   { background-color: #292a30; }
+.bg-surface-container        { background-color: #14181A; }
+.bg-surface-container-high   { background-color: #181D1F; }
 .bg-primary-container        { background-color: #4dffb4; }
 
 /* Border utilities */
