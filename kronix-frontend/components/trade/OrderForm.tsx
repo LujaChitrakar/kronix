@@ -30,6 +30,17 @@ import {
   notifyTxSuccess,
   notifyWarning,
 } from "@/lib/notifications";
+import {
+  formatPriceLots,
+  formatSizeLots,
+  formatUsdcNative,
+  notionalNative,
+  parsePriceInput,
+  parseSizeInput,
+  priceInputFromNumber,
+  quoteLotsToNative,
+  type LotConfig,
+} from "@/lib/kronix/lot-math";
 import { sendTx, formatTxError } from "./tx";
 
 type OwnOrder = { clientId: bigint; priceLots: bigint; side: number };
@@ -89,6 +100,7 @@ export function OrderForm() {
   const [collateral, setCollateral] = useState<bigint | null>(null);
   const [netPosition, setNetPosition] = useState<NetPosition | null>(null);
   const [cfg, setCfg] = useState<{
+    baseLotSize: bigint;
     quoteLotSize: bigint;
     initialMarginBps: number;
   } | null>(null);
@@ -106,7 +118,7 @@ export function OrderForm() {
 
   useEffect(() => {
     if (selectedPrice !== null && lastFocusedInputId) {
-      const p = Math.round(selectedPrice).toString();
+      const p = priceInputFromNumber(selectedPrice);
       if (lastFocusedInputId === "order-price") setPrice(p);
       if (lastFocusedInputId === "order-tp") setTakeProfitPrice(p);
       if (lastFocusedInputId === "order-sl") setStopLossPrice(p);
@@ -119,6 +131,7 @@ export function OrderForm() {
       .then((c) => {
         if (c)
           setCfg({
+            baseLotSize: c.baseLotSize,
             quoteLotSize: c.quoteLotSize,
             initialMarginBps: c.initialMarginBps,
           });
@@ -235,13 +248,7 @@ export function OrderForm() {
     }
   };
 
-  const priceLotsParsed = (() => {
-    try {
-      return BigInt(parseInt(price || "0", 10));
-    } catch {
-      return 0n;
-    }
-  })();
+  const priceLotsParsed = cfg ? (parsePriceInput(price || "0", cfg) ?? 0n) : 0n;
 
   const conflicts =
     orderType === PlaceOrderType.Market
@@ -252,17 +259,12 @@ export function OrderForm() {
         ? crossesOwn(myOrders, side, priceLotsParsed)
         : [];
 
-  const orderSizeLotsPreview = (() => {
-    try {
-      return BigInt(parseInt(size || "0", 10));
-    } catch {
-      return 0n;
-    }
-  })();
+  const orderSizeLotsPreview = cfg ? (parseSizeInput(size || "0", cfg) ?? 0n) : 0n;
 
   const orderPriceLotsPreview = (() => {
     if (orderType !== PlaceOrderType.Market) return priceLotsParsed;
-    return BigInt(Math.max(0, Math.round(selectedPrice ?? 0)));
+    if (!cfg || selectedPrice === null) return 0n;
+    return parsePriceInput(priceInputFromNumber(selectedPrice), cfg) ?? 0n;
   })();
 
   const estimatedNetPosition =
@@ -312,30 +314,49 @@ export function OrderForm() {
       notifyWarning("Order blocked", msg);
       return;
     }
-    const isMarket = orderType === PlaceOrderType.Market;
-    const priceLots = isMarket
-      ? 1n
-      : BigInt(parseInt(price || "0", 10));
-    const maxBaseLots = BigInt(parseInt(size || "0", 10));
-    const tpLots = tpslOpen ? BigInt(parseInt(takeProfitPrice || "0", 10)) : 0n;
-    const slLots = tpslOpen ? BigInt(parseInt(stopLossPrice || "0", 10)) : 0n;
-    if (maxBaseLots <= 0n) {
-      setMsg("Enter size in lots");
-      notifyWarning("Order blocked", "Enter size in lots");
+    if (!cfg) {
+      const msg = "Market config still loading";
+      setMsg(msg);
+      notifyWarning("Order blocked", msg);
       return;
     }
-    if (!isMarket && priceLots <= 0n) {
-      setMsg("Enter price in lots");
-      notifyWarning("Order blocked", "Enter price in lots");
+    const isMarket = orderType === PlaceOrderType.Market;
+    const parsedPriceLots = parsePriceInput(price || "0", cfg);
+    const parsedBaseLots = parseSizeInput(size || "0", cfg);
+    const parsedTpLots = tpslOpen ? parsePriceInput(takeProfitPrice || "0", cfg) : 0n;
+    const parsedSlLots = tpslOpen ? parsePriceInput(stopLossPrice || "0", cfg) : 0n;
+    const priceLots = isMarket ? 1n : (parsedPriceLots ?? 0n);
+    const maxBaseLots = parsedBaseLots ?? 0n;
+    const tpLots = parsedTpLots ?? 0n;
+    const slLots = parsedSlLots ?? 0n;
+    if (maxBaseLots <= 0n) {
+      setMsg("Enter a valid size");
+      notifyWarning("Order blocked", "Enter a valid size");
+      return;
+    }
+    if (!isMarket && (parsedPriceLots === null || priceLots <= 0n)) {
+      setMsg("Enter a valid price");
+      notifyWarning("Order blocked", "Enter a valid price");
+      return;
+    }
+    if (
+      tpslOpen &&
+      ((takeProfitPrice.trim() && parsedTpLots === null) ||
+        (stopLossPrice.trim() && parsedSlLots === null))
+    ) {
+      setMsg("Enter valid TP/SL prices");
+      notifyWarning("Order blocked", "Enter valid TP/SL prices");
       return;
     }
     if (tpslOpen && tpLots <= 0n && slLots <= 0n) {
-      setMsg("Enter TP or SL trigger price in lots");
-      notifyWarning("Order blocked", "Enter TP or SL trigger price in lots");
+      setMsg("Enter TP or SL trigger price");
+      notifyWarning("Order blocked", "Enter TP or SL trigger price");
       return;
     }
     const triggerReferencePrice = isMarket
-      ? BigInt(Math.round(selectedPrice ?? 0))
+      ? selectedPrice !== null
+        ? (parsePriceInput(priceInputFromNumber(selectedPrice), cfg) ?? 0n)
+        : 0n
       : priceLots;
     if (tpslOpen && triggerReferencePrice > 0n) {
       const invalidTp =
@@ -373,7 +394,7 @@ export function OrderForm() {
       const freeNative = user.collateral - user.marginUsed;
       const maxQuoteLots = isMarket
         ? freeNative > 0n
-          ? (freeNative / 1_000_000n) * BigInt(leverage)
+          ? (freeNative * BigInt(leverage)) / cfg.quoteLotSize
           : 0n
         : priceLots * maxBaseLots;
 
@@ -384,12 +405,10 @@ export function OrderForm() {
       }
 
       const requiredMarginNative =
-        (maxQuoteLots * 1_000_000n + BigInt(leverage - 1)) / BigInt(leverage);
+        (quoteLotsToNative(maxQuoteLots, cfg) + BigInt(leverage - 1)) / BigInt(leverage);
       if (requiredMarginNative > freeNative) {
         const shortfall = requiredMarginNative - freeNative;
-        const whole = shortfall / 1_000_000n;
-        const frac = (shortfall % 1_000_000n).toString().padStart(6, "0").slice(0, 2);
-        const msg = `Insufficient collateral: need about $${whole}.${frac} more`;
+        const msg = `Insufficient collateral: need about $${formatUsdcNative(shortfall)} more`;
         setMsg(msg);
         notifyWarning("Order blocked", msg);
         return;
@@ -531,7 +550,7 @@ export function OrderForm() {
       <div className="space-y-2">
         <Field
           id="order-price"
-          label="Price (lots)"
+          label="Price"
           value={price}
           onChange={setPrice}
           onFocus={() => setLastFocusedInputId("order-price")}
@@ -539,7 +558,7 @@ export function OrderForm() {
         />
         <Field 
           id="order-size"
-          label="Size (base lots)" 
+          label="Size"
           value={size} 
           onChange={setSize} 
           onFocus={() => setLastFocusedInputId("order-size")}
@@ -578,14 +597,14 @@ export function OrderForm() {
           <div className="grid grid-cols-2 gap-2 p-2 rounded-lg bg-kx-surface-lo border kx-border">
             <Field
               id="order-tp"
-              label="TP (lots)"
+              label="TP"
               value={takeProfitPrice}
               onChange={setTakeProfitPrice}
               onFocus={() => setLastFocusedInputId("order-tp")}
             />
             <Field
               id="order-sl"
-              label="SL (lots)"
+              label="SL"
               value={stopLossPrice}
               onChange={setStopLossPrice}
               onFocus={() => setLastFocusedInputId("order-sl")}
@@ -595,20 +614,12 @@ export function OrderForm() {
       </div>
 
       {cfg && (() => {
-        let sz = 0n;
-        let pr = 0n;
-        try {
-          sz = BigInt(parseInt(size || "0", 10));
-          pr = BigInt(parseInt(price || "0", 10));
-        } catch {}
+        const lotCfg: LotConfig = cfg;
+        const sz = parseSizeInput(size || "0", lotCfg) ?? 0n;
+        const pr = parsePriceInput(price || "0", lotCfg) ?? 0n;
         if (sz <= 0n || pr <= 0n) return null;
-        const notional = sz * pr * 1_000_000n;
+        const notional = notionalNative(sz, pr, lotCfg);
         const margin = (notional + BigInt(leverage - 1)) / BigInt(leverage);
-        const fmt = (n: bigint) => {
-          const w = n / 1_000_000n;
-          const f = (n % 1_000_000n).toString().padStart(6, "0").slice(0, 4);
-          return `$${w}.${f}`;
-        };
         const tooSmall = margin < 10_000n;
         return (
           <div
@@ -623,13 +634,13 @@ export function OrderForm() {
                 <div className="text-[9px] uppercase tracking-wider opacity-60 mb-0.5">
                   Notional
                 </div>
-                <div className="text-on-surface font-bold">{fmt(notional)}</div>
+                <div className="text-on-surface font-bold">${formatUsdcNative(notional)}</div>
               </div>
               <div>
                 <div className="text-[9px] uppercase tracking-wider opacity-60 mb-0.5">
                   Margin
                 </div>
-                <div className="text-on-surface font-bold">{fmt(margin)}</div>
+                <div className="text-on-surface font-bold">${formatUsdcNative(margin)}</div>
               </div>
             </div>
             {tooSmall && (
@@ -649,7 +660,8 @@ export function OrderForm() {
           <ul className="mb-2 space-y-0.5 opacity-90">
             {conflicts.slice(0, 4).map((c) => (
               <li key={String(c.clientId)}>
-                {c.side === 0 ? "BID" : "ASK"} @ {String(c.priceLots)}
+                {c.side === 0 ? "BID" : "ASK"} @{" "}
+                {cfg ? formatPriceLots(c.priceLots, cfg) : String(c.priceLots)}
               </li>
             ))}
           </ul>
@@ -679,13 +691,14 @@ export function OrderForm() {
           <div className="flex items-center justify-between gap-2">
             <span className="uppercase opacity-70">Estimated position after fill</span>
             <span className="text-on-surface font-bold">
-              {formatNetPositionPreview(estimatedNetPosition)}
+              {formatNetPositionPreview(estimatedNetPosition, cfg)}
             </span>
           </div>
           {netPosition && (
             <div className="mt-1 opacity-80">
-              Current: {netPosition.side.toUpperCase()} {netPosition.sizeLots} @{" "}
-              {netPosition.entryPriceLots}
+              Current: {netPosition.side.toUpperCase()}{" "}
+              {cfg ? formatSizeLots(netPosition.sizeLots, cfg) : netPosition.sizeLots} @{" "}
+              {cfg ? formatPriceLots(netPosition.entryPriceLots, cfg) : netPosition.entryPriceLots}
             </div>
           )}
           <div className="mt-1 opacity-70">
@@ -769,7 +782,7 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         onFocus={onFocus}
         disabled={disabled}
-        inputMode="numeric"
+        inputMode="decimal"
         className="w-full bg-kx-surface-lo border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface focus:outline-none focus:border-[#4dffb4]/50 focus:bg-kx-surface-lo/80 disabled:opacity-40 transition-colors"
       />
     </div>

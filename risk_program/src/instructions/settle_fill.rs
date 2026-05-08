@@ -16,7 +16,7 @@ use crate::{
         verify_account_owner, verify_pda, verify_program_id, verify_writtable,
     },
     instructions::settle_funding_internal,
-    state::{FundingState, MarketConfig, Position, UserAccount, QUOTE_NATIVE_UNIT},
+    state::{FundingState, MarketConfig, Position, UserAccount},
 };
 
 #[derive(Pod, Zeroable, Clone, Copy, ShankType)]
@@ -281,13 +281,13 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
                 (close_size as i128)
                     .checked_mul(price_diff as i128)
                     .ok_or(ProgramError::ArithmeticOverflow)?
-                    .checked_mul(QUOTE_NATIVE_UNIT)
+                    .checked_mul(market_config_state.quote_lot_size as i128)
                     .ok_or(ProgramError::ArithmeticOverflow)?
             } else {
                 (close_size as i128)
                     .checked_mul(-price_diff as i128)
                     .ok_or(ProgramError::ArithmeticOverflow)?
-                    .checked_mul(QUOTE_NATIVE_UNIT)
+                    .checked_mul(market_config_state.quote_lot_size as i128)
                     .ok_or(ProgramError::ArithmeticOverflow)?
             };
             let realized_pnl =

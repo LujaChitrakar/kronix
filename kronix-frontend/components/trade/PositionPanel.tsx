@@ -25,6 +25,14 @@ import { useStore } from "@/lib/store";
 import { notifyError, notifyTxSuccess } from "@/lib/notifications";
 import { sendTx, formatTxError } from "./tx";
 import { getTriggerOrderDecoder } from "@/lib/trigger-sdk";
+import {
+  formatPriceLots,
+  formatSizeLots,
+  formatUsdcNative,
+  nativePriceToLots,
+  notionalNative,
+  type LotConfig,
+} from "@/lib/kronix/lot-math";
 
 const TRIGGER_ORDER_SIZE = 144;
 
@@ -37,11 +45,7 @@ type PositionTrigger = {
 };
 
 function fmtUsdc(n: bigint): string {
-  const sign = n < 0n ? "-" : "";
-  const abs = n < 0n ? -n : n;
-  const whole = abs / 1_000_000n;
-  const frac = (abs % 1_000_000n).toString().padStart(6, "0").slice(0, 2);
-  return `${sign}${whole}.${frac}`;
+  return formatUsdcNative(n);
 }
 
 const SWITCHBOARD_DISC = Buffer.from([196, 27, 108, 196, 10, 215, 219, 40]);
@@ -82,6 +86,7 @@ function parseSwitchboardPriceNative(
 
 function formatTriggers(
   triggers: PositionTrigger[],
+  cfg: LotConfig | null,
   positionSizeLots?: bigint,
 ): string {
   const visible =
@@ -90,7 +95,10 @@ function formatTriggers(
       : positionSizedTriggers(triggers, positionSizeLots);
   if (visible.length === 0) return "-";
   return visible
-    .map((t) => `${t.price}${t.status === TriggerStatus.Paused ? " P" : ""}`)
+    .map(
+      (t) =>
+        `${cfg ? formatPriceLots(t.price, cfg) : t.price}${t.status === TriggerStatus.Paused ? " P" : ""}`,
+    )
     .join(", ");
 }
 
@@ -146,6 +154,7 @@ export function PositionPanel() {
   const [staleTriggerIds, setStaleTriggerIds] = useState<bigint[]>([]);
   const [oracle, setOracle] = useState<PublicKey | null>(null);
   const [cfg, setCfg] = useState<{
+    baseLotSize: bigint;
     quoteLotSize: bigint;
     maintenanceMarginBps: number;
   } | null>(null);
@@ -240,6 +249,7 @@ export function PositionPanel() {
       const oraclePk = configuredOracle ?? bytesToPubkey(cfg.oracle);
       setOracle(oraclePk);
       setCfg({
+        baseLotSize: cfg.baseLotSize,
         quoteLotSize: cfg.quoteLotSize,
         maintenanceMarginBps: cfg.maintenanceMarginBps,
       });
@@ -330,17 +340,11 @@ export function PositionPanel() {
     return BigInt(Math.floor(f * 1_000_000));
   })();
 
-  // Maintenance margin requirement in native USDC.
-  // Mirrors risk_program required_maintenance_margin after mark_price → price_lots conversion:
-  //   mark_price_lots = mark_price_native / quote_lot_size
-  //   notional = size × mark_price_lots × quote_lot_size
-  //   maint    = notional × maint_bps / 10000
-  // (size × mark_price_lots × quote_lot_size simplifies but keep explicit for parity.)
   const maintenanceMargin: bigint | null = (() => {
     if (!pos || !cfg || markPriceNative === null) return null;
     if (cfg.quoteLotSize === 0n) return null;
-    const markLots = markPriceNative / cfg.quoteLotSize;
-    const notional = pos.size * markLots * cfg.quoteLotSize;
+    const markLots = nativePriceToLots(markPriceNative, cfg);
+    const notional = notionalNative(pos.size, markLots, cfg);
     return (notional * BigInt(cfg.maintenanceMarginBps)) / 10_000n;
   })();
 
@@ -369,11 +373,14 @@ export function PositionPanel() {
         <>
           <div className="grid grid-cols-3 gap-3 mb-4 text-sm font-mono">
             <Stat label="Net Side" v={pos.side === 0 ? "LONG" : "SHORT"} accent={pos.side === 0} />
-            <Stat label="Net Size Lots" v={String(pos.size)} />
-            <Stat label="Avg Entry Lots" v={String(pos.entryPrice)} />
+            <Stat label="Net Size" v={cfg ? formatSizeLots(pos.size, cfg) : String(pos.size)} />
+            <Stat
+              label="Avg Entry"
+              v={cfg ? formatPriceLots(pos.entryPrice, cfg) : String(pos.entryPrice)}
+            />
             <ProtectionStat
-              takeProfit={formatTriggers(positionTriggers.takeProfit, pos.size)}
-              stopLoss={formatTriggers(positionTriggers.stopLoss, pos.size)}
+              takeProfit={formatTriggers(positionTriggers.takeProfit, cfg, pos.size)}
+              stopLoss={formatTriggers(positionTriggers.stopLoss, cfg, pos.size)}
               hasTakeProfit={positionTriggers.takeProfit.length > 0}
               hasStopLoss={positionTriggers.stopLoss.length > 0}
             />
@@ -408,8 +415,8 @@ export function PositionPanel() {
             <div className="grid grid-cols-8 gap-1.5">
               <button
                 type="button"
-                onClick={() =>
-                  setMarginAmt((Number(maxRemovable) / 1_000_000).toString())
+              onClick={() =>
+                  setMarginAmt(formatUsdcNative(maxRemovable))
                 }
                 className="py-2 text-[11px] font-headline font-bold uppercase tracking-wider rounded-md border kx-border bg-kx-surface-lo text-on-surface-variant hover:text-on-surface hover:bg-kx-surface-hi/60 transition-colors"
               >
@@ -419,9 +426,10 @@ export function PositionPanel() {
           </div>
           {removeExceeds && (
             <div className="mb-2 text-[10px] font-mono text-[#ffb86b]">
-              − Margin: {String(baseUnits)} &gt; removable {String(maxRemovable)}{" "}
-              native (initial {String(pos.initialMargin)} − maintenance{" "}
-              {maintenanceMargin === null ? "?" : String(maintenanceMargin)}).
+              − Margin: ${formatUsdcNative(baseUnits)} &gt; removable $
+              {formatUsdcNative(maxRemovable)} (initial $
+              {formatUsdcNative(pos.initialMargin)} − maintenance $
+              {maintenanceMargin === null ? "?" : formatUsdcNative(maintenanceMargin)}).
               Reduce or use MAX.
             </div>
           )}

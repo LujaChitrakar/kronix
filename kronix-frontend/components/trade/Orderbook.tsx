@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { findMarketPda, findFillsLogPda } from "@/lib/kronix/pdas";
+import { findMarketConfigPda, findMarketPda, findFillsLogPda } from "@/lib/kronix/pdas";
+import { fetchMarketConfig } from "@/lib/kronix/state";
 import { useStore } from "@/lib/store";
 import {
   scanBook,
@@ -13,6 +14,13 @@ import {
   fetchRecentTrades,
   type RecentTrade,
 } from "@/lib/kronix/recent-trades";
+import {
+  formatPriceLots,
+  formatSizeLots,
+  formatUsdcNative,
+  notionalNative,
+  type LotConfig,
+} from "@/lib/kronix/lot-math";
 
 type Tab = "book" | "trades";
 
@@ -47,10 +55,6 @@ function aggregate(orders: BookOrder[], myKey: string | undefined): Level[] {
   return Array.from(m.values());
 }
 
-function fmtBigInt(n: bigint): string {
-  return n.toString();
-}
-
 export function Orderbook() {
   const { connection } = useConnection();
   const wallet = useWallet();
@@ -59,12 +63,22 @@ export function Orderbook() {
   const [trades, setTrades] = useState<RecentTrade[]>([]);
   const [currentSlot, setCurrentSlot] = useState<bigint>(0n);
   const [err, setErr] = useState<string | null>(null);
+  const [cfg, setCfg] = useState<LotConfig | null>(null);
   const marketIndex = useStore((s) => s.selectedMarketIndex);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    const [cfgPda] = findMarketConfigPda(marketIndex);
+    fetchMarketConfig(connection, cfgPda)
+      .then((c) => {
+        if (c) setCfg({ baseLotSize: c.baseLotSize, quoteLotSize: c.quoteLotSize });
+      })
+      .catch(() => null);
+  }, [connection, marketIndex]);
 
   const refreshBook = useCallback(async () => {
     try {
@@ -141,12 +155,14 @@ export function Orderbook() {
     };
   }, [snap, myKey]);
 
-  // Show price/total in user-space units (matches what user enters in OrderForm).
-  // Total = price * size (no quoteLotSize scaling) so price=100, size=10 → 1000.
-  const priceDisplay = (priceLots: bigint): string => fmtBigInt(priceLots);
+  const priceDisplay = (priceLots: bigint): string =>
+    cfg ? formatPriceLots(priceLots, cfg) : priceLots.toString();
 
   const totalUsdc = (priceLots: bigint, qty: bigint): string =>
-    fmtBigInt(priceLots * qty);
+    cfg ? formatUsdcNative(notionalNative(qty, priceLots, cfg)) : (priceLots * qty).toString();
+
+  const sizeDisplay = (qty: bigint): string =>
+    cfg ? formatSizeLots(qty, cfg) : qty.toString();
 
   if (!mounted) {
     return <div className="bg-kx-surface rounded-xl border kx-border h-[620px] animate-pulse" />;
@@ -186,6 +202,7 @@ export function Orderbook() {
             mid={mid}
             priceUsdc={priceDisplay}
             totalUsdc={totalUsdc}
+            sizeDisplay={sizeDisplay}
             isEmpty={!!snap && snap.bids.length === 0 && snap.asks.length === 0}
           />
         ) : (
@@ -193,6 +210,7 @@ export function Orderbook() {
             trades={trades}
             currentSlot={currentSlot}
             priceUsdc={priceDisplay}
+            sizeDisplay={sizeDisplay}
           />
         )}
       </div>
@@ -231,6 +249,7 @@ function BookView({
   mid,
   priceUsdc,
   totalUsdc,
+  sizeDisplay,
   isEmpty,
 }: {
   askLevels: Level[];
@@ -240,6 +259,7 @@ function BookView({
   mid: bigint | null;
   priceUsdc: (p: bigint) => string;
   totalUsdc: (p: bigint, q: bigint) => string;
+  sizeDisplay: (q: bigint) => string;
   isEmpty: boolean;
 }) {
   return (
@@ -260,6 +280,7 @@ function BookView({
               side="ask"
               priceUsdc={priceUsdc}
               totalUsdc={totalUsdc}
+              sizeDisplay={sizeDisplay}
             />
           ))}
         </div>
@@ -269,7 +290,7 @@ function BookView({
             {mid !== null ? priceUsdc(mid) : "—"}
           </div>
           <div className="text-[10px] font-mono text-on-surface-variant/70">
-            mid · spread {spread !== null ? String(spread) : "—"}
+            mid · spread {spread !== null ? priceUsdc(spread) : "—"}
           </div>
         </div>
 
@@ -282,6 +303,7 @@ function BookView({
               side="bid"
               priceUsdc={priceUsdc}
               totalUsdc={totalUsdc}
+              sizeDisplay={sizeDisplay}
             />
           ))}
         </div>
@@ -302,12 +324,14 @@ function DepthRow({
   side,
   priceUsdc,
   totalUsdc,
+  sizeDisplay,
 }: {
   level: Level;
   maxSize: bigint;
   side: "bid" | "ask";
   priceUsdc: (p: bigint) => string;
   totalUsdc: (p: bigint, q: bigint) => string;
+  sizeDisplay: (q: bigint) => string;
 }) {
   // Width % proportional to qty / maxSize. Bigint → number for %.
   const pct = maxSize > 0n
@@ -326,10 +350,10 @@ function DepthRow({
         {priceUsdc(level.priceLots)}
       </div>
       <div className="relative text-right text-on-surface">
-        {level.qty.toString()}
+        {sizeDisplay(level.qty)}
         {level.mine > 0n && (
           <span className="ml-1 text-[9px] text-[#ffd166]">
-            ({level.mine.toString()})
+            ({sizeDisplay(level.mine)})
           </span>
         )}
       </div>
@@ -344,10 +368,12 @@ function TradesView({
   trades,
   currentSlot,
   priceUsdc,
+  sizeDisplay,
 }: {
   trades: RecentTrade[];
   currentSlot: bigint;
   priceUsdc: (p: bigint) => string;
+  sizeDisplay: (q: bigint) => string;
 }) {
   const now = Date.now();
   return (
@@ -390,7 +416,7 @@ function TradesView({
                   {priceUsdc(t.priceLots)}
                 </div>
                 <div className="text-right text-on-surface">
-                  {t.quantity.toString()}
+                  {sizeDisplay(t.quantity)}
                 </div>
                 <div className="flex items-center gap-1 justify-end text-on-surface-variant">
                   <span>{timeStr}</span>

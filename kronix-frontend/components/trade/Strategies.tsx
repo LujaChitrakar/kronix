@@ -10,10 +10,19 @@ import {
   sendPauseStrategy,
   sendResumeStrategy,
 } from "@/lib/kronix/client";
+import { findMarketConfigPda } from "@/lib/kronix/pdas";
+import { fetchMarketConfig } from "@/lib/kronix/state";
 import { useStore } from "@/lib/store";
 import { notifyError, notifyTxSuccess } from "@/lib/notifications";
 import { sendTx, formatTxError } from "./tx";
 import { getStrategyAccountDecoder, STRATEGY_ACCOUNT_LEN } from "@/lib/strategy-sdk";
+import {
+  formatPriceLots,
+  formatSizeLots,
+  parsePriceInput,
+  parseSizeInput,
+  type LotConfig,
+} from "@/lib/kronix/lot-math";
 
 const OWNER_OFFSET_IN_STRATEGY = 248;
 
@@ -76,7 +85,17 @@ export function Strategies() {
     newCooldownSecs: "0",
     newMaxExecutionsPerDay: "0",
   });
+  const [cfg, setCfg] = useState<LotConfig | null>(null);
   const marketIndex = useStore((s) => s.selectedMarketIndex);
+
+  useEffect(() => {
+    const [cfgPda] = findMarketConfigPda(marketIndex);
+    fetchMarketConfig(connection, cfgPda)
+      .then((c) => {
+        if (c) setCfg({ baseLotSize: c.baseLotSize, quoteLotSize: c.quoteLotSize });
+      })
+      .catch(() => null);
+  }, [connection, marketIndex]);
 
   const refresh = useCallback(async () => {
     if (!owner) {
@@ -200,11 +219,17 @@ export function Strategies() {
   const startEdit = (r: Row) => {
     setEditType(r.strategyType);
     setDraft({
-      newSizeLots: String(r.sizeLots),
-      newLimitPriceLots: String(r.limitPriceLots),
+      newSizeLots: cfg ? formatSizeLots(r.sizeLots, cfg) : String(r.sizeLots),
+      newLimitPriceLots: cfg
+        ? formatPriceLots(r.limitPriceLots, cfg)
+        : String(r.limitPriceLots),
       newLeverage: String(r.leverage || 1),
-      newTakeProfitPrice: String(r.takeProfitPrice),
-      newStopLossPrice: String(r.stopLossPrice),
+      newTakeProfitPrice: cfg
+        ? formatPriceLots(r.takeProfitPrice, cfg)
+        : String(r.takeProfitPrice),
+      newStopLossPrice: cfg
+        ? formatPriceLots(r.stopLossPrice, cfg)
+        : String(r.stopLossPrice),
       newCooldownSecs: String(r.cooldownSecs),
       newMaxExecutionsPerDay: String(r.maxExecutionsPerDay),
     });
@@ -212,18 +237,35 @@ export function Strategies() {
 
   const submitEdit = async (t: number) => {
     if (!owner) return;
+    if (!cfg) {
+      setMsg("Edit failed:\nMarket config still loading");
+      notifyError("Edit failed", "Market config still loading");
+      return;
+    }
     setBusy(`edit ${t}`);
     setMsg("");
     try {
+      const newSizeLots = parseSizeInput(draft.newSizeLots || "0", cfg);
+      const newLimitPriceLots = parsePriceInput(draft.newLimitPriceLots || "0", cfg);
+      const newTakeProfitPrice = parsePriceInput(draft.newTakeProfitPrice || "0", cfg);
+      const newStopLossPrice = parsePriceInput(draft.newStopLossPrice || "0", cfg);
+      if (
+        newSizeLots === null ||
+        newLimitPriceLots === null ||
+        newTakeProfitPrice === null ||
+        newStopLossPrice === null
+      ) {
+        throw new Error("Invalid strategy price or size values");
+      }
       const sig = await sendEditStrategy(
         owner,
         {
           strategyType: t,
-          newSizeLots: BigInt(draft.newSizeLots || "0"),
-          newLimitPriceLots: BigInt(draft.newLimitPriceLots || "0"),
+          newSizeLots,
+          newLimitPriceLots,
           newLeverage: Math.max(0, Math.min(10, parseInt(draft.newLeverage || "0", 10) || 0)),
-          newTakeProfitPrice: BigInt(draft.newTakeProfitPrice || "0"),
-          newStopLossPrice: BigInt(draft.newStopLossPrice || "0"),
+          newTakeProfitPrice,
+          newStopLossPrice,
           newCooldownSecs: BigInt(draft.newCooldownSecs || "0"),
           newMaxExecutionsPerDay: BigInt(draft.newMaxExecutionsPerDay || "0"),
           newStatus: 255,
@@ -281,12 +323,26 @@ export function Strategies() {
                     <td className={r.side === 0 ? "text-[#4dffb4]" : "text-[#ff6b6b]"}>
                       {r.side === 0 ? "BUY" : "SELL"}
                     </td>
-                    <td>{String(r.sizeLots)}</td>
-                    <td>{r.limitPriceLots === 0n ? "MKT" : String(r.limitPriceLots)}</td>
+                    <td>{cfg ? formatSizeLots(r.sizeLots, cfg) : String(r.sizeLots)}</td>
+                    <td>
+                      {r.limitPriceLots === 0n
+                        ? "MKT"
+                        : cfg
+                          ? formatPriceLots(r.limitPriceLots, cfg)
+                          : String(r.limitPriceLots)}
+                    </td>
                     <td>{r.leverage || 1}x</td>
                     <td>
-                      {r.takeProfitPrice === 0n ? "—" : String(r.takeProfitPrice)} /{" "}
-                      {r.stopLossPrice === 0n ? "—" : String(r.stopLossPrice)}
+                      {r.takeProfitPrice === 0n
+                        ? "—"
+                        : cfg
+                          ? formatPriceLots(r.takeProfitPrice, cfg)
+                          : String(r.takeProfitPrice)} /{" "}
+                      {r.stopLossPrice === 0n
+                        ? "—"
+                        : cfg
+                          ? formatPriceLots(r.stopLossPrice, cfg)
+                          : String(r.stopLossPrice)}
                     </td>
                     <td>{String(r.cooldownSecs)}s</td>
                     <td>
@@ -414,10 +470,12 @@ function EditField({
   label,
   value,
   onChange,
+  inputMode = "decimal",
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  inputMode?: "decimal" | "numeric" | "text";
 }) {
   return (
     <div>
@@ -427,7 +485,7 @@ function EditField({
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        inputMode="numeric"
+        inputMode={inputMode}
         className="w-full bg-kx-surface border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface"
       />
     </div>

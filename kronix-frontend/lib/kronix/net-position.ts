@@ -1,3 +1,5 @@
+import { formatPriceLots, formatSizeLots, type LotConfig } from "./lot-math";
+
 export type NetSide = "long" | "short";
 
 export interface NetPosition {
@@ -74,7 +76,14 @@ export function simulateNetPosition(
   };
 }
 
-export function formatNetPositionPreview(pos: SimulatedNetPosition): string {
+export function formatNetPositionPreview(
+  pos: SimulatedNetPosition,
+  cfg?: LotConfig | null,
+): string {
   if (pos.status === "closed") return "CLOSED";
-  return `${pos.side.toUpperCase()} ${pos.sizeLots} @ ${pos.entryPriceLots}`;
+  const size = cfg ? formatSizeLots(pos.sizeLots, cfg) : pos.sizeLots.toString();
+  const price = cfg
+    ? formatPriceLots(pos.entryPriceLots, cfg)
+    : pos.entryPriceLots.toString();
+  return `${pos.side.toUpperCase()} ${size} @ ${price}`;
 }

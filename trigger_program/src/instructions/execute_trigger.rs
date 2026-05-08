@@ -8,7 +8,7 @@ use shank::ShankType;
 
 use crate::{
     constants::{
-        MAX_CPI_MAKER_ACCOUNTS, QUOTE_NATIVE_UNIT, RISK_PROGRAM_ID, TRIGGER_AUTHORITY_SEED,
+        BASE_NATIVE_UNIT, MAX_CPI_MAKER_ACCOUNTS, RISK_PROGRAM_ID, TRIGGER_AUTHORITY_SEED,
     },
     cpi::place_take_order_cpi,
     errors::TriggerProgramError,
@@ -138,6 +138,16 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
     if market_config_data.len() < 18 {
         return Err(ProgramError::InvalidAccountData);
     }
+    let base_lot_size = i64::from_le_bytes(
+        market_config_data[0..8]
+            .try_into()
+            .map_err(|_| ProgramError::InvalidAccountData)?,
+    );
+    let quote_lot_size = i64::from_le_bytes(
+        market_config_data[8..16]
+            .try_into()
+            .map_err(|_| ProgramError::InvalidAccountData)?,
+    );
     let config_market_index = u16::from_le_bytes(
         market_config_data[16..18]
             .try_into()
@@ -149,9 +159,21 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
     drop(market_config_data);
 
     let mark_price_native = validate_switchboard_price(oracle, params.market_index, clock.slot)?;
-    let mark_price = mark_price_native
-        .checked_div(QUOTE_NATIVE_UNIT)
+    if base_lot_size <= 0 || quote_lot_size <= 0 {
+        return Err(TriggerProgramError::InvalidTriggerPrice.into());
+    }
+    let mark_price_numerator = (mark_price_native as i128)
+        .checked_mul(base_lot_size as i128)
         .ok_or(ProgramError::ArithmeticOverflow)?;
+    let mark_price_denominator = BASE_NATIVE_UNIT
+        .checked_mul(quote_lot_size as i128)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    let mark_price = i64::try_from(
+        mark_price_numerator
+            .checked_div(mark_price_denominator)
+            .ok_or(ProgramError::ArithmeticOverflow)?,
+    )
+    .map_err(|_| ProgramError::ArithmeticOverflow)?;
     if mark_price <= 0 {
         return Err(TriggerProgramError::InvalidTriggerPrice.into());
     }

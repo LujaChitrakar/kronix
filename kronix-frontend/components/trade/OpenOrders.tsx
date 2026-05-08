@@ -2,8 +2,13 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { findOpenOrdersPda, findMarketPda, findTriggerOrderPda } from "@/lib/kronix/pdas";
-import { fetchOpenOrders } from "@/lib/kronix/state";
+import {
+  findMarketConfigPda,
+  findOpenOrdersPda,
+  findMarketPda,
+  findTriggerOrderPda,
+} from "@/lib/kronix/pdas";
+import { fetchMarketConfig, fetchOpenOrders } from "@/lib/kronix/state";
 import {
   sendCancelOrderByClientId,
   sendCancelAllOrders,
@@ -14,6 +19,13 @@ import { useStore } from "@/lib/store";
 import { notifyError, notifyTxSuccess, notifyWarning } from "@/lib/notifications";
 import { sendTx, formatTxError } from "./tx";
 import { getTriggerOrderDecoder } from "@/lib/trigger-sdk";
+import {
+  formatPriceLots,
+  formatSizeLots,
+  parsePriceInput,
+  parseSizeInput,
+  type LotConfig,
+} from "@/lib/kronix/lot-math";
 
 type Row = {
   slot: number;
@@ -47,12 +59,6 @@ function priceFromOrderId(id: Uint8Array | ArrayLike<number>): bigint {
   return out;
 }
 
-function parseLots(value: string): bigint {
-  const trimmed = value.trim();
-  if (!/^\d+$/.test(trimmed)) return 0n;
-  return BigInt(trimmed);
-}
-
 function statusLabel(s: number): string {
   if (s === TriggerStatus.Active) return "ACTIVE";
   if (s === TriggerStatus.Triggered) return "TRIGGERED";
@@ -64,15 +70,19 @@ function statusLabel(s: number): string {
 function TriggerCell({
   trigger,
   kind,
+  cfg,
 }: {
   trigger?: AttachedTrigger;
   kind: "tp" | "sl";
+  cfg: LotConfig | null;
 }) {
   if (!trigger) return <span className="text-on-surface-variant/50">—</span>;
   const color = kind === "tp" ? "text-[#4dffb4]" : "text-[#ffb86b]";
   return (
     <div className="leading-tight">
-      <div className={color}>{String(trigger.price)}</div>
+      <div className={color}>
+        {cfg ? formatPriceLots(trigger.price, cfg) : String(trigger.price)}
+      </div>
       {/*<div className="text-[9px] text-on-surface-variant/60">
         {statusLabel(trigger.status)}
       </div>*/}
@@ -88,6 +98,7 @@ export function OpenOrders() {
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
   const [editing, setEditing] = useState<bigint | null>(null);
+  const [cfg, setCfg] = useState<LotConfig | null>(null);
   const [draft, setDraft] = useState<EditDraft>({
     price: "",
     size: "",
@@ -96,6 +107,15 @@ export function OpenOrders() {
     stopLoss: "",
   });
   const marketIndex = useStore((s) => s.selectedMarketIndex);
+
+  useEffect(() => {
+    const [cfgPda] = findMarketConfigPda(marketIndex);
+    fetchMarketConfig(connection, cfgPda)
+      .then((c) => {
+        if (c) setCfg({ baseLotSize: c.baseLotSize, quoteLotSize: c.quoteLotSize });
+      })
+      .catch(() => null);
+  }, [connection, marketIndex]);
 
   const refresh = useCallback(async () => {
     if (!owner) {
@@ -236,11 +256,24 @@ export function OpenOrders() {
 
   const submitEdit = async (r: Row) => {
     if (!owner) return;
-    const newPrice = parseLots(draft.price);
-    const newBase = parseLots(draft.size);
-    const tpLots = parseLots(draft.takeProfit);
-    const slLots = parseLots(draft.stopLoss);
-    if (newPrice <= 0n || newBase <= 0n) {
+    if (!cfg) {
+      const msg = "Market config still loading";
+      setMsg(msg);
+      notifyWarning("Edit blocked", msg);
+      return;
+    }
+    const newPrice = parsePriceInput(draft.price || "0", cfg);
+    const newBase = parseSizeInput(draft.size || "0", cfg);
+    const tpLots = parsePriceInput(draft.takeProfit || "0", cfg);
+    const slLots = parsePriceInput(draft.stopLoss || "0", cfg);
+    if (
+      newPrice === null ||
+      newBase === null ||
+      tpLots === null ||
+      slLots === null ||
+      newPrice <= 0n ||
+      newBase <= 0n
+    ) {
       setMsg("Edit: price + size required");
       notifyWarning("Edit blocked", "Price + size required");
       return;
@@ -375,7 +408,7 @@ export function OpenOrders() {
             <tr className="text-on-surface-variant/70 text-left">
               <th className={headCellClass}>Slot</th>
               <th className={headCellClass}>Side</th>
-              <th className={headCellClass}>Price (lots)</th>
+              <th className={headCellClass}>Price</th>
               <th className={headCellClass}>TP</th>
               <th className={headCellClass}>SL</th>
               <th className={headCellClass}>ClientId</th>
@@ -391,12 +424,14 @@ export function OpenOrders() {
                   <td className={`${bodyCellClass} ${r.side === 0 ? "text-[#4dffb4]" : "text-[#ff6b6b]"}`}>
                     {r.side === 0 ? "BID" : "ASK"}
                   </td>
-                  <td className={bodyCellClass}>{String(r.lockedPrice)}</td>
                   <td className={bodyCellClass}>
-                    <TriggerCell trigger={r.takeProfit} kind="tp" />
+                    {cfg ? formatPriceLots(r.lockedPrice, cfg) : String(r.lockedPrice)}
                   </td>
                   <td className={bodyCellClass}>
-                    <TriggerCell trigger={r.stopLoss} kind="sl" />
+                    <TriggerCell trigger={r.takeProfit} kind="tp" cfg={cfg} />
+                  </td>
+                  <td className={bodyCellClass}>
+                    <TriggerCell trigger={r.stopLoss} kind="sl" cfg={cfg} />
                   </td>
                   <td className={bodyCellClass}>{String(r.clientId)}</td>
                   <td className={bodyCellClass}>{r.isFilled ? "FILLED" : "OPEN"}</td>
@@ -410,11 +445,19 @@ export function OpenOrders() {
                           } else {
                             setEditing(r.clientId);
                             setDraft({
-                              price: String(r.lockedPrice),
-                              size: String(r.baseLots),
+                              price: cfg ? formatPriceLots(r.lockedPrice, cfg) : String(r.lockedPrice),
+                              size: cfg ? formatSizeLots(r.baseLots, cfg) : String(r.baseLots),
                               leverage: "1",
-                              takeProfit: r.takeProfit ? String(r.takeProfit.price) : "",
-                              stopLoss: r.stopLoss ? String(r.stopLoss.price) : "",
+                              takeProfit: r.takeProfit
+                                ? cfg
+                                  ? formatPriceLots(r.takeProfit.price, cfg)
+                                  : String(r.takeProfit.price)
+                                : "",
+                              stopLoss: r.stopLoss
+                                ? cfg
+                                  ? formatPriceLots(r.stopLoss.price, cfg)
+                                  : String(r.stopLoss.price)
+                                : "",
                             });
                           }
                         }}
@@ -438,27 +481,27 @@ export function OpenOrders() {
                       <div className="grid gap-3 items-end sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_88px_minmax(0,1fr)_minmax(0,1fr)_auto]">
                         <div>
                           <div className="text-[11px] uppercase tracking-wider text-on-surface-variant/70 mb-1">
-                            new price (lots)
+                            new price
                           </div>
                           <input
                             value={draft.price}
                             onChange={(e) =>
                               setDraft({ ...draft, price: e.target.value })
                             }
-                            inputMode="numeric"
+                            inputMode="decimal"
                             className="w-full bg-kx-surface border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface"
                           />
                         </div>
                         <div>
                           <div className="text-[11px] uppercase tracking-wider text-on-surface-variant/70 mb-1">
-                            new size (base lots)
+                            new size
                           </div>
                           <input
                             value={draft.size}
                             onChange={(e) =>
                               setDraft({ ...draft, size: e.target.value })
                             }
-                            inputMode="numeric"
+                            inputMode="decimal"
                             className="w-full bg-kx-surface border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface"
                           />
                         </div>
@@ -477,27 +520,27 @@ export function OpenOrders() {
                         </div>
                         <div>
                           <div className="text-[11px] uppercase tracking-wider text-on-surface-variant/70 mb-1">
-                            tp (lots)
+                            tp
                           </div>
                           <input
                             value={draft.takeProfit}
                             onChange={(e) =>
                               setDraft({ ...draft, takeProfit: e.target.value })
                             }
-                            inputMode="numeric"
+                            inputMode="decimal"
                             className="w-full bg-kx-surface border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface"
                           />
                         </div>
                         <div>
                           <div className="text-[11px] uppercase tracking-wider text-on-surface-variant/70 mb-1">
-                            sl (lots)
+                            sl
                           </div>
                           <input
                             value={draft.stopLoss}
                             onChange={(e) =>
                               setDraft({ ...draft, stopLoss: e.target.value })
                             }
-                            inputMode="numeric"
+                            inputMode="decimal"
                             className="w-full bg-kx-surface border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface"
                           />
                         </div>

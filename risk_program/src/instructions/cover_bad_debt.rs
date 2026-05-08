@@ -66,8 +66,8 @@ pub fn process_cover_bad_debt(accounts: &[AccountView], data: &[u8]) -> ProgramR
 
     // uncomment later on oracle validation
     let mark_price_native = validate_switchboard_price(oracle, params.market_index, clock.slot)?;
-    let mark_price = mark_price_native
-        .checked_div(market_config_state.quote_lot_size)
+    let mark_price = market_config_state
+        .native_price_to_lots(mark_price_native)
         .ok_or(ProgramError::ArithmeticOverflow)?;
     if mark_price <= 0 {
         return Err(RiskProgramError::InvalidOraclePrice.into());

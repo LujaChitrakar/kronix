@@ -135,7 +135,7 @@ const EXECUTE_TRIGGER_DISC = 2;
 const PRUNE_EXPIRED_TRIGGER_DISC = 4;
 const EXECUTE_STRATEGY_DISC = 2;
 const PRICE_HISTORY_MAX = 200;
-const QUOTE_NATIVE_UNIT = 1_000_000n;
+const BASE_NATIVE_UNIT = 1_000_000_000n;
 const LIQUIDATION_HEALTH_BUFFER = 1_000n;
 const DEV_SKIP_CORRUPTED_ACCOUNTS =
   process.env.KEEPER_DEV_SKIP_CORRUPTED_ACCOUNTS === "1" &&
@@ -398,11 +398,19 @@ type MarketCtx = {
   fundingState: PublicKey;
   bumpAuthority: number;
   oracle: PublicKey;
+  baseLotSize: bigint;
   quoteLotSize: bigint;
   maintenanceMarginBps: number;
   liquidationFeeBps: number;
   maxLeverage: number;
 };
+
+function nativePriceToLots(nativePrice: bigint, m: MarketCtx): bigint {
+  if (nativePrice <= 0n || m.baseLotSize <= 0n || m.quoteLotSize <= 0n) {
+    return 0n;
+  }
+  return (nativePrice * m.baseLotSize) / (BASE_NATIVE_UNIT * m.quoteLotSize);
+}
 
 function feedOverrideForMarket(marketIndex: number): PublicKey | null {
   const direct = process.env[`NEXT_PUBLIC_MARKET_${marketIndex}_SB_FEED_CONFIG`];
@@ -443,15 +451,17 @@ async function loadMarkets(): Promise<MarketCtx[]> {
     }
     const data = cfgAcc.data;
     // MarketConfig layout (see risk_program/src/state/market_config.rs):
+    //   base_lot_size i64        @ 0
     //   quote_lot_size i64       @ 8
     //   maintenance_margin_bps u16 @ 20
     //   liquidation_fee_bps u16  @ 22
     //   max_leverage u8           @ 25
     //   oracle [u8;32]            @ 32
+    const baseLotSize = data.readBigInt64LE(0);
     const quoteLotSize = data.readBigInt64LE(8);
     const maintenanceMarginBps = data.readUInt16LE(20);
     const liquidationFeeBps = data.readUInt16LE(22);
-    const maxLeverage = Math.max(1, Math.min(10, data.readUInt8(25)));
+    const maxLeverage = Math.max(1, data.readUInt8(25));
     const storedOracle = new PublicKey(data.subarray(32, 64));
     const oracle = feedOverrideForMarket(idx) ?? storedOracle;
     markets.push({
@@ -460,16 +470,24 @@ async function loadMarkets(): Promise<MarketCtx[]> {
       fundingState,
       bumpAuthority,
       oracle,
+      baseLotSize,
       quoteLotSize,
       maintenanceMarginBps,
       liquidationFeeBps,
       maxLeverage,
     });
     console.log(
-      `[init] market ${idx} oracle=${oracle.toBase58()} stored_oracle=${storedOracle.toBase58()} quote_lot=${quoteLotSize} maint_bps=${maintenanceMarginBps} liq_fee_bps=${liquidationFeeBps} max_lev=${maxLeverage}`,
+      `[init] market ${idx} oracle=${oracle.toBase58()} stored_oracle=${storedOracle.toBase58()} base_lot=${baseLotSize} quote_lot=${quoteLotSize} maint_bps=${maintenanceMarginBps} liq_fee_bps=${liquidationFeeBps} max_lev=${maxLeverage}`,
     );
   }
-  if (markets.length === 0) throw new Error("No MarketConfig accounts found");
+  if (markets.length === 0) {
+    if (now - lastMissingMarketLogMs > MARKET_RELOAD_MS) {
+      console.log("[init] no MarketConfig accounts found, waiting");
+      lastMissingMarketLogMs = now;
+    }
+    cachedMarkets = [];
+    return cachedMarkets;
+  }
   cachedMarkets = markets;
   return cachedMarkets;
 }
@@ -647,7 +665,7 @@ async function runLiquidate(): Promise<void> {
   for (const m of markets) {
     const markNative = await getMarkPriceNative(m);
     if (markNative === null) continue;
-    const markLots = markNative / m.quoteLotSize;
+    const markLots = nativePriceToLots(markNative, m);
     const cumulativeFundingIndex = await readFundingCumulativeIndex(m.fundingState);
     if (cumulativeFundingIndex === null) continue;
     const [insuranceFund] = findInsuranceFundPda();
@@ -1227,7 +1245,7 @@ async function runExecuteTriggers(): Promise<void> {
     if (!m) continue;
     const markNative = await getMarkPriceNative(m);
     if (markNative === null) continue;
-    const markLots = markNative / QUOTE_NATIVE_UNIT;
+    const markLots = nativePriceToLots(markNative, m);
     if (markLots <= 0n) continue;
     if (!shouldTrigger(t.triggerType, t.side, t.triggerPrice, markLots)) {
       continue;
@@ -1458,7 +1476,7 @@ async function runRecordPrice(): Promise<void> {
   for (const m of markets) {
     const native = await getMarkPriceNative(m);
     if (native === null) continue;
-    const lots = native / m.quoteLotSize;
+    const lots = nativePriceToLots(native, m);
     const arr = priceHistory.get(m.marketIndex) ?? [];
     arr.push(lots);
     if (arr.length > PRICE_HISTORY_MAX) arr.shift();
@@ -1928,7 +1946,7 @@ async function runExecuteStrategies(): Promise<void> {
     if (!m) continue;
     const markNative = await getMarkPriceNative(m);
     if (markNative === null) continue;
-    const markLots = markNative / m.quoteLotSize;
+    const markLots = nativePriceToLots(markNative, m);
 
     const signal = computeSignal(s, markLots);
     if (signal === null) continue;
@@ -1977,7 +1995,7 @@ async function runExecuteStrategies(): Promise<void> {
       s.leverage > 0 ? Math.max(1, Math.min(m.maxLeverage, s.leverage)) : m.maxLeverage;
     const leverage = BigInt(strategyLeverage);
     const requiredMargin =
-      (maxQuoteLots * QUOTE_NATIVE_UNIT + leverage - 1n) / leverage;
+      (maxQuoteLots * m.quoteLotSize + leverage - 1n) / leverage;
     const freeCollateral = ua.collateral - ua.marginUsed;
     if (requiredMargin > freeCollateral) {
       console.log(

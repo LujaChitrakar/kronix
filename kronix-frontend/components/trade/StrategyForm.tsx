@@ -6,10 +6,11 @@ import { sendCreateOpenOrders, sendCreateStrategy } from "@/lib/kronix/client";
 import { Side, StrategyType } from "@/lib/kronix/config";
 import {
   findMarketPda,
+  findMarketConfigPda,
   findOpenOrdersPda,
   findUserAccountPda,
 } from "@/lib/kronix/pdas";
-import { fetchUser } from "@/lib/kronix/state";
+import { fetchMarketConfig, fetchUser } from "@/lib/kronix/state";
 import { emptyStrategyParamsArgs } from "@/lib/strategy-sdk";
 import { useStore } from "@/lib/store";
 import {
@@ -18,6 +19,13 @@ import {
   notifyTxSuccess,
   notifyWarning,
 } from "@/lib/notifications";
+import {
+  notionalNative,
+  parsePriceInput,
+  parseSizeInput,
+  priceInputFromNumber,
+  type LotConfig,
+} from "@/lib/kronix/lot-math";
 import { sendTx, formatTxError } from "./tx";
 
 const STRATEGY_TYPES: [string, number][] = [
@@ -74,6 +82,7 @@ export function StrategyForm() {
   const [msg, setMsg] = useState("");
   const [hasOpenOrders, setHasOpenOrders] = useState<boolean | null>(null);
   const [collateral, setCollateral] = useState<bigint | null>(null);
+  const [cfg, setCfg] = useState<LotConfig | null>(null);
 
   const [mounted, setMounted] = useState(false);
   const selectedPrice = useStore(s => s.selectedPrice);
@@ -88,14 +97,23 @@ export function StrategyForm() {
 
   useEffect(() => {
     if (selectedPrice !== null && lastFocusedInputId) {
-      const p = Math.round(selectedPrice).toString();
+      const p = priceInputFromNumber(selectedPrice);
       if (lastFocusedInputId === "strategy-limit") setLimitPriceLots(p);
       else if (lastFocusedInputId === "strategy-tp") setTakeProfit(p);
       else if (lastFocusedInputId === "strategy-sl") setStopLoss(p);
-      else if (lastFocusedInputId === "strategy-lower") setDca({ ...dca, lowerPrice: p });
-      else if (lastFocusedInputId === "strategy-upper") setDca({ ...dca, upperPrice: p });
+      else if (lastFocusedInputId === "strategy-lower") setDca((v) => ({ ...v, lowerPrice: p }));
+      else if (lastFocusedInputId === "strategy-upper") setDca((v) => ({ ...v, upperPrice: p }));
     }
   }, [selectedPrice, lastFocusedInputId]);
+
+  useEffect(() => {
+    const [cfgPda] = findMarketConfigPda(marketIndex);
+    fetchMarketConfig(connection, cfgPda)
+      .then((c) => {
+        if (c) setCfg({ baseLotSize: c.baseLotSize, quoteLotSize: c.quoteLotSize });
+      })
+      .catch(() => null);
+  }, [connection, marketIndex]);
 
   useEffect(() => {
     if (!owner) {
@@ -169,19 +187,31 @@ export function StrategyForm() {
       notifyWarning("Strategy blocked", msg);
       return;
     }
-    const sz = BigInt(parseInt(sizeLots || "0", 10));
-    if (sz <= 0n) {
+    if (!cfg) {
+      const msg = "Market config still loading";
+      setMsg(msg);
+      notifyWarning("Strategy blocked", msg);
+      return;
+    }
+    const sz = parseSizeInput(sizeLots || "0", cfg);
+    if (sz === null || sz <= 0n) {
       setMsg("Size must be > 0");
       notifyWarning("Strategy blocked", "Size must be > 0");
       return;
     }
-    const limitLots = BigInt(parseInt(limitPriceLots || "0", 10));
-    const tpLots = BigInt(parseInt(takeProfit || "0", 10));
-    const slLots = BigInt(parseInt(stopLoss || "0", 10));
+    const limitLots = parsePriceInput(limitPriceLots || "0", cfg);
+    const tpLots = parsePriceInput(takeProfit || "0", cfg);
+    const slLots = parsePriceInput(stopLoss || "0", cfg);
+    if (limitLots === null || tpLots === null || slLots === null) {
+      const msg = "Enter valid price values";
+      setMsg(msg);
+      notifyWarning("Strategy blocked", msg);
+      return;
+    }
     const quotePriceLots =
       limitLots > 0n ? limitLots : [tpLots, slLots, 1n].reduce((a, b) => (a > b ? a : b));
     const requiredMargin =
-      (sz * quotePriceLots * 1_000_000n + BigInt(leverage - 1)) / BigInt(leverage);
+      (notionalNative(sz, quotePriceLots, cfg) + BigInt(leverage - 1)) / BigInt(leverage);
     const [userPda] = findUserAccountPda(owner);
     const user = await fetchUser(connection, userPda);
     if (!user || user.collateral <= 0n) {
@@ -209,8 +239,13 @@ export function StrategyForm() {
         params.emaFast = parseInt(ema.emaFast || "0", 10);
         params.emaSlow = parseInt(ema.emaSlow || "0", 10);
       } else if (strategyType === StrategyType.RangeDCA) {
-        params.lowerPrice = BigInt(parseInt(dca.lowerPrice || "0", 10));
-        params.upperPrice = BigInt(parseInt(dca.upperPrice || "0", 10));
+        const lowerPrice = parsePriceInput(dca.lowerPrice || "0", cfg);
+        const upperPrice = parsePriceInput(dca.upperPrice || "0", cfg);
+        if (lowerPrice === null || upperPrice === null) {
+          throw new Error("Invalid DCA price values");
+        }
+        params.lowerPrice = lowerPrice;
+        params.upperPrice = upperPrice;
         params.gridCount = parseInt(dca.gridCount || "0", 10);
       } else if (strategyType === StrategyType.SR) {
         params.toleranceBps = parseInt(sr.toleranceBps || "0", 10);
@@ -320,14 +355,14 @@ export function StrategyForm() {
       <div className="space-y-2">
         <Field
           id="strategy-limit"
-          label="Limit Price (lots, 0 = market)"
+          label="Limit Price (0 = market)"
           value={limitPriceLots}
           onChange={setLimitPriceLots}
           onFocus={() => setLastFocusedInputId("strategy-limit")}
         />
         <Field 
           id="strategy-size"
-          label="Size (base lots)" 
+          label="Size"
           value={sizeLots} 
           onChange={setSizeLots} 
           onFocus={() => setLastFocusedInputId("strategy-size")}
@@ -424,14 +459,14 @@ export function StrategyForm() {
         <div className="grid grid-cols-3 gap-2">
           <Field
             id="strategy-lower"
-            label="Lower (lots)"
+            label="Lower"
             value={dca.lowerPrice}
             onChange={(v) => setDca({ ...dca, lowerPrice: v })}
             onFocus={() => setLastFocusedInputId("strategy-lower")}
           />
           <Field
             id="strategy-upper"
-            label="Upper (lots)"
+            label="Upper"
             value={dca.upperPrice}
             onChange={(v) => setDca({ ...dca, upperPrice: v })}
             onFocus={() => setLastFocusedInputId("strategy-upper")}
@@ -526,7 +561,7 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onFocus={onFocus}
-        inputMode="numeric"
+        inputMode="decimal"
         className="w-full bg-kx-surface-lo border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface focus:outline-none focus:border-[#4dffb4]/50 transition-colors"
       />
     </div>

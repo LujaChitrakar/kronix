@@ -1,5 +1,5 @@
 use crate::{
-    constants::{DROP_EXPIRED_ORDER_LIMIT, MAX_FILLS_PER_ORDER, QUOTE_NATIVE_UNIT},
+    constants::{DROP_EXPIRED_ORDER_LIMIT, MAX_FILLS_PER_ORDER},
     errors::OrderBookError,
     states::{
         BookSide, FillEvent, LeafNode, MarketState, OpenOrdersAccount, Order, OrderTreeType, Side,
@@ -8,12 +8,16 @@ use crate::{
 use margin_math::consumed_margin;
 use pinocchio::error::ProgramError;
 
-pub fn margin_from_quote_lots(quote_lots: i64, leverage: u8) -> Result<i64, ProgramError> {
-    if quote_lots <= 0 || leverage == 0 {
+pub fn margin_from_quote_lots(
+    quote_lots: i64,
+    quote_lot_size: i64,
+    leverage: u8,
+) -> Result<i64, ProgramError> {
+    if quote_lots <= 0 || quote_lot_size <= 0 || leverage == 0 {
         return Err(OrderBookError::InvalidInputLots.into());
     }
     let notional = (quote_lots as i128)
-        .checked_mul(QUOTE_NATIVE_UNIT)
+        .checked_mul(quote_lot_size as i128)
         .ok_or(ProgramError::ArithmeticOverflow)?;
     let leverage = leverage as i128;
     let margin = notional
