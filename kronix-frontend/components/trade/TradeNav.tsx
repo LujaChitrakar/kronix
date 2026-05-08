@@ -5,7 +5,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { MARKET_NAME, RPC_URL } from "@/lib/kronix/config";
 import { notifyError, notifyInfo, notifyTxSuccess } from "@/lib/notifications";
 
 export function TradeNav() {
@@ -69,11 +68,6 @@ export function TradeNav() {
     }
   };
 
-  const cluster = RPC_URL.includes("devnet")
-    ? "Devnet"
-    : RPC_URL.includes("mainnet")
-      ? "Mainnet"
-      : "Custom";
   return (
     <nav className="sticky top-0 z-30 bg-[#0B0F0D]/85 backdrop-blur-xl border-b kx-border">
       <div className="w-full px-4 sm:px-6 py-3 flex items-center justify-between gap-4">

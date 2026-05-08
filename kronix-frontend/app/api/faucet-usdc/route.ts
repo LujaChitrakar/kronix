@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import {
-  Connection,
   Keypair,
   PublicKey,
   Transaction,
@@ -13,6 +12,7 @@ import {
   getAssociatedTokenAddressSync,
   getMint,
 } from "@solana/spl-token";
+import { createServerConnection } from "@/lib/kronix/server-rpc";
 
 const FAUCET_UI_AMOUNT = 1_000n;
 
@@ -43,10 +43,7 @@ export async function POST(req: Request) {
         "4VwXppbTdzQvzt7SsMYUpXdrZcytrQeixJFXUcgsEetF",
     );
     const authority = loadMintAuthority();
-    const conn = new Connection(
-      process.env.NEXT_PUBLIC_RPC_URL ?? "https://api.devnet.solana.com",
-      "confirmed",
-    );
+    const conn = createServerConnection("confirmed");
 
     const mintState = await getMint(conn, mint, "confirmed", TOKEN_PROGRAM_ID);
     const amount = FAUCET_UI_AMOUNT * 10n ** BigInt(mintState.decimals);

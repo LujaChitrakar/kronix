@@ -247,21 +247,13 @@ export function PositionPanel() {
     return () => clearInterval(t);
   }, [refresh]);
 
-  // Real-time Switchboard — WebSocket push on oracle account change + 1s poll fallback.
+  // Poll through the HTTP RPC proxy so provider keys never need a browser WebSocket endpoint.
   // Dep on base58 string (stable) instead of PublicKey instance (re-created each refresh).
   const oracleKey = oracle?.toBase58() ?? null;
   useEffect(() => {
     if (!oracleKey) return;
     const pk = new PublicKey(oracleKey);
     let canceled = false;
-    const id = connection.onAccountChange(
-      pk,
-      (acc) => {
-        const px = parseSwitchboardPriceNative(acc.data);
-        if (px !== null) setMarkPriceNative(px);
-      },
-      { commitment: "confirmed" },
-    );
     const poll = async () => {
       try {
         const acc = await connection.getAccountInfo(pk, "confirmed");
@@ -278,7 +270,6 @@ export function PositionPanel() {
     return () => {
       canceled = true;
       clearInterval(t);
-      connection.removeAccountChangeListener(id).catch(() => null);
     };
   }, [connection, oracleKey]);
 
