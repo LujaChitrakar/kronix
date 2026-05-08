@@ -27,6 +27,8 @@ const STRATEGY_TYPES: [string, number][] = [
   ["S/R", StrategyType.SR],
   ["Smart $", StrategyType.SmartMoney],
 ];
+const DEPOSIT_COLLATERAL_MESSAGE =
+  "Please deposit collateral first, get USDC and SOL devnet from the navbar";
 
 type RsiCfg = { rsiPeriod: string; rsiOversold: string; rsiOverbought: string };
 type EmaCfg = { emaFast: string; emaSlow: string };
@@ -71,6 +73,7 @@ export function StrategyForm() {
   );
   const [msg, setMsg] = useState("");
   const [hasOpenOrders, setHasOpenOrders] = useState<boolean | null>(null);
+  const [collateral, setCollateral] = useState<bigint | null>(null);
 
   const [mounted, setMounted] = useState(false);
   const selectedPrice = useStore(s => s.selectedPrice);
@@ -114,6 +117,25 @@ export function StrategyForm() {
       clearInterval(t);
     };
   }, [connection, owner, marketIndex]);
+
+  useEffect(() => {
+    if (!owner) {
+      setCollateral(null);
+      return;
+    }
+    let alive = true;
+    const refresh = async () => {
+      const [userPda] = findUserAccountPda(owner);
+      const user = await fetchUser(connection, userPda);
+      if (alive) setCollateral(user?.collateral ?? 0n);
+    };
+    refresh().catch(() => null);
+    const t = setInterval(() => refresh().catch(() => null), 5000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [connection, owner]);
 
   const initializeAccount = async () => {
     if (!owner) return;
@@ -162,6 +184,12 @@ export function StrategyForm() {
       (sz * quotePriceLots * 1_000_000n + BigInt(leverage - 1)) / BigInt(leverage);
     const [userPda] = findUserAccountPda(owner);
     const user = await fetchUser(connection, userPda);
+    if (!user || user.collateral <= 0n) {
+      const msg = DEPOSIT_COLLATERAL_MESSAGE;
+      setMsg(msg);
+      notifyWarning("Strategy blocked", msg);
+      return;
+    }
     const freeCollateral = user ? user.collateral - user.marginUsed : 0n;
     if (requiredMargin > freeCollateral) {
       const msg = "Insufficient free collateral";
@@ -227,8 +255,27 @@ export function StrategyForm() {
 
   if (!mounted) return <div className="p-3 animate-pulse bg-kx-surface-lo rounded-xl h-full" />;
 
+  const needsOpenOrdersInit = !!owner && hasOpenOrders === false;
+  const needsCollateral =
+    !!owner && hasOpenOrders === true && collateral === 0n;
+  const gatedClass = needsOpenOrdersInit
+    ? "pointer-events-none select-none blur-[2px] opacity-35"
+    : "";
+
   return (
     <div className="p-3 space-y-3">
+      {needsOpenOrdersInit && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={initializeAccount}
+          className="w-full py-3 text-sm font-headline font-bold uppercase tracking-wider rounded-lg bg-[#4dffb4] text-on-primary-fixed shadow-lg shadow-[#4dffb4]/20 transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-50"
+        >
+          {busyAction === "initialize" ? "Initializing..." : "Please Initialize Account"}
+        </button>
+      )}
+
+      <div className={`space-y-3 ${gatedClass}`} aria-hidden={needsOpenOrdersInit}>
       <SectionLabel>Strategy Type</SectionLabel>
       <div className="grid grid-cols-5 gap-1">
         {STRATEGY_TYPES.map(([label, val]) => (
@@ -271,19 +318,19 @@ export function StrategyForm() {
 
       <SectionLabel>Order</SectionLabel>
       <div className="space-y-2">
-        <Field 
-          id="strategy-size"
-          label="Size (base lots)" 
-          value={sizeLots} 
-          onChange={setSizeLots} 
-          onFocus={() => setLastFocusedInputId("strategy-size")}
-        />
         <Field
           id="strategy-limit"
           label="Limit Price (lots, 0 = market)"
           value={limitPriceLots}
           onChange={setLimitPriceLots}
           onFocus={() => setLastFocusedInputId("strategy-limit")}
+        />
+        <Field 
+          id="strategy-size"
+          label="Size (base lots)" 
+          value={sizeLots} 
+          onChange={setSizeLots} 
+          onFocus={() => setLastFocusedInputId("strategy-size")}
         />
         <div className="space-y-2">
           <div className="flex items-center justify-between text-[10px] font-mono uppercase text-on-surface-variant">
@@ -429,24 +476,20 @@ export function StrategyForm() {
         </div>
       )}
 
-      {owner && hasOpenOrders === false && (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={initializeAccount}
-          className="w-full py-3 text-sm font-headline font-bold uppercase tracking-wider rounded-lg bg-[#4dffb4]/10 border border-[#4dffb4]/30 text-[#4dffb4] transition-colors hover:bg-[#4dffb4]/20 disabled:opacity-50"
-        >
-          {busyAction === "initialize" ? "Initializing..." : "Initialize Account"}
-        </button>
+      {needsCollateral && (
+        <div className="rounded-lg border border-[#ffb86b]/40 bg-[#ffb86b]/10 px-3 py-2.5 text-[11px] font-mono text-[#ffb86b]">
+          {DEPOSIT_COLLATERAL_MESSAGE}
+        </div>
       )}
 
       <button
-        disabled={busy || !owner || hasOpenOrders !== true}
+        disabled={busy || !owner || hasOpenOrders !== true || needsCollateral}
         onClick={submit}
         className="w-full py-3 text-sm font-headline font-bold uppercase tracking-wider rounded-lg bg-[#4dffb4] text-on-primary-fixed shadow-lg shadow-[#4dffb4]/20 transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-50"
       >
         {busyAction === "create" ? "Creating…" : owner ? "Create Strategy" : "Connect Wallet"}
       </button>
+      </div>
 
     </div>
   );

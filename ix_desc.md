@@ -1067,6 +1067,7 @@ CPI:         orderbook_program::place_take_order
 What it does:
   Validates price condition is actually met on-chain
   Cannot be called unless trigger condition is true
+  Cannot be called unless owner has an open matching position
   Calls place_take_order (market order) to execute the SL/TP
   Marks trigger as Executed after successful CPI
   Prevents double execution — status check at start
@@ -1076,7 +1077,12 @@ Flow:
     → trigger_program::execute_trigger
       → load TriggerOrder — verify status == Active
       → check expiry — if expired: cancel + return
-      → validate_pyth_price(oracle) ← get mark_price
+      → load owner Position
+          require owner == trigger.owner
+          require market_index == trigger.market_index
+          require side is opposite trigger.side
+          require position.size >= trigger.size_lots
+      → validate_switchboard_price(oracle) ← get mark_price
       → verify order.should_trigger(mark_price) ← on-chain validation
       → CPI → orderbook_program::place_take_order (market order)
           side = trigger.side
@@ -1088,18 +1094,19 @@ Accounts:
   keeper (signer)
   trigger_order PDA (writable)
   trigger_authority
+  position PDA
   market_state PDA (writable)
   open_orders_account PDA (writable)
   bids PDA (writable)
   asks PDA (writable)
-  market_config PDA
-  funding_state PDA (writable)
-  user_account PDA (writable)
-  position PDA (writable)
-  oracle (Pyth)
+  fills_log PDA (writable)
+  oracle (Switchboard)
   orderbook_program
-  risk_program
   system_program
+  user_account PDA (writable)
+  market_config PDA
+  risk_program
+  maker open orders (remaining, writable)
 
 CPI depth: trigger(1) → orderbook(2) → risk_program(3) → system(4) ← at limit
 ```

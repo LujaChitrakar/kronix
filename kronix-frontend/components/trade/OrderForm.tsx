@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { PublicKey } from "@solana/web3.js";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import {
-  sendPlaceOrderAndSettle,
+  sendPlaceOrder,
   sendCancelOrderByClientId,
   sendCreateOpenOrders,
 } from "@/lib/kronix/client";
@@ -64,6 +64,8 @@ const ORDER_TYPES: [string, number][] = [
   ["IOC", PlaceOrderType.ImmediateOrCancel],
   ["PostOnly", PlaceOrderType.PostOnly],
 ];
+const DEPOSIT_COLLATERAL_MESSAGE =
+  "Please deposit collateral first, get USDC and SOL devnet from the navbar";
 
 export function OrderForm() {
   const { connection } = useConnection();
@@ -84,6 +86,7 @@ export function OrderForm() {
   const [msg, setMsg] = useState("");
   const [myOrders, setMyOrders] = useState<OwnOrder[]>([]);
   const [hasOpenOrders, setHasOpenOrders] = useState<boolean | null>(null);
+  const [collateral, setCollateral] = useState<bigint | null>(null);
   const [netPosition, setNetPosition] = useState<NetPosition | null>(null);
   const [cfg, setCfg] = useState<{
     quoteLotSize: bigint;
@@ -188,6 +191,25 @@ export function OrderForm() {
       clearInterval(t);
     };
   }, [connection, owner, marketIndex]);
+
+  useEffect(() => {
+    if (!owner) {
+      setCollateral(null);
+      return;
+    }
+    let alive = true;
+    const refresh = async () => {
+      const [userPda] = findUserAccountPda(owner);
+      const user = await fetchUser(connection, userPda);
+      if (alive) setCollateral(user?.collateral ?? 0n);
+    };
+    refresh().catch(() => null);
+    const t = setInterval(() => refresh().catch(() => null), 5000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [connection, owner]);
 
   const initializeAccount = async () => {
     if (!owner) return;
@@ -341,8 +363,8 @@ export function OrderForm() {
     try {
       const [userPda] = findUserAccountPda(owner);
       const user = await fetchUser(connection, userPda);
-      if (!user) {
-        const msg = "Deposit collateral first";
+      if (!user || user.collateral <= 0n) {
+        const msg = DEPOSIT_COLLATERAL_MESSAGE;
         setMsg(msg);
         notifyWarning("Order blocked", msg);
         return;
@@ -404,7 +426,7 @@ export function OrderForm() {
             ]
           : []),
       ];
-      const res = await sendPlaceOrderAndSettle(
+      const placeSig = await sendPlaceOrder(
         owner,
         {
           side,
@@ -422,21 +444,16 @@ export function OrderForm() {
         connection,
         (ixs, c) => sendTx(wallet, c, ixs),
       );
-      const settled = res.settleSigs.length;
       const triggerCount = attachedTriggers.length;
       setMsg(
-        `Placed ${res.placeSig.slice(0, 8)}…  fills=${res.fillCount}  ` +
-          `settle TXs=${settled}  triggers=${triggerCount}` +
-          (settled ? ` [${res.settleSigs.map((s) => s.slice(0, 6)).join(", ")}]` : ""),
+        `Placed ${placeSig.slice(0, 8)}…  triggers=${triggerCount}  ` +
+          "matched fills settle by keeper",
       );
       notifyTxSuccess(
         "Order placed",
-        res.placeSig,
-        `fills=${res.fillCount} settle TXs=${settled} triggers=${triggerCount}`,
+        placeSig,
+        `triggers=${triggerCount} matched fills settle by keeper`,
       );
-      for (const sig of res.settleSigs) {
-        notifyTxSuccess("Fill settled", sig);
-      }
     } catch (e) {
       const err = formatTxError(e);
       setMsg(`Failed:\n${err}`);
@@ -448,9 +465,28 @@ export function OrderForm() {
 
   if (!mounted) return <div className="p-3 animate-pulse bg-kx-surface-lo rounded-xl h-full" />;
 
+  const needsOpenOrdersInit = !!owner && hasOpenOrders === false;
+  const needsCollateral =
+    !!owner && hasOpenOrders === true && collateral === 0n;
+  const gatedClass = needsOpenOrdersInit
+    ? "pointer-events-none select-none blur-[2px] opacity-35"
+    : "";
+
   return (
     <div className="p-3 space-y-3">
-      {/*<SignerBadge owner={owner} />*/}
+      {needsOpenOrdersInit && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={initializeAccount}
+          className="w-full py-3 text-sm font-headline font-bold uppercase tracking-wider rounded-lg bg-[#4dffb4] text-on-primary-fixed shadow-lg shadow-[#4dffb4]/20 transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-50"
+        >
+          {busyAction === "initialize" ? "Initializing..." : "Please Initialize Account"}
+        </button>
+      )}
+
+      <div className={`space-y-3 ${gatedClass}`} aria-hidden={needsOpenOrdersInit}>
+        {/*<SignerBadge owner={owner} />*/}
 
       <div className="grid grid-cols-2 gap-1.5 p-1 rounded-lg bg-kx-surface-lo border kx-border">
         <button
@@ -658,19 +694,14 @@ export function OrderForm() {
         </div>
       )}
 
-      {owner && hasOpenOrders === false && (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={initializeAccount}
-          className="w-full py-3 text-sm font-headline font-bold uppercase tracking-wider rounded-lg bg-[#4dffb4]/10 border border-[#4dffb4]/30 text-[#4dffb4] transition-colors hover:bg-[#4dffb4]/20 disabled:opacity-50"
-        >
-          {busyAction === "initialize" ? "Initializing..." : "Initialize Account"}
-        </button>
+      {needsCollateral && (
+        <div className="rounded-lg border border-[#ffb86b]/40 bg-[#ffb86b]/10 px-3 py-2.5 text-[11px] font-mono text-[#ffb86b]">
+          {DEPOSIT_COLLATERAL_MESSAGE}
+        </div>
       )}
 
       <button
-        disabled={busy || !owner || hasOpenOrders !== true}
+        disabled={busy || !owner || hasOpenOrders !== true || needsCollateral}
         onClick={submit}
         className={`w-full py-3 text-sm font-headline font-bold uppercase tracking-wider rounded-lg transition-all disabled:opacity-50 hover:brightness-110 active:scale-[0.99] shadow-lg ${
           side === Side.Bid
@@ -680,6 +711,7 @@ export function OrderForm() {
       >
         {busyAction === "place" ? "Placing…" : owner ? `Place ${side === Side.Bid ? "Buy" : "Sell"} Order` : "Connect Wallet"}
       </button>
+      </div>
 
     </div>
   );

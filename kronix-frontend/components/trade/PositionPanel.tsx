@@ -47,7 +47,9 @@ function fmtUsdc(n: bigint): string {
 const SWITCHBOARD_DISC = Buffer.from([196, 27, 108, 196, 10, 215, 219, 40]);
 const SWITCHBOARD_VALUE_OFFSET = 2264;
 const SWITCHBOARD_SLOT_OFFSET = 2368;
+const SWITCHBOARD_MAX_STALENESS_OFFSET = 2392;
 const SWITCHBOARD_SCALE = 1_000_000_000_000n;
+const MIN_ACCEPTED_STALENESS_SLOTS = 150n;
 
 function readI128LE(data: Buffer, offset: number): bigint {
   let value = 0n;
@@ -60,11 +62,22 @@ function isAttachedTriggerClientId(clientOrderId: bigint): boolean {
   return suffix === 1n || suffix === 2n;
 }
 
-function parseSwitchboardPriceNative(data: Buffer): bigint | null {
-  if (data.length < SWITCHBOARD_SLOT_OFFSET + 8) return null;
+function parseSwitchboardPriceNative(
+  data: Buffer,
+  currentSlot: bigint,
+): bigint | null {
+  if (data.length < SWITCHBOARD_MAX_STALENESS_OFFSET + 4) return null;
   if (!data.subarray(0, 8).equals(SWITCHBOARD_DISC)) return null;
-  if (data.readBigUInt64LE(SWITCHBOARD_SLOT_OFFSET) === 0n) return null;
-  return readI128LE(data, SWITCHBOARD_VALUE_OFFSET) / SWITCHBOARD_SCALE;
+  const resultSlot = data.readBigUInt64LE(SWITCHBOARD_SLOT_OFFSET);
+  if (resultSlot === 0n || resultSlot > currentSlot) return null;
+  const maxStaleness = BigInt(data.readUInt32LE(SWITCHBOARD_MAX_STALENESS_OFFSET));
+  const effectiveMax =
+    maxStaleness > MIN_ACCEPTED_STALENESS_SLOTS
+      ? maxStaleness
+      : MIN_ACCEPTED_STALENESS_SLOTS;
+  if (currentSlot - resultSlot > effectiveMax) return null;
+  const px = readI128LE(data, SWITCHBOARD_VALUE_OFFSET) / SWITCHBOARD_SCALE;
+  return px > 0n ? px : null;
 }
 
 function formatTriggers(
@@ -77,7 +90,7 @@ function formatTriggers(
       : positionSizedTriggers(triggers, positionSizeLots);
   if (visible.length === 0) return "-";
   return visible
-    .map((t) => `${t.price} (${t.sizeLots})${t.status === TriggerStatus.Paused ? " P" : ""}`)
+    .map((t) => `${t.price}${t.status === TriggerStatus.Paused ? " P" : ""}`)
     .join(", ");
 }
 
@@ -230,13 +243,16 @@ export function PositionPanel() {
         quoteLotSize: cfg.quoteLotSize,
         maintenanceMarginBps: cfg.maintenanceMarginBps,
       });
-      const oraclePriceAcc = await connection.getAccountInfo(
-        oraclePk,
-        "confirmed",
-      );
+      const [oraclePriceAcc, currentSlot] = await Promise.all([
+        connection.getAccountInfo(oraclePk, "confirmed"),
+        connection.getSlot("confirmed"),
+      ]);
       if (oraclePriceAcc) {
-        const px = parseSwitchboardPriceNative(oraclePriceAcc.data);
-        if (px !== null) setMarkPriceNative(px);
+        setMarkPriceNative(
+          parseSwitchboardPriceNative(oraclePriceAcc.data, BigInt(currentSlot)),
+        );
+      } else {
+        setMarkPriceNative(null);
       }
     }
   }, [connection, owner, marketIndex]);
@@ -256,10 +272,16 @@ export function PositionPanel() {
     let canceled = false;
     const poll = async () => {
       try {
-        const acc = await connection.getAccountInfo(pk, "confirmed");
+        const [acc, currentSlot] = await Promise.all([
+          connection.getAccountInfo(pk, "confirmed"),
+          connection.getSlot("confirmed"),
+        ]);
         if (!canceled && acc) {
-          const px = parseSwitchboardPriceNative(acc.data);
-          if (px !== null) setMarkPriceNative(px);
+          setMarkPriceNative(
+            parseSwitchboardPriceNative(acc.data, BigInt(currentSlot)),
+          );
+        } else if (!canceled) {
+          setMarkPriceNative(null);
         }
       } catch {
         // ignore — next tick retries
@@ -345,45 +367,32 @@ export function PositionPanel() {
 
       {owner && pos && (
         <>
-          <div className="grid grid-cols-2 gap-3 mb-4 text-sm font-mono">
+          <div className="grid grid-cols-3 gap-3 mb-4 text-sm font-mono">
             <Stat label="Net Side" v={pos.side === 0 ? "LONG" : "SHORT"} accent={pos.side === 0} />
-            <Stat label="Net Size (lots)" v={String(pos.size)} />
-            <Stat label="Avg Entry (lots)" v={String(pos.entryPrice)} />
-            <Stat
-              label="TP (price/size)"
-              v={formatTriggers(positionTriggers.takeProfit, pos.size)}
-              accent={positionTriggers.takeProfit.length > 0}
+            <Stat label="Net Size Lots" v={String(pos.size)} />
+            <Stat label="Avg Entry Lots" v={String(pos.entryPrice)} />
+            <ProtectionStat
+              takeProfit={formatTriggers(positionTriggers.takeProfit, pos.size)}
+              stopLoss={formatTriggers(positionTriggers.stopLoss, pos.size)}
+              hasTakeProfit={positionTriggers.takeProfit.length > 0}
+              hasStopLoss={positionTriggers.stopLoss.length > 0}
             />
-            <Stat
-              label="SL (price/size)"
-              v={formatTriggers(positionTriggers.stopLoss, pos.size)}
+            <MarginStat
+              margin={`$${fmtUsdc(pos.initialMargin)}`}
+              removable={`$${fmtUsdc(maxRemovable)}`}
             />
-            <Stat
-              label="Margin"
-              v={`$${fmtUsdc(pos.initialMargin)} (${pos.initialMargin} native)`}
-            />
-            {markPriceNative !== null && (
-              <Stat
-                label="Mark"
-                v={`$${fmtUsdc(markPriceNative)} (${markPriceNative} native)`}
-              />
-            )}
             {maintenanceMargin !== null && (
               <Stat
                 label="Maint Req"
-                v={`$${fmtUsdc(maintenanceMargin)} (${maintenanceMargin} native)`}
+                v={`$${fmtUsdc(maintenanceMargin)}`}
               />
             )}
-            <Stat
-              label="Removable"
-              v={`$${fmtUsdc(maxRemovable)} (${maxRemovable} native)`}
-            />
           </div>
           {maintenanceMargin !== null &&
             pos.initialMargin < maintenanceMargin && (
               <div className="mb-2 px-2 py-1.5 rounded-md border border-[#ff6b6b]/40 bg-[#ff6b6b]/10 text-[10px] font-mono text-[#ff6b6b]">
-                Net position UNDER maintenance ({fmtUsdc(pos.initialMargin)} &lt;{" "}
-                {fmtUsdc(maintenanceMargin)}). Liquidatable. Add margin or
+                Net position UNDER maintenance: {fmtUsdc(pos.initialMargin)} &lt;{" "}
+                {fmtUsdc(maintenanceMargin)}. Liquidatable. Add margin or
                 close net position. Removal blocked.
               </div>
             )}
@@ -418,8 +427,7 @@ export function PositionPanel() {
           )}
           {!oracleReady && (
             <div className="mb-2 text-[10px] font-mono text-[#ffb86b]">
-              Oracle has no current Switchboard result. Update feed before
-              closing/removing margin.
+              Oracle price is stale. Keep the keeper running, then retry.
             </div>
           )}
           <div className="flex flex-wrap gap-1.5">
@@ -509,6 +517,70 @@ export function PositionPanel() {
   );
 }
 
+function MarginStat({
+  margin,
+  removable,
+}: {
+  margin: string;
+  removable: string;
+}) {
+  return (
+    <div className="px-3 py-2 rounded-lg bg-kx-surface-lo border kx-border">
+      <div className="text-[9px] text-on-surface-variant/60 uppercase tracking-wider mb-0.5">
+        Margin / Removable
+      </div>
+      <div className="grid grid-cols-2 gap-2 font-bold text-sm font-mono leading-snug text-on-surface">
+        <div>
+          <span className="text-[9px] text-on-surface-variant/60 font-headline mr-1">
+            Margin
+          </span>
+          {margin}
+        </div>
+        <div>
+          <span className="text-[9px] text-on-surface-variant/60 font-headline mr-1">
+            Removable
+          </span>
+          {removable}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProtectionStat({
+  takeProfit,
+  stopLoss,
+  hasTakeProfit,
+  hasStopLoss,
+}: {
+  takeProfit: string;
+  stopLoss: string;
+  hasTakeProfit: boolean;
+  hasStopLoss: boolean;
+}) {
+  return (
+    <div className="px-3 py-2 rounded-lg bg-kx-surface-lo border kx-border">
+      <div className="text-[9px] text-on-surface-variant/60 uppercase tracking-wider mb-0.5">
+        TP / SL
+      </div>
+      <div className="grid grid-cols-2 gap-2 font-bold text-sm font-mono leading-snug">
+        <div className={hasTakeProfit ? "text-[#4dffb4]" : "text-on-surface"}>
+          <span className="text-[9px] text-on-surface-variant/60 font-headline mr-1">
+            TP
+          </span>
+          {takeProfit}
+        </div>
+        <div className={hasStopLoss ? "text-[#ff6b6b]" : "text-on-surface"}>
+          <span className="text-[9px] text-on-surface-variant/60 font-headline mr-1">
+            SL
+          </span>
+          {stopLoss}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Stat({ label, v, accent }: { label: string; v: string; accent?: boolean }) {
   return (
     <div className="px-3 py-2 rounded-lg bg-kx-surface-lo border kx-border">
@@ -516,7 +588,7 @@ function Stat({ label, v, accent }: { label: string; v: string; accent?: boolean
         {label}
       </div>
       <div
-        className={`font-bold text-sm font-mono ${
+        className={`font-bold text-sm font-mono whitespace-pre-line leading-snug ${
           accent ? "text-[#4dffb4]" : "text-on-surface"
         }`}
       >

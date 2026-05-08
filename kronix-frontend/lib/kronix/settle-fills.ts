@@ -20,6 +20,7 @@ import type { FillEntry } from "./fills-log";
 
 export const SETTLE_FILLS_DISCRIMINATOR = 5;
 export const MAX_FILLS_PER_TX = 4;
+const DEBUG_SETTLE_FILLS = process.env.NEXT_PUBLIC_DEBUG_SETTLE_FILLS === "1";
 
 type FillSettleParams = {
   takerBumpUser: number;
@@ -84,11 +85,13 @@ export function buildSettleFillsIx(
   const [marketConfig] = findMarketConfigPda(marketIndex);
   const [fundingState] = findFundingStatePda(marketIndex);
 
-  console.log("🏪 market PDA:", market.toBase58());
-  console.log("⚙️ marketConfig PDA:", marketConfig.toBase58());
-  console.log("💰 fundingState PDA:", fundingState.toBase58());
-  console.log("📋 fillsLog:", fillsLog.toBase58());
-  console.log("👤 caller:", caller.toBase58());
+  if (DEBUG_SETTLE_FILLS) {
+    console.log("market PDA:", market.toBase58());
+    console.log("marketConfig PDA:", marketConfig.toBase58());
+    console.log("fundingState PDA:", fundingState.toBase58());
+    console.log("fillsLog:", fillsLog.toBase58());
+    console.log("caller:", caller.toBase58());
+  }
 
   // Per-fill params live in fixed-size [8] array indexed by GLOBAL fill
   // index (rust uses `params.fill_params[i]` where i is the absolute index),
@@ -126,16 +129,18 @@ export function buildSettleFillsIx(
       { pubkey: makerPos, isSigner: false, isWritable: true },
     );
 
-    console.log(`fill[${i}]:`, {
-      takerPubkey: f.takerPubkey.toBase58?.() ?? f.takerPubkey,
-      makerPubkey: f.makerPubkey.toBase58?.() ?? f.makerPubkey,
-      marketIndex: f.marketIndex,
-      takerUa: takerUa.toBase58(),
-      takerPos: takerPos.toBase58(),
-      makerOo: makerOo.toBase58(),
-      makerUa: makerUa.toBase58(),
-      makerPos: makerPos.toBase58(),
-    });
+    if (DEBUG_SETTLE_FILLS) {
+      console.log(`fill[${i}]:`, {
+        takerPubkey: f.takerPubkey.toBase58?.() ?? f.takerPubkey,
+        makerPubkey: f.makerPubkey.toBase58?.() ?? f.makerPubkey,
+        marketIndex: f.marketIndex,
+        takerUa: takerUa.toBase58(),
+        takerPos: takerPos.toBase58(),
+        makerOo: makerOo.toBase58(),
+        makerUa: makerUa.toBase58(),
+        makerPos: makerPos.toBase58(),
+      });
+    }
   }
 
   const keys: AccountMeta[] = [

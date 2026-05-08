@@ -14,6 +14,7 @@ pub enum TriggerProgramError {
     EditTriggerFailed = 8,
     InvalidExpiry = 9,
     TriggerNotPaused = 10,
+    NoMatchingPosition = 11,
 }
 
 impl From<TriggerProgramError> for ProgramError {

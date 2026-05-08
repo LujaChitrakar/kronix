@@ -5,6 +5,7 @@ import { MARKET_INDEX } from "./config";
 export type BookOrder = {
   owner: PublicKey;
   clientId: bigint;
+  orderKey: bigint;
   priceLots: bigint;
   side: number; // 0 = bid, 1 = ask
   quantity: bigint;
@@ -32,7 +33,9 @@ const ORDERTREE_PREAMBLE = 4 + 4 + 4 + 4 + 512; // 528
 const NODES_OFFSET = BOOKSIDE_PREAMBLE + ORDERTREE_PREAMBLE; // 832
 const NODE_SIZE = 88;
 const MAX_NODES = 100;
+const TAG_INNER = 1;
 const TAG_LEAF = 2;
+const INNER_CHILDREN_OFFSET = 40;
 
 // LeafNode field offsets within a node (88 bytes):
 //   tag u8                @ 0
@@ -49,27 +52,74 @@ const TAG_LEAF = 2;
 function decodeBookSide(
   data: Buffer,
   side: number,
+  nowTs: bigint,
 ): Array<{
   owner: PublicKey;
   clientId: bigint;
+  orderKey: bigint;
   priceLots: bigint;
   quantity: bigint;
   side: number;
 }> {
   const out: BookOrder[] = [];
-  for (let i = 0; i < MAX_NODES; i++) {
-    const off = NODES_OFFSET + i * NODE_SIZE;
-    if (off + NODE_SIZE > data.length) break;
+  const root = data.readUInt32LE(0);
+  const leafCount = data.readUInt32LE(4);
+  if (leafCount === 0) return out;
+
+  const stack = [root];
+  const seen = new Set<number>();
+
+  while (stack.length > 0 && seen.size < MAX_NODES) {
+    const handle = stack.pop();
+    if (handle === undefined) break;
+    if (handle >= MAX_NODES || seen.has(handle)) continue;
+    seen.add(handle);
+
+    const off = NODES_OFFSET + handle * NODE_SIZE;
+    if (off + NODE_SIZE > data.length) continue;
+
     const tag = data.readUInt8(off);
+    if (tag === TAG_INNER) {
+      stack.push(
+        data.readUInt32LE(off + INNER_CHILDREN_OFFSET + 4),
+        data.readUInt32LE(off + INNER_CHILDREN_OFFSET),
+      );
+      continue;
+    }
+
     if (tag !== TAG_LEAF) continue;
     const clientId = data.readBigUInt64LE(off + 8);
     const quantity = data.readBigInt64LE(off + 16);
+    if (quantity <= 0n) continue;
+    const timeInForce = data.readUInt16LE(off + 2);
+    const timestamp = data.readBigUInt64LE(off + 24);
+    if (
+      timeInForce > 0 &&
+      timestamp > 0n &&
+      nowTs >= timestamp + BigInt(timeInForce)
+    ) {
+      continue;
+    }
     // key is u128 little-endian; upper 64 bits = price_data
+    const keyLow = data.readBigUInt64LE(off + 32);
     const priceData = data.readBigUInt64LE(off + 32 + 8);
+    const orderKey = (priceData << 64n) | keyLow;
     const owner = new PublicKey(data.subarray(off + 48, off + 48 + 32));
-    out.push({ owner, clientId, priceLots: priceData, quantity, side });
+    out.push({ owner, clientId, orderKey, priceLots: priceData, quantity, side });
   }
   return out;
+}
+
+function compareBids(a: BookOrder, b: BookOrder): number {
+  if (a.priceLots !== b.priceLots) return a.priceLots > b.priceLots ? -1 : 1;
+  if (a.orderKey === b.orderKey) return 0;
+  return a.orderKey > b.orderKey ? -1 : 1;
+}
+
+function compareAsks(a: BookOrder, b: BookOrder): number {
+  if (a.priceLots !== b.priceLots) return a.priceLots > b.priceLots ? 1 : -1;
+  if (a.orderKey === b.orderKey) return 0;
+  return a.orderKey > b.orderKey ? 1 : -1;
 }
 
 /**
@@ -90,11 +140,12 @@ export async function scanBook(
     conn.getAccountInfo(asksPda, "confirmed"),
   ]);
 
-  const bids = bidsAcc ? decodeBookSide(bidsAcc.data as Buffer, 0) : [];
-  const asks = asksAcc ? decodeBookSide(asksAcc.data as Buffer, 1) : [];
+  const nowTs = BigInt(Math.floor(Date.now() / 1000));
+  const bids = bidsAcc ? decodeBookSide(bidsAcc.data as Buffer, 0, nowTs) : [];
+  const asks = asksAcc ? decodeBookSide(asksAcc.data as Buffer, 1, nowTs) : [];
 
-  bids.sort((a, b) => (a.priceLots > b.priceLots ? -1 : 1));
-  asks.sort((a, b) => (a.priceLots > b.priceLots ? 1 : -1));
+  bids.sort(compareBids);
+  asks.sort(compareAsks);
 
   return { bids, asks, scannedAccounts: 2 };
 }

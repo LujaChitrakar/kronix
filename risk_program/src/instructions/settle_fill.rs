@@ -13,7 +13,7 @@ use crate::{
     constants::{POSITION_SEED, USER_ACCOUNT_SEED},
     errors::RiskProgramError,
     helper::{
-        verify_account_owner, verify_initialized, verify_pda, verify_program_id, verify_writtable,
+        verify_account_owner, verify_pda, verify_program_id, verify_writtable,
     },
     instructions::settle_funding_internal,
     state::{FundingState, MarketConfig, Position, UserAccount, QUOTE_NATIVE_UNIT},
@@ -52,8 +52,6 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
     };
 
     verify_program_id(system_program, &pinocchio_system::ID)?;
-    verify_initialized(user_account)?;
-    // position may be uninitialized — will be created below if needed
     verify_writtable(user_account)?;
     verify_writtable(position)?;
     verify_writtable(funding_state)?;
@@ -61,7 +59,11 @@ pub fn process_settle_fill(accounts: &[AccountView], data: &[u8]) -> ProgramResu
     unsafe {
         verify_account_owner(market_config, &crate::ID)?;
         verify_account_owner(funding_state, &crate::ID)?;
-        verify_account_owner(user_account, &crate::ID)?;
+        // user_account and position may be uninitialized. This instruction creates
+        // them on demand after verifying their PDAs below.
+        if !user_account.is_data_empty() {
+            verify_account_owner(user_account, &crate::ID)?;
+        }
         if !position.is_data_empty() {
             verify_account_owner(position, &crate::ID)?;
         }
