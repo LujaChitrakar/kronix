@@ -6,6 +6,15 @@ import {
   fetchRecentTrades,
   type RecentTrade,
 } from "@/lib/kronix/recent-trades";
+import { findMarketConfigPda } from "@/lib/kronix/pdas";
+import { fetchMarketConfig } from "@/lib/kronix/state";
+import {
+  formatPriceLots,
+  formatSizeLots,
+  formatUsdcNative,
+  notionalNative,
+  type LotConfig,
+} from "@/lib/kronix/lot-math";
 import { useStore } from "@/lib/store";
 
 const SLOT_MS = 400;
@@ -27,6 +36,16 @@ export function OrderHistory() {
   const [rows, setRows] = useState<Row[]>([]);
   const [currentSlot, setCurrentSlot] = useState<bigint>(0n);
   const [err, setErr] = useState<string | null>(null);
+  const [cfg, setCfg] = useState<LotConfig | null>(null);
+
+  useEffect(() => {
+    const [cfgPda] = findMarketConfigPda(marketIndex);
+    fetchMarketConfig(connection, cfgPda)
+      .then((c) => {
+        if (c) setCfg({ baseLotSize: c.baseLotSize, quoteLotSize: c.quoteLotSize });
+      })
+      .catch(() => null);
+  }, [connection, marketIndex]);
 
   const refresh = useCallback(async () => {
     if (!owner) {
@@ -122,13 +141,15 @@ export function OrderHistory() {
                   <td className={`py-1.5 ${sideColor} font-bold`}>{r.side}</td>
                   <td className="py-1.5 text-on-surface-variant">{r.role}</td>
                   <td className="py-1.5 text-right text-on-surface">
-                    {r.priceLots.toString()}
+                    {cfg ? formatPriceLots(r.priceLots, cfg) : r.priceLots.toString()}
                   </td>
                   <td className="py-1.5 text-right text-on-surface">
-                    {r.qty.toString()}
+                    {cfg ? formatSizeLots(r.qty, cfg) : r.qty.toString()}
                   </td>
                   <td className="py-1.5 text-right text-on-surface-variant">
-                    {(r.priceLots * r.qty).toString()}
+                    {cfg
+                      ? formatUsdcNative(notionalNative(r.qty, r.priceLots, cfg))
+                      : (r.priceLots * r.qty).toString()}
                   </td>
                   <td className="py-1.5 text-right text-on-surface-variant">
                     {timeStr}

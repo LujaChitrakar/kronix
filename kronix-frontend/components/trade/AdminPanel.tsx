@@ -26,6 +26,10 @@ import {
   MARKET_NAME,
   getMarketInfo,
 } from "@/lib/kronix/config";
+import {
+  DEFAULT_BASE_LOT_SIZE,
+  DEFAULT_QUOTE_LOT_SIZE,
+} from "@/lib/kronix/lot-math";
 import { useStore } from "@/lib/store";
 import { notifyError, notifyTxSuccess, notifyWarning } from "@/lib/notifications";
 import { sendTx, formatTxError } from "./tx";
@@ -45,8 +49,8 @@ export function AdminPanel() {
   const [marketIdx, setMarketIdx] = useState(String(MARKET_INDEX));
   const [name, setName] = useState(MARKET_NAME);
   const [oracle, setOracle] = useState("");
-  const [baseLot, setBaseLot] = useState("1000000"); // 0.001 SOL (lamports)
-  const [quoteLot, setQuoteLot] = useState("100"); // $0.0001 (USDC base units)
+  const [baseLot, setBaseLot] = useState(DEFAULT_BASE_LOT_SIZE.toString()); // 0.01 base
+  const [quoteLot, setQuoteLot] = useState(DEFAULT_QUOTE_LOT_SIZE.toString()); // $0.0001
   const [initialMarginBps, setInitialMarginBps] = useState("1000"); // 10%
   const [maintMarginBps, setMaintMarginBps] = useState("500"); // 5%
   const [liqFeeBps, setLiqFeeBps] = useState("100"); // 1%

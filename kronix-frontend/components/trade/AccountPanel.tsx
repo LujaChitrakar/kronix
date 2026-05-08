@@ -30,9 +30,6 @@ export function AccountPanel() {
   const [marginUsed, setMarginUsed] = useState<bigint | null>(null);
   const [posCount, setPosCount] = useState<number | null>(null);
   const [walletUsdc, setWalletUsdc] = useState<bigint | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [amount, setAmount] = useState("");
-  const [msg, setMsg] = useState("");
 
   const refresh = useCallback(async () => {
     if (!owner) return;
@@ -59,26 +56,6 @@ export function AccountPanel() {
     return () => clearInterval(t);
   }, [refresh]);
 
-  const run = async (label: string, fn: () => Promise<string | null>) => {
-    setBusy(label);
-    setMsg("");
-    try {
-      const sig = await fn();
-      setMsg(
-        sig ? `${label} → ${sig.slice(0, 8)}…` : `${label}: nothing to do`,
-      );
-      if (sig) notifyTxSuccess(label, sig);
-      else notifyInfo(label, "Nothing to do");
-      await refresh();
-    } catch (e) {
-      const err = formatTxError(e);
-      setMsg(`${label} failed:\n${err}`);
-      notifyError(`${label} failed`, err);
-    } finally {
-      setBusy(null);
-    }
-  };
-
   if (!owner) {
     return (
       <div className="p-4 text-on-surface-variant text-sm">
@@ -90,15 +67,9 @@ export function AccountPanel() {
   const free =
     collateral !== null && marginUsed !== null ? collateral - marginUsed : null;
 
-  const baseUnits = (() => {
-    const f = parseFloat(amount);
-    if (!isFinite(f) || f <= 0) return 0n;
-    return BigInt(Math.floor(f * 10 ** USDC_DECIMALS));
-  })();
-
   return (
     <div className="p-4">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
         <Stat
           label="Collateral"
           v={collateral !== null ? `$${fmtUsdc(collateral)}` : "—"}
@@ -116,46 +87,6 @@ export function AccountPanel() {
           label="Wallet USDC"
           v={walletUsdc !== null ? `$${fmtUsdc(walletUsdc)}` : "—"}
         />
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        <div className="space-y-2">
-          <input
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="USDC amount"
-            inputMode="decimal"
-            className="w-full bg-kx-surface-lo border kx-border rounded-lg px-3 py-3 text-sm font-mono text-on-surface"
-          />
-          <div className="grid grid-cols-2 gap-1.5">
-            <button
-              disabled={!!busy || baseUnits === 0n}
-              onClick={() =>
-                run("Deposit", () =>
-                  sendDeposit(owner, baseUnits, connection, (ixs, c) =>
-                    sendTx(wallet, c, ixs),
-                  ),
-                )
-              }
-              className="py-2 text-[11px] font-headline font-bold uppercase tracking-wider rounded-md bg-[#4dffb4] text-on-primary-fixed shadow-md shadow-[#4dffb4]/20 hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50"
-            >
-              Deposit
-            </button>
-            <button
-              disabled={!!busy || baseUnits === 0n}
-              onClick={() =>
-                run("Withdraw", () =>
-                  sendWithdraw(owner, baseUnits, connection, (ixs, c) =>
-                    sendTx(wallet, c, ixs),
-                  ),
-                )
-              }
-              className="py-2 text-[11px] font-headline font-bold uppercase tracking-wider rounded-md bg-[#ff6b6b] text-white shadow-md shadow-[#ff6b6b]/20 hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50"
-            >
-              Withdraw
-            </button>
-          </div>
-        </div>
       </div>
 
       {/*{hasOO && (
@@ -202,6 +133,83 @@ export function AccountPanel() {
         </div>
       )}*/}
 
+    </div>
+  );
+}
+
+export function AccountFundingControls() {
+  const { connection } = useConnection();
+  const wallet = useWallet();
+  const owner = wallet.publicKey;
+  const [busy, setBusy] = useState<string | null>(null);
+  const [amount, setAmount] = useState("");
+
+  const baseUnits = (() => {
+    const f = parseFloat(amount);
+    if (!isFinite(f) || f <= 0) return 0n;
+    return BigInt(Math.floor(f * 10 ** USDC_DECIMALS));
+  })();
+
+  const run = async (label: string, fn: () => Promise<string | null>) => {
+    setBusy(label);
+    try {
+      const sig = await fn();
+      if (sig) notifyTxSuccess(label, sig);
+      else notifyInfo(label, "Nothing to do");
+    } catch (e) {
+      notifyError(`${label} failed`, formatTxError(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const disabled = !owner || !!busy || baseUnits === 0n;
+
+  return (
+    <div className="space-y-2">
+      <input
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        placeholder="USDC amount"
+        inputMode="decimal"
+        className="w-full bg-kx-surface-lo border kx-border rounded-lg px-3 py-3 text-sm font-mono text-on-surface"
+      />
+      <div className="grid grid-cols-2 gap-1.5">
+        <button
+          disabled={disabled}
+          onClick={() => {
+            if (!owner) {
+              notifyInfo("Deposit", "Connect wallet first");
+              return;
+            }
+            run("Deposit", () =>
+              sendDeposit(owner, baseUnits, connection, (ixs, c) =>
+                sendTx(wallet, c, ixs),
+              ),
+            );
+          }}
+          className="py-2 text-[11px] font-headline font-bold uppercase tracking-wider rounded-md bg-[#4dffb4] text-on-primary-fixed shadow-md shadow-[#4dffb4]/20 hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50"
+        >
+          Deposit
+        </button>
+        <button
+          disabled={disabled}
+          onClick={() => {
+            if (!owner) {
+              notifyInfo("Withdraw", "Connect wallet first");
+              return;
+            }
+            run("Withdraw", () =>
+              sendWithdraw(owner, baseUnits, connection, (ixs, c) =>
+                sendTx(wallet, c, ixs),
+              ),
+            );
+          }}
+          className="py-2 text-[11px] font-headline font-bold uppercase tracking-wider rounded-md bg-[#ff6b6b] text-white shadow-md shadow-[#ff6b6b]/20 hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50"
+        >
+          Withdraw
+        </button>
+      </div>
     </div>
   );
 }

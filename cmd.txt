@@ -4,3 +4,29 @@ shank idl \
 
   SOL-USD market oracle:GgGVgSLWAyL9Xf4fGaAQQCkmWetBjX7PCNz8kTK97DKB
   KXI market oracle: 8C9ZsFqtNSLwCeqcFDW1WL4qB8XugkQec6VNsKv3fos8
+
+
+  Yes, that stopped it correctly.
+
+  The key line is:
+
+  Active: inactive (dead)
+
+  Start it again later with:
+
+  sudo systemctl start kronix-keeper
+  sudo systemctl status kronix-keeper --no-pager
+
+  Watch live logs after starting:
+
+  journalctl -u kronix-keeper -f
+
+  Because the service is still enabled, it will also start again automatically if the VM reboots. To keep it
+  stopped even after reboot:
+
+  sudo systemctl disable kronix-keeper
+
+  Then re-enable later with:
+
+  sudo systemctl enable kronix-keeper
+  sudo systemctl start kronix-keeper

@@ -1,13 +1,14 @@
 /**
  * Kronix keeper bot.
  *
- * Runs five permissionless cranks against the deployed risk_program and
+ * Runs permissionless cranks against the deployed risk_program and
  * orderbook_program at fixed cadences:
  *
  *   update_funding_rate   every  10s    (cranker keeps mark/index fresh)
  *   liquidate             every  30s    (sweep underwater positions)
  *   cover_bad_debt        every  60s    (pay InsuranceFund for negative-equity accounts)
  *   prune_orders          every  60s    (drop expired TIF orders, both sides)
+ *   settle_fills          every   5s    (settle matched FillsLog accounts)
  *   settle_funding        every   8h    (apply funding to every open position)
  *
  * Run with:  pnpm keeper
@@ -86,7 +87,12 @@ import {
   findTriggerOrderPda,
 } from "../kronix-frontend/lib/kronix/pdas";
 import { toLegacyIx, fakeSigner } from "../kronix-frontend/lib/kronix/ix-bridge";
-import { fetchFillsLog } from "../kronix-frontend/lib/kronix/fills-log";
+import {
+  decodeFillsLog,
+  fetchFillsLog,
+  type FillEntry,
+  type FillsLog,
+} from "../kronix-frontend/lib/kronix/fills-log";
 import {
   buildSettleFillsIx,
   MAX_FILLS_PER_TX,
@@ -115,6 +121,7 @@ const MARKET_INDEXES = (
 
 const POSITION_SIZE = 104;
 const USER_ACCOUNT_SIZE = 88;
+const SETTLE_SKIP_LOG_MS = 60_000;
 const MARKET_CONFIG_SIZE = 96;
 const MARKET_STATE_SIZE = 224;
 const TRIGGER_ORDER_SIZE = 144;
@@ -128,7 +135,7 @@ const EXECUTE_TRIGGER_DISC = 2;
 const PRUNE_EXPIRED_TRIGGER_DISC = 4;
 const EXECUTE_STRATEGY_DISC = 2;
 const PRICE_HISTORY_MAX = 200;
-const QUOTE_NATIVE_UNIT = 1_000_000n;
+const BASE_NATIVE_UNIT = 1_000_000_000n;
 const LIQUIDATION_HEALTH_BUFFER = 1_000n;
 const DEV_SKIP_CORRUPTED_ACCOUNTS =
   process.env.KEEPER_DEV_SKIP_CORRUPTED_ACCOUNTS === "1" &&
@@ -391,11 +398,19 @@ type MarketCtx = {
   fundingState: PublicKey;
   bumpAuthority: number;
   oracle: PublicKey;
+  baseLotSize: bigint;
   quoteLotSize: bigint;
   maintenanceMarginBps: number;
   liquidationFeeBps: number;
   maxLeverage: number;
 };
+
+function nativePriceToLots(nativePrice: bigint, m: MarketCtx): bigint {
+  if (nativePrice <= 0n || m.baseLotSize <= 0n || m.quoteLotSize <= 0n) {
+    return 0n;
+  }
+  return (nativePrice * m.baseLotSize) / (BASE_NATIVE_UNIT * m.quoteLotSize);
+}
 
 function feedOverrideForMarket(marketIndex: number): PublicKey | null {
   const direct = process.env[`NEXT_PUBLIC_MARKET_${marketIndex}_SB_FEED_CONFIG`];
@@ -436,15 +451,17 @@ async function loadMarkets(): Promise<MarketCtx[]> {
     }
     const data = cfgAcc.data;
     // MarketConfig layout (see risk_program/src/state/market_config.rs):
+    //   base_lot_size i64        @ 0
     //   quote_lot_size i64       @ 8
     //   maintenance_margin_bps u16 @ 20
     //   liquidation_fee_bps u16  @ 22
     //   max_leverage u8           @ 25
     //   oracle [u8;32]            @ 32
+    const baseLotSize = data.readBigInt64LE(0);
     const quoteLotSize = data.readBigInt64LE(8);
     const maintenanceMarginBps = data.readUInt16LE(20);
     const liquidationFeeBps = data.readUInt16LE(22);
-    const maxLeverage = Math.max(1, Math.min(10, data.readUInt8(25)));
+    const maxLeverage = Math.max(1, data.readUInt8(25));
     const storedOracle = new PublicKey(data.subarray(32, 64));
     const oracle = feedOverrideForMarket(idx) ?? storedOracle;
     markets.push({
@@ -453,16 +470,24 @@ async function loadMarkets(): Promise<MarketCtx[]> {
       fundingState,
       bumpAuthority,
       oracle,
+      baseLotSize,
       quoteLotSize,
       maintenanceMarginBps,
       liquidationFeeBps,
       maxLeverage,
     });
     console.log(
-      `[init] market ${idx} oracle=${oracle.toBase58()} stored_oracle=${storedOracle.toBase58()} quote_lot=${quoteLotSize} maint_bps=${maintenanceMarginBps} liq_fee_bps=${liquidationFeeBps} max_lev=${maxLeverage}`,
+      `[init] market ${idx} oracle=${oracle.toBase58()} stored_oracle=${storedOracle.toBase58()} base_lot=${baseLotSize} quote_lot=${quoteLotSize} maint_bps=${maintenanceMarginBps} liq_fee_bps=${liquidationFeeBps} max_lev=${maxLeverage}`,
     );
   }
-  if (markets.length === 0) throw new Error("No MarketConfig accounts found");
+  if (markets.length === 0) {
+    if (now - lastMissingMarketLogMs > MARKET_RELOAD_MS) {
+      console.log("[init] no MarketConfig accounts found, waiting");
+      lastMissingMarketLogMs = now;
+    }
+    cachedMarkets = [];
+    return cachedMarkets;
+  }
   cachedMarkets = markets;
   return cachedMarkets;
 }
@@ -640,7 +665,7 @@ async function runLiquidate(): Promise<void> {
   for (const m of markets) {
     const markNative = await getMarkPriceNative(m);
     if (markNative === null) continue;
-    const markLots = markNative / m.quoteLotSize;
+    const markLots = nativePriceToLots(markNative, m);
     const cumulativeFundingIndex = await readFundingCumulativeIndex(m.fundingState);
     if (cumulativeFundingIndex === null) continue;
     const [insuranceFund] = findInsuranceFundPda();
@@ -917,8 +942,44 @@ async function settleTriggerFills(
   const log = await fetchFillsLog(conn, fillsLog);
   if (!log || log.fillCount === 0 || log.allSettled === 1) return;
 
+  await settleFillsLog(label, marketIndex, fillsLog, log);
+}
+
+async function settleFillsLog(
+  label: string,
+  marketIndex: number,
+  fillsLog: PublicKey,
+  log: FillsLog,
+): Promise<void> {
+  const [market] = findMarketPda(marketIndex);
   for (let start = 0; start < log.fillCount; start += MAX_FILLS_PER_TX) {
     const end = Math.min(log.fillCount, start + MAX_FILLS_PER_TX);
+    const invalid = new Map<number, string>();
+    for (let i = start; i < end; i++) {
+      if (log.fills[i]?.settled === 1) continue;
+      const reason = await settleFillPrecheck(log.fills[i], market);
+      if (reason) invalid.set(i, reason);
+    }
+
+    if (invalid.size > 0) {
+      for (const [i, reason] of invalid) {
+        logSettleSkip(`${fillsLog.toBase58()}:${i}`, `[${label} fill ${i}] skip - ${reason}`);
+      }
+      for (let i = start; i < end; i++) {
+        if (log.fills[i]?.settled === 1 || invalid.has(i)) continue;
+        const ix = buildSettleFillsIx(
+          keeper.publicKey,
+          marketIndex,
+          fillsLog,
+          log.fills,
+          i,
+          i + 1,
+        );
+        await send([...priorityFeeIxs(), ix], `${label} settle-fills ${i}-${i + 1}`);
+      }
+      continue;
+    }
+
     const ix = buildSettleFillsIx(
       keeper.publicKey,
       marketIndex,
@@ -934,11 +995,89 @@ async function settleTriggerFills(
   }
 }
 
+const settleSkipLogTimes = new Map<string, number>();
+
+function logSettleSkip(key: string, message: string): void {
+  const now = Date.now();
+  const last = settleSkipLogTimes.get(key) ?? 0;
+  if (now - last < SETTLE_SKIP_LOG_MS) return;
+  settleSkipLogTimes.set(key, now);
+  console.log(message);
+}
+
+async function settleFillPrecheck(
+  fill: FillEntry | undefined,
+  market: PublicKey,
+): Promise<string | null> {
+  if (!fill) return "missing fill entry";
+  const [takerUa] = findUserAccountPda(fill.takerPubkey);
+  const [makerUa] = findUserAccountPda(fill.makerPubkey);
+  const [makerOo] = findOpenOrdersPda(fill.makerPubkey, market);
+  const [takerUaAcc, makerUaAcc, makerOoAcc] = await conn.getMultipleAccountsInfo(
+    [takerUa, makerUa, makerOo],
+    "confirmed",
+  );
+
+  if (takerUaAcc && !takerUaAcc.owner.equals(RISK_PROGRAM_ID)) {
+    return `bad taker risk user owner ${fill.takerPubkey.toBase58().slice(0, 6)}`;
+  }
+  if (takerUaAcc && takerUaAcc.data.length !== USER_ACCOUNT_SIZE) {
+    return `bad taker risk user size ${takerUaAcc.data.length}`;
+  }
+  if (makerUaAcc && !makerUaAcc.owner.equals(RISK_PROGRAM_ID)) {
+    return `bad maker risk user owner ${fill.makerPubkey.toBase58().slice(0, 6)}`;
+  }
+  if (makerUaAcc && makerUaAcc.data.length !== USER_ACCOUNT_SIZE) {
+    return `bad maker risk user size ${makerUaAcc.data.length}`;
+  }
+  if (!makerOoAcc || !makerOoAcc.owner.equals(ORDERBOOK_PROGRAM_ID)) {
+    return `missing maker open-orders ${fill.makerPubkey.toBase58().slice(0, 6)}`;
+  }
+  return null;
+}
+
+async function runSettleFills(): Promise<void> {
+  const accounts = await conn.getProgramAccounts(ORDERBOOK_PROGRAM_ID, {
+    commitment: "confirmed",
+    filters: [{ dataSize: FILLS_LOG_SIZE }],
+  });
+
+  let pending = 0;
+  for (const { pubkey, account } of accounts) {
+    let log: FillsLog;
+    try {
+      log = decodeFillsLog(new Uint8Array(account.data));
+    } catch {
+      continue;
+    }
+
+    if (log.fillCount === 0 || log.allSettled === 1) continue;
+    const marketIndex = log.fills[0]?.marketIndex;
+    if (marketIndex === undefined || !MARKET_INDEXES.includes(marketIndex)) continue;
+
+    const [expectedMarket] = findMarketPda(marketIndex);
+    if (!log.market.equals(expectedMarket)) continue;
+
+    pending += 1;
+    await settleFillsLog(
+      `settle-fills ${pubkey.toBase58().slice(0, 8)}`,
+      marketIndex,
+      pubkey,
+      log,
+    );
+  }
+
+  if (pending > 0) {
+    console.log(`[settle-fills] processed ${pending} pending fills_log account(s)`);
+  }
+}
+
 function buildExecuteTriggerIx(args: {
   keeper: PublicKey;
   triggerAuthority: PublicKey;
   triggerOrderOwner: PublicKey;
   triggerOrder: PublicKey;
+  position: PublicKey;
   market: PublicKey;
   openOrdersAccount: PublicKey;
   bids: PublicKey;
@@ -966,6 +1105,7 @@ function buildExecuteTriggerIx(args: {
       { pubkey: args.triggerAuthority, isSigner: false, isWritable: true },
       { pubkey: args.triggerOrderOwner, isSigner: false, isWritable: true },
       { pubkey: args.triggerOrder, isSigner: false, isWritable: true },
+      { pubkey: args.position, isSigner: false, isWritable: false },
       { pubkey: args.market, isSigner: false, isWritable: true },
       { pubkey: args.openOrdersAccount, isSigner: false, isWritable: true },
       { pubkey: args.bids, isSigner: false, isWritable: true },
@@ -1105,7 +1245,7 @@ async function runExecuteTriggers(): Promise<void> {
     if (!m) continue;
     const markNative = await getMarkPriceNative(m);
     if (markNative === null) continue;
-    const markLots = markNative / QUOTE_NATIVE_UNIT;
+    const markLots = nativePriceToLots(markNative, m);
     if (markLots <= 0n) continue;
     if (!shouldTrigger(t.triggerType, t.side, t.triggerPrice, markLots)) {
       continue;
@@ -1153,17 +1293,17 @@ async function runExecuteTriggers(): Promise<void> {
       continue;
     }
 
-    const position = await readOwnerPosition(t.owner, t.marketIndex);
+    const ownerPosition = await readOwnerPosition(t.owner, t.marketIndex);
     const expectedPositionSide = t.side === 0 ? 1 : 0;
-    if (!position || position.side !== expectedPositionSide) {
+    if (!ownerPosition || ownerPosition.side !== expectedPositionSide) {
       console.log(
         `[execute-trigger ${t.owner.toBase58().slice(0, 6)}/${t.clientId}] skip — no matched position`,
       );
       continue;
     }
-    if (position.size < t.sizeLots) {
+    if (ownerPosition.size < t.sizeLots) {
       console.log(
-        `[execute-trigger ${t.owner.toBase58().slice(0, 6)}/${t.clientId}] skip — position not fully matched (${position.size}/${t.sizeLots})`,
+        `[execute-trigger ${t.owner.toBase58().slice(0, 6)}/${t.clientId}] skip — position not fully matched (${ownerPosition.size}/${t.sizeLots})`,
       );
       continue;
     }
@@ -1207,6 +1347,7 @@ async function runExecuteTriggers(): Promise<void> {
       triggerAuthority,
       triggerOrderOwner: t.owner,
       triggerOrder: t.pubkey,
+      position: ownerPosition.pubkey,
       market,
       openOrdersAccount,
       bids,
@@ -1335,7 +1476,7 @@ async function runRecordPrice(): Promise<void> {
   for (const m of markets) {
     const native = await getMarkPriceNative(m);
     if (native === null) continue;
-    const lots = native / m.quoteLotSize;
+    const lots = nativePriceToLots(native, m);
     const arr = priceHistory.get(m.marketIndex) ?? [];
     arr.push(lots);
     if (arr.length > PRICE_HISTORY_MAX) arr.shift();
@@ -1805,7 +1946,7 @@ async function runExecuteStrategies(): Promise<void> {
     if (!m) continue;
     const markNative = await getMarkPriceNative(m);
     if (markNative === null) continue;
-    const markLots = markNative / m.quoteLotSize;
+    const markLots = nativePriceToLots(markNative, m);
 
     const signal = computeSignal(s, markLots);
     if (signal === null) continue;
@@ -1854,7 +1995,7 @@ async function runExecuteStrategies(): Promise<void> {
       s.leverage > 0 ? Math.max(1, Math.min(m.maxLeverage, s.leverage)) : m.maxLeverage;
     const leverage = BigInt(strategyLeverage);
     const requiredMargin =
-      (maxQuoteLots * QUOTE_NATIVE_UNIT + leverage - 1n) / leverage;
+      (maxQuoteLots * m.quoteLotSize + leverage - 1n) / leverage;
     const freeCollateral = ua.collateral - ua.marginUsed;
     if (requiredMargin > freeCollateral) {
       console.log(
@@ -2093,6 +2234,7 @@ const jobs: Job[] = [
   { name: "liquidate", intervalMs: 30_000, run: runLiquidate, running: false },
   { name: "cover-bad-debt", intervalMs: 60_000, run: runCoverBadDebt, running: false },
   { name: "prune-orders", intervalMs: 60_000, run: runPruneOrders, running: false },
+  { name: "settle-fills", intervalMs: 5_000, run: runSettleFills, running: false },
   { name: "settle-funding", intervalMs: 8 * 3_600_000, run: runSettleFunding, running: false },
   { name: "execute-triggers", intervalMs: 10_000, run: runExecuteTriggers, running: false },
   { name: "prune-expired-triggers", intervalMs: 60_000, run: runPruneExpiredTriggers, running: false },

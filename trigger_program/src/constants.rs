@@ -1,7 +1,7 @@
 pub const TRIGGER_ORDER_SEED: &[u8] = b"trigger_order";
 pub const TRIGGER_AUTHORITY_SEED: &[u8] = b"trigger_authority";
 pub const MAX_CPI_MAKER_ACCOUNTS: usize = 6;
-pub const QUOTE_NATIVE_UNIT: i64 = 1_000_000;
+pub const BASE_NATIVE_UNIT: i128 = 1_000_000_000;
 pub const RISK_PROGRAM_ID: [u8; 32] =
     pinocchio_pubkey::from_str("5ivREpNsjSj4Gr27oxEfyAZ38KCfDDtDLdXQeHDtDpo4");
 

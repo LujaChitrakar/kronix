@@ -58,19 +58,20 @@ pub enum TriggerInstruction {
         writable
     )]
     #[account(3, name = "trigger_order", desc = "Trigger order PDA", writable)]
-    #[account(4, name = "market", desc = "Market PDA", writable)]
+    #[account(4, name = "position", desc = "Owner position PDA")]
+    #[account(5, name = "market", desc = "Market PDA", writable)]
     #[account(
-        5,
+        6,
         name = "open_orders_account",
         desc = "Open orders account PDA",
         writable
     )]
-    #[account(6, name = "bids", desc = "Bids PDA", writable)]
-    #[account(7, name = "asks", desc = "Asks PDA", writable)]
-    #[account(8, name = "fills_log", desc = "Fills log PDA", writable)]
-    #[account(9, name = "oracle", desc = "Switchboard price feed")]
-    #[account(10, name = "orderbook_program", desc = "Orderbook Program")]
-    #[account(11, name = "system_program", desc = "System program")]
+    #[account(7, name = "bids", desc = "Bids PDA", writable)]
+    #[account(8, name = "asks", desc = "Asks PDA", writable)]
+    #[account(9, name = "fills_log", desc = "Fills log PDA", writable)]
+    #[account(10, name = "oracle", desc = "Switchboard price feed")]
+    #[account(11, name = "orderbook_program", desc = "Orderbook Program")]
+    #[account(12, name = "system_program", desc = "System program")]
     ExecuteTrigger(ExecuteTriggerParams),
 
     #[account(0, name = "signer", desc = "Fee payer", signer, writable)]

@@ -187,7 +187,8 @@ pub fn process_place_take_order(accounts: &[AccountView], data: &[u8]) -> Progra
     }
 
     let leverage = params.leverage;
-    let reserved_margin = margin_from_quote_lots(params.max_quote_lots, leverage)?;
+    let reserved_margin =
+        margin_from_quote_lots(params.max_quote_lots, market_state.quote_lot_size, leverage)?;
     let oo_owner = oo_account_state.owner;
     let market_index = market_state.market_index;
     let is_trigger_authority = (0..=u8::MAX).rev().any(|bump| {

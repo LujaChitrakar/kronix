@@ -86,8 +86,8 @@ pub fn process_remove_margin(accounts: &[AccountView], data: &[u8]) -> ProgramRe
         .checked_sub(params.amount)
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
-    let mark_price_lots = mark_price
-        .checked_div(market_config_state.quote_lot_size)
+    let mark_price_lots = market_config_state
+        .native_price_to_lots(mark_price)
         .ok_or(ProgramError::ArithmeticOverflow)?;
     if mark_price_lots <= 0 {
         return Err(RiskProgramError::InvalidOraclePrice.into());

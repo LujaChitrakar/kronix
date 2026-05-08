@@ -25,6 +25,14 @@ import { useStore } from "@/lib/store";
 import { notifyError, notifyTxSuccess } from "@/lib/notifications";
 import { sendTx, formatTxError } from "./tx";
 import { getTriggerOrderDecoder } from "@/lib/trigger-sdk";
+import {
+  formatPriceLots,
+  formatSizeLots,
+  formatUsdcNative,
+  nativePriceToLots,
+  notionalNative,
+  type LotConfig,
+} from "@/lib/kronix/lot-math";
 
 const TRIGGER_ORDER_SIZE = 144;
 
@@ -37,17 +45,15 @@ type PositionTrigger = {
 };
 
 function fmtUsdc(n: bigint): string {
-  const sign = n < 0n ? "-" : "";
-  const abs = n < 0n ? -n : n;
-  const whole = abs / 1_000_000n;
-  const frac = (abs % 1_000_000n).toString().padStart(6, "0").slice(0, 2);
-  return `${sign}${whole}.${frac}`;
+  return formatUsdcNative(n);
 }
 
 const SWITCHBOARD_DISC = Buffer.from([196, 27, 108, 196, 10, 215, 219, 40]);
 const SWITCHBOARD_VALUE_OFFSET = 2264;
 const SWITCHBOARD_SLOT_OFFSET = 2368;
+const SWITCHBOARD_MAX_STALENESS_OFFSET = 2392;
 const SWITCHBOARD_SCALE = 1_000_000_000_000n;
+const MIN_ACCEPTED_STALENESS_SLOTS = 150n;
 
 function readI128LE(data: Buffer, offset: number): bigint {
   let value = 0n;
@@ -60,15 +66,27 @@ function isAttachedTriggerClientId(clientOrderId: bigint): boolean {
   return suffix === 1n || suffix === 2n;
 }
 
-function parseSwitchboardPriceNative(data: Buffer): bigint | null {
-  if (data.length < SWITCHBOARD_SLOT_OFFSET + 8) return null;
+function parseSwitchboardPriceNative(
+  data: Buffer,
+  currentSlot: bigint,
+): bigint | null {
+  if (data.length < SWITCHBOARD_MAX_STALENESS_OFFSET + 4) return null;
   if (!data.subarray(0, 8).equals(SWITCHBOARD_DISC)) return null;
-  if (data.readBigUInt64LE(SWITCHBOARD_SLOT_OFFSET) === 0n) return null;
-  return readI128LE(data, SWITCHBOARD_VALUE_OFFSET) / SWITCHBOARD_SCALE;
+  const resultSlot = data.readBigUInt64LE(SWITCHBOARD_SLOT_OFFSET);
+  if (resultSlot === 0n || resultSlot > currentSlot) return null;
+  const maxStaleness = BigInt(data.readUInt32LE(SWITCHBOARD_MAX_STALENESS_OFFSET));
+  const effectiveMax =
+    maxStaleness > MIN_ACCEPTED_STALENESS_SLOTS
+      ? maxStaleness
+      : MIN_ACCEPTED_STALENESS_SLOTS;
+  if (currentSlot - resultSlot > effectiveMax) return null;
+  const px = readI128LE(data, SWITCHBOARD_VALUE_OFFSET) / SWITCHBOARD_SCALE;
+  return px > 0n ? px : null;
 }
 
 function formatTriggers(
   triggers: PositionTrigger[],
+  cfg: LotConfig | null,
   positionSizeLots?: bigint,
 ): string {
   const visible =
@@ -77,7 +95,10 @@ function formatTriggers(
       : positionSizedTriggers(triggers, positionSizeLots);
   if (visible.length === 0) return "-";
   return visible
-    .map((t) => `${t.price} (${t.sizeLots})${t.status === TriggerStatus.Paused ? " P" : ""}`)
+    .map(
+      (t) =>
+        `${cfg ? formatPriceLots(t.price, cfg) : t.price}${t.status === TriggerStatus.Paused ? " P" : ""}`,
+    )
     .join(", ");
 }
 
@@ -133,6 +154,7 @@ export function PositionPanel() {
   const [staleTriggerIds, setStaleTriggerIds] = useState<bigint[]>([]);
   const [oracle, setOracle] = useState<PublicKey | null>(null);
   const [cfg, setCfg] = useState<{
+    baseLotSize: bigint;
     quoteLotSize: bigint;
     maintenanceMarginBps: number;
   } | null>(null);
@@ -227,16 +249,20 @@ export function PositionPanel() {
       const oraclePk = configuredOracle ?? bytesToPubkey(cfg.oracle);
       setOracle(oraclePk);
       setCfg({
+        baseLotSize: cfg.baseLotSize,
         quoteLotSize: cfg.quoteLotSize,
         maintenanceMarginBps: cfg.maintenanceMarginBps,
       });
-      const oraclePriceAcc = await connection.getAccountInfo(
-        oraclePk,
-        "confirmed",
-      );
+      const [oraclePriceAcc, currentSlot] = await Promise.all([
+        connection.getAccountInfo(oraclePk, "confirmed"),
+        connection.getSlot("confirmed"),
+      ]);
       if (oraclePriceAcc) {
-        const px = parseSwitchboardPriceNative(oraclePriceAcc.data);
-        if (px !== null) setMarkPriceNative(px);
+        setMarkPriceNative(
+          parseSwitchboardPriceNative(oraclePriceAcc.data, BigInt(currentSlot)),
+        );
+      } else {
+        setMarkPriceNative(null);
       }
     }
   }, [connection, owner, marketIndex]);
@@ -256,10 +282,16 @@ export function PositionPanel() {
     let canceled = false;
     const poll = async () => {
       try {
-        const acc = await connection.getAccountInfo(pk, "confirmed");
+        const [acc, currentSlot] = await Promise.all([
+          connection.getAccountInfo(pk, "confirmed"),
+          connection.getSlot("confirmed"),
+        ]);
         if (!canceled && acc) {
-          const px = parseSwitchboardPriceNative(acc.data);
-          if (px !== null) setMarkPriceNative(px);
+          setMarkPriceNative(
+            parseSwitchboardPriceNative(acc.data, BigInt(currentSlot)),
+          );
+        } else if (!canceled) {
+          setMarkPriceNative(null);
         }
       } catch {
         // ignore — next tick retries
@@ -308,17 +340,11 @@ export function PositionPanel() {
     return BigInt(Math.floor(f * 1_000_000));
   })();
 
-  // Maintenance margin requirement in native USDC.
-  // Mirrors risk_program required_maintenance_margin after mark_price → price_lots conversion:
-  //   mark_price_lots = mark_price_native / quote_lot_size
-  //   notional = size × mark_price_lots × quote_lot_size
-  //   maint    = notional × maint_bps / 10000
-  // (size × mark_price_lots × quote_lot_size simplifies but keep explicit for parity.)
   const maintenanceMargin: bigint | null = (() => {
     if (!pos || !cfg || markPriceNative === null) return null;
     if (cfg.quoteLotSize === 0n) return null;
-    const markLots = markPriceNative / cfg.quoteLotSize;
-    const notional = pos.size * markLots * cfg.quoteLotSize;
+    const markLots = nativePriceToLots(markPriceNative, cfg);
+    const notional = notionalNative(pos.size, markLots, cfg);
     return (notional * BigInt(cfg.maintenanceMarginBps)) / 10_000n;
   })();
 
@@ -345,45 +371,35 @@ export function PositionPanel() {
 
       {owner && pos && (
         <>
-          <div className="grid grid-cols-2 gap-3 mb-4 text-sm font-mono">
+          <div className="grid grid-cols-3 gap-3 mb-4 text-sm font-mono">
             <Stat label="Net Side" v={pos.side === 0 ? "LONG" : "SHORT"} accent={pos.side === 0} />
-            <Stat label="Net Size (lots)" v={String(pos.size)} />
-            <Stat label="Avg Entry (lots)" v={String(pos.entryPrice)} />
+            <Stat label="Net Size" v={cfg ? formatSizeLots(pos.size, cfg) : String(pos.size)} />
             <Stat
-              label="TP (price/size)"
-              v={formatTriggers(positionTriggers.takeProfit, pos.size)}
-              accent={positionTriggers.takeProfit.length > 0}
+              label="Avg Entry"
+              v={cfg ? formatPriceLots(pos.entryPrice, cfg) : String(pos.entryPrice)}
             />
-            <Stat
-              label="SL (price/size)"
-              v={formatTriggers(positionTriggers.stopLoss, pos.size)}
+            <ProtectionStat
+              takeProfit={formatTriggers(positionTriggers.takeProfit, cfg, pos.size)}
+              stopLoss={formatTriggers(positionTriggers.stopLoss, cfg, pos.size)}
+              hasTakeProfit={positionTriggers.takeProfit.length > 0}
+              hasStopLoss={positionTriggers.stopLoss.length > 0}
             />
-            <Stat
-              label="Margin"
-              v={`$${fmtUsdc(pos.initialMargin)} (${pos.initialMargin} native)`}
+            <MarginStat
+              margin={`$${fmtUsdc(pos.initialMargin)}`}
+              removable={`$${fmtUsdc(maxRemovable)}`}
             />
-            {markPriceNative !== null && (
-              <Stat
-                label="Mark"
-                v={`$${fmtUsdc(markPriceNative)} (${markPriceNative} native)`}
-              />
-            )}
             {maintenanceMargin !== null && (
               <Stat
                 label="Maint Req"
-                v={`$${fmtUsdc(maintenanceMargin)} (${maintenanceMargin} native)`}
+                v={`$${fmtUsdc(maintenanceMargin)}`}
               />
             )}
-            <Stat
-              label="Removable"
-              v={`$${fmtUsdc(maxRemovable)} (${maxRemovable} native)`}
-            />
           </div>
           {maintenanceMargin !== null &&
             pos.initialMargin < maintenanceMargin && (
               <div className="mb-2 px-2 py-1.5 rounded-md border border-[#ff6b6b]/40 bg-[#ff6b6b]/10 text-[10px] font-mono text-[#ff6b6b]">
-                Net position UNDER maintenance ({fmtUsdc(pos.initialMargin)} &lt;{" "}
-                {fmtUsdc(maintenanceMargin)}). Liquidatable. Add margin or
+                Net position UNDER maintenance: {fmtUsdc(pos.initialMargin)} &lt;{" "}
+                {fmtUsdc(maintenanceMargin)}. Liquidatable. Add margin or
                 close net position. Removal blocked.
               </div>
             )}
@@ -399,8 +415,8 @@ export function PositionPanel() {
             <div className="grid grid-cols-8 gap-1.5">
               <button
                 type="button"
-                onClick={() =>
-                  setMarginAmt((Number(maxRemovable) / 1_000_000).toString())
+              onClick={() =>
+                  setMarginAmt(formatUsdcNative(maxRemovable))
                 }
                 className="py-2 text-[11px] font-headline font-bold uppercase tracking-wider rounded-md border kx-border bg-kx-surface-lo text-on-surface-variant hover:text-on-surface hover:bg-kx-surface-hi/60 transition-colors"
               >
@@ -410,16 +426,16 @@ export function PositionPanel() {
           </div>
           {removeExceeds && (
             <div className="mb-2 text-[10px] font-mono text-[#ffb86b]">
-              − Margin: {String(baseUnits)} &gt; removable {String(maxRemovable)}{" "}
-              native (initial {String(pos.initialMargin)} − maintenance{" "}
-              {maintenanceMargin === null ? "?" : String(maintenanceMargin)}).
+              − Margin: ${formatUsdcNative(baseUnits)} &gt; removable $
+              {formatUsdcNative(maxRemovable)} (initial $
+              {formatUsdcNative(pos.initialMargin)} − maintenance $
+              {maintenanceMargin === null ? "?" : formatUsdcNative(maintenanceMargin)}).
               Reduce or use MAX.
             </div>
           )}
           {!oracleReady && (
             <div className="mb-2 text-[10px] font-mono text-[#ffb86b]">
-              Oracle has no current Switchboard result. Update feed before
-              closing/removing margin.
+              Oracle price is stale. Keep the keeper running, then retry.
             </div>
           )}
           <div className="flex flex-wrap gap-1.5">
@@ -509,6 +525,70 @@ export function PositionPanel() {
   );
 }
 
+function MarginStat({
+  margin,
+  removable,
+}: {
+  margin: string;
+  removable: string;
+}) {
+  return (
+    <div className="px-3 py-2 rounded-lg bg-kx-surface-lo border kx-border">
+      <div className="text-[9px] text-on-surface-variant/60 uppercase tracking-wider mb-0.5">
+        Margin / Removable
+      </div>
+      <div className="grid grid-cols-2 gap-2 font-bold text-sm font-mono leading-snug text-on-surface">
+        <div>
+          <span className="text-[9px] text-on-surface-variant/60 font-headline mr-1">
+            Margin
+          </span>
+          {margin}
+        </div>
+        <div>
+          <span className="text-[9px] text-on-surface-variant/60 font-headline mr-1">
+            Removable
+          </span>
+          {removable}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProtectionStat({
+  takeProfit,
+  stopLoss,
+  hasTakeProfit,
+  hasStopLoss,
+}: {
+  takeProfit: string;
+  stopLoss: string;
+  hasTakeProfit: boolean;
+  hasStopLoss: boolean;
+}) {
+  return (
+    <div className="px-3 py-2 rounded-lg bg-kx-surface-lo border kx-border">
+      <div className="text-[9px] text-on-surface-variant/60 uppercase tracking-wider mb-0.5">
+        TP / SL
+      </div>
+      <div className="grid grid-cols-2 gap-2 font-bold text-sm font-mono leading-snug">
+        <div className={hasTakeProfit ? "text-[#4dffb4]" : "text-on-surface"}>
+          <span className="text-[9px] text-on-surface-variant/60 font-headline mr-1">
+            TP
+          </span>
+          {takeProfit}
+        </div>
+        <div className={hasStopLoss ? "text-[#ff6b6b]" : "text-on-surface"}>
+          <span className="text-[9px] text-on-surface-variant/60 font-headline mr-1">
+            SL
+          </span>
+          {stopLoss}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Stat({ label, v, accent }: { label: string; v: string; accent?: boolean }) {
   return (
     <div className="px-3 py-2 rounded-lg bg-kx-surface-lo border kx-border">
@@ -516,7 +596,7 @@ function Stat({ label, v, accent }: { label: string; v: string; accent?: boolean
         {label}
       </div>
       <div
-        className={`font-bold text-sm font-mono ${
+        className={`font-bold text-sm font-mono whitespace-pre-line leading-snug ${
           accent ? "text-[#4dffb4]" : "text-on-surface"
         }`}
       >

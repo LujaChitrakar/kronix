@@ -9,6 +9,14 @@ import {
   Side,
   TriggerType,
 } from "@/lib/kronix/config";
+import { findMarketConfigPda } from "@/lib/kronix/pdas";
+import { fetchMarketConfig } from "@/lib/kronix/state";
+import {
+  parsePriceInput,
+  parseSizeInput,
+  priceInputFromNumber,
+  type LotConfig,
+} from "@/lib/kronix/lot-math";
 import { useStore } from "@/lib/store";
 import { useEffect } from "react";
 import { notifyError, notifyTxSuccess, notifyWarning } from "@/lib/notifications";
@@ -31,6 +39,7 @@ export function TriggerForm() {
   const [expiry, setExpiry] = useState("0");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [cfg, setCfg] = useState<LotConfig | null>(null);
 
   const [mounted, setMounted] = useState(false);
   const selectedPrice = useStore(s => s.selectedPrice);
@@ -44,18 +53,33 @@ export function TriggerForm() {
 
   useEffect(() => {
     if (selectedPrice !== null && lastFocusedInputId) {
-      const p = Math.round(selectedPrice).toString();
+      const p = priceInputFromNumber(selectedPrice);
       if (lastFocusedInputId === "trigger-price") setTriggerPrice(p);
     }
   }, [selectedPrice, lastFocusedInputId]);
 
+  useEffect(() => {
+    const [cfgPda] = findMarketConfigPda(marketIndex);
+    fetchMarketConfig(connection, cfgPda)
+      .then((c) => {
+        if (c) setCfg({ baseLotSize: c.baseLotSize, quoteLotSize: c.quoteLotSize });
+      })
+      .catch(() => null);
+  }, [connection, marketIndex]);
+
   const submit = async () => {
     if (!owner) return;
-    const triggerLots = BigInt(parseInt(triggerPrice || "0", 10));
-    const sizeLots = BigInt(parseInt(size || "0", 10));
-    if (triggerLots <= 0n || sizeLots <= 0n) {
-      setMsg("Enter trigger price + size in lots");
-      notifyWarning("Trigger blocked", "Enter trigger price + size in lots");
+    if (!cfg) {
+      const msg = "Market config still loading";
+      setMsg(msg);
+      notifyWarning("Trigger blocked", msg);
+      return;
+    }
+    const triggerLots = parsePriceInput(triggerPrice || "0", cfg);
+    const sizeLots = parseSizeInput(size || "0", cfg);
+    if (triggerLots === null || triggerLots <= 0n || sizeLots === null || sizeLots <= 0n) {
+      setMsg("Enter valid trigger price and size");
+      notifyWarning("Trigger blocked", "Enter valid trigger price and size");
       return;
     }
     setBusy(true);
@@ -137,14 +161,14 @@ export function TriggerForm() {
       <div className="space-y-2">
         <Field
           id="trigger-price"
-          label="Trigger Price (lots)"
+          label="Trigger Price"
           value={triggerPrice}
           onChange={setTriggerPrice}
           onFocus={() => setLastFocusedInputId("trigger-price")}
         />
         <Field 
           id="trigger-size"
-          label="Size (base lots)" 
+          label="Size"
           value={size} 
           onChange={setSize} 
           onFocus={() => setLastFocusedInputId("trigger-size")}
@@ -213,7 +237,7 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onFocus={onFocus}
-        inputMode="numeric"
+        inputMode="decimal"
         className="w-full bg-kx-surface-lo border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface focus:outline-none focus:border-[#4dffb4]/50 transition-colors"
       />
     </div>

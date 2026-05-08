@@ -8,7 +8,7 @@ use shank::ShankType;
 
 use crate::{
     constants::{
-        MAX_CPI_MAKER_ACCOUNTS, QUOTE_NATIVE_UNIT, RISK_PROGRAM_ID, TRIGGER_AUTHORITY_SEED,
+        BASE_NATIVE_UNIT, MAX_CPI_MAKER_ACCOUNTS, RISK_PROGRAM_ID, TRIGGER_AUTHORITY_SEED,
     },
     cpi::place_take_order_cpi,
     errors::TriggerProgramError,
@@ -19,6 +19,12 @@ use crate::{
     oracle::validate_switchboard_price,
     states::TriggerOrder,
 };
+
+const POSITION_LEN: usize = 104;
+const POSITION_SIZE_OFFSET: usize = 0;
+const POSITION_MARKET_INDEX_OFFSET: usize = 32;
+const POSITION_SIDE_OFFSET: usize = 35;
+const POSITION_OWNER_OFFSET: usize = 40;
 
 #[derive(Pod, Zeroable, Clone, Copy, ShankType)]
 #[repr(C)]
@@ -35,6 +41,7 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
             trigger_authority,
             trigger_order_owner,
             trigger_order,
+            position,            // risk position PDA; trigger can only close this position
             market,              // orderbook market state
             open_orders_account, // trigger owner's OO account
             bids,
@@ -89,6 +96,38 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
     }
 
     let owner_key = order.owner;
+    if position.is_data_empty() {
+        return Err(TriggerProgramError::NoMatchingPosition.into());
+    }
+    unsafe {
+        verify_account_owner(position, &RISK_PROGRAM_ID)?;
+    }
+    let position_data = position.try_borrow()?;
+    if position_data.len() < POSITION_LEN {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    let position_size = i64::from_le_bytes(
+        position_data[POSITION_SIZE_OFFSET..POSITION_SIZE_OFFSET + 8]
+            .try_into()
+            .map_err(|_| ProgramError::InvalidAccountData)?,
+    );
+    let position_market_index = u16::from_le_bytes(
+        position_data[POSITION_MARKET_INDEX_OFFSET..POSITION_MARKET_INDEX_OFFSET + 2]
+            .try_into()
+            .map_err(|_| ProgramError::InvalidAccountData)?,
+    );
+    let position_side = position_data[POSITION_SIDE_OFFSET];
+    let position_owner = &position_data[POSITION_OWNER_OFFSET..POSITION_OWNER_OFFSET + 32];
+    let expected_position_side = if order.side == 0 { 1 } else { 0 };
+    if position_owner != owner_key.as_ref()
+        || position_market_index != params.market_index
+        || position_side != expected_position_side
+        || position_size < order.size_lots
+    {
+        return Err(TriggerProgramError::NoMatchingPosition.into());
+    }
+    drop(position_data);
+
     verify_pda(
         trigger_authority,
         &[TRIGGER_AUTHORITY_SEED, &owner_key, &bump_bytes],
@@ -99,6 +138,16 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
     if market_config_data.len() < 18 {
         return Err(ProgramError::InvalidAccountData);
     }
+    let base_lot_size = i64::from_le_bytes(
+        market_config_data[0..8]
+            .try_into()
+            .map_err(|_| ProgramError::InvalidAccountData)?,
+    );
+    let quote_lot_size = i64::from_le_bytes(
+        market_config_data[8..16]
+            .try_into()
+            .map_err(|_| ProgramError::InvalidAccountData)?,
+    );
     let config_market_index = u16::from_le_bytes(
         market_config_data[16..18]
             .try_into()
@@ -110,9 +159,21 @@ pub fn process_execute_trigger(accounts: &[AccountView], data: &[u8]) -> Program
     drop(market_config_data);
 
     let mark_price_native = validate_switchboard_price(oracle, params.market_index, clock.slot)?;
-    let mark_price = mark_price_native
-        .checked_div(QUOTE_NATIVE_UNIT)
+    if base_lot_size <= 0 || quote_lot_size <= 0 {
+        return Err(TriggerProgramError::InvalidTriggerPrice.into());
+    }
+    let mark_price_numerator = (mark_price_native as i128)
+        .checked_mul(base_lot_size as i128)
         .ok_or(ProgramError::ArithmeticOverflow)?;
+    let mark_price_denominator = BASE_NATIVE_UNIT
+        .checked_mul(quote_lot_size as i128)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    let mark_price = i64::try_from(
+        mark_price_numerator
+            .checked_div(mark_price_denominator)
+            .ok_or(ProgramError::ArithmeticOverflow)?,
+    )
+    .map_err(|_| ProgramError::ArithmeticOverflow)?;
     if mark_price <= 0 {
         return Err(TriggerProgramError::InvalidTriggerPrice.into());
     }

@@ -52,13 +52,30 @@ export const RISK_ERRORS: Record<number, string> = {
   17: "NotInBadDebt",
 };
 
+export const TRIGGER_ERRORS: Record<number, string> = {
+  0: "InvalidSize",
+  1: "InvalidTriggerPrice",
+  2: "InvalidTriggerType",
+  3: "InvalidOwner",
+  4: "TriggerNotActive",
+  5: "TriggerExpired",
+  6: "TriggerConditionNotMet",
+  7: "InvalidOOAccount",
+  8: "EditTriggerFailed",
+  9: "InvalidExpiry",
+  10: "TriggerNotPaused",
+  11: "NoMatchingPosition — TP/SL can only execute after a matching open position exists",
+};
+
 export function annotateOrderbookError(s: string): string {
   // Match either {"Custom":15} or 0xf / 0x0f patterns and append name.
-  return s.replace(/(?:"Custom":\s*(\d+))|0x([0-9a-f]+)/gi, (_full, dec, hex) => {
+  return s.replace(/(?:"Custom":\s*(\d+))|custom program error:\s*(\d+)|custom\s+(\d+)|0x([0-9a-f]+)/gi, (_full, jsonDec, programDec, plainDec, hex) => {
+    const dec = jsonDec ?? programDec ?? plainDec;
     const code = dec ? parseInt(dec, 10) : parseInt(hex, 16);
     const names = [
       ORDERBOOK_ERRORS[code] ? `Orderbook: ${ORDERBOOK_ERRORS[code]}` : null,
       RISK_ERRORS[code] ? `Risk: ${RISK_ERRORS[code]}` : null,
+      TRIGGER_ERRORS[code] ? `Trigger: ${TRIGGER_ERRORS[code]}` : null,
     ].filter(Boolean);
     if (names.length === 0) return _full;
     return `${_full} (${names.join("; ")})`;

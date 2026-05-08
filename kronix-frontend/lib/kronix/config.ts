@@ -1,5 +1,38 @@
 import { PublicKey } from "@solana/web3.js";
 
+function parsePublicKey(label: string, value: string): PublicKey {
+  try {
+    return new PublicKey(value);
+  } catch (err) {
+    const preview =
+      value.length <= 12 ? value : `${value.slice(0, 6)}...${value.slice(-6)}`;
+    throw new Error(
+      `Invalid Solana public key in ${label}: length=${value.length} preview=${preview}`,
+      { cause: err },
+    );
+  }
+}
+
+function publicKeyFromEnv(
+  label: string,
+  value: string | undefined,
+  fallback: string,
+): PublicKey {
+  const trimmed = value?.trim();
+  return parsePublicKey(label, trimmed || fallback);
+}
+
+function publicKeyFromEnvCandidates(
+  candidates: Array<[string, string | undefined]>,
+  fallback: string,
+): PublicKey {
+  for (const [label, value] of candidates) {
+    const trimmed = value?.trim();
+    if (trimmed) return parsePublicKey(label, trimmed);
+  }
+  return parsePublicKey("fallback", fallback);
+}
+
 export const ORDERBOOK_PROGRAM_ID = new PublicKey(
   "j8VeDggFuwtiCjM8uo7am8i1bWWH2sj7mBRxqTaZniU",
 );
@@ -8,14 +41,16 @@ export const RISK_PROGRAM_ID = new PublicKey(
   "5ivREpNsjSj4Gr27oxEfyAZ38KCfDDtDLdXQeHDtDpo4",
 );
 
-export const TRIGGER_PROGRAM_ID = new PublicKey(
-  process.env.NEXT_PUBLIC_TRIGGER_PROGRAM_ID ??
-    "9KDXQmrMy71pVHTknapcv4jP8aHsr9yF5yXMmGNftUkX",
+export const TRIGGER_PROGRAM_ID = publicKeyFromEnv(
+  "NEXT_PUBLIC_TRIGGER_PROGRAM_ID",
+  process.env.NEXT_PUBLIC_TRIGGER_PROGRAM_ID,
+  "9KDXQmrMy71pVHTknapcv4jP8aHsr9yF5yXMmGNftUkX",
 );
 
-export const STRATEGY_PROGRAM_ID = new PublicKey(
-  process.env.NEXT_PUBLIC_STRATEGY_PROGRAM_ID ??
-    "7jUHqPKWF4ebe4gSRMwy1FfAWyuiQjpjTdzqtbMK6S9q",
+export const STRATEGY_PROGRAM_ID = publicKeyFromEnv(
+  "NEXT_PUBLIC_STRATEGY_PROGRAM_ID",
+  process.env.NEXT_PUBLIC_STRATEGY_PROGRAM_ID,
+  "7jUHqPKWF4ebe4gSRMwy1FfAWyuiQjpjTdzqtbMK6S9q",
 );
 
 export enum StrategyType {
@@ -52,9 +87,10 @@ export const SYSTEM_PROGRAM_ID = new PublicKey(
   "11111111111111111111111111111111",
 );
 
-export const USDC_MINT = new PublicKey(
-  process.env.NEXT_PUBLIC_USDC_MINT ??
-    "4VwXppbTdzQvzt7SsMYUpXdrZcytrQeixJFXUcgsEetF",
+export const USDC_MINT = publicKeyFromEnv(
+  "NEXT_PUBLIC_USDC_MINT",
+  process.env.NEXT_PUBLIC_USDC_MINT,
+  "4VwXppbTdzQvzt7SsMYUpXdrZcytrQeixJFXUcgsEetF",
 );
 
 export type MarketSymbol = "SOL" | "KXI";
@@ -66,15 +102,18 @@ export type MarketInfo = {
   oracle: PublicKey;
 };
 
-export const SOL_SWITCHBOARD_FEED = new PublicKey(
-  process.env.NEXT_PUBLIC_SOL_SB_FEED_CONFIG ??
-    process.env.NEXT_PUBLIC_SB_FEED_CONFIG ??
-    "GgGVgSLWAyL9Xf4fGaAQQCkmWetBjX7PCNz8kTK97DKB",
+export const SOL_SWITCHBOARD_FEED = publicKeyFromEnvCandidates(
+  [
+    ["NEXT_PUBLIC_SOL_SB_FEED_CONFIG", process.env.NEXT_PUBLIC_SOL_SB_FEED_CONFIG],
+    ["NEXT_PUBLIC_SB_FEED_CONFIG", process.env.NEXT_PUBLIC_SB_FEED_CONFIG],
+  ],
+  "GgGVgSLWAyL9Xf4fGaAQQCkmWetBjX7PCNz8kTK97DKB",
 );
 
-export const KXI_SWITCHBOARD_FEED = new PublicKey(
-  process.env.NEXT_PUBLIC_KXI_SB_FEED_CONFIG ??
-    "8C9ZsFqtNSLwCeqcFDW1WL4qB8XugkQec6VNsKv3fos8",
+export const KXI_SWITCHBOARD_FEED = publicKeyFromEnv(
+  "NEXT_PUBLIC_KXI_SB_FEED_CONFIG",
+  process.env.NEXT_PUBLIC_KXI_SB_FEED_CONFIG,
+  "8C9ZsFqtNSLwCeqcFDW1WL4qB8XugkQec6VNsKv3fos8",
 );
 
 export const MARKETS: Record<MarketSymbol, MarketInfo> = {

@@ -1,7 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use shank::ShankAccount;
 
-pub const QUOTE_NATIVE_UNIT: i128 = 1_000_000;
+pub const BASE_NATIVE_UNIT: i128 = 1_000_000_000;
 
 #[derive(Pod, Zeroable, Copy, Clone, ShankAccount)]
 #[repr(C)]
@@ -25,6 +25,16 @@ const _: () = assert!(size_of::<MarketConfig>() % 8 == 0);
 impl MarketConfig {
     pub const LEN: usize = size_of::<MarketConfig>();
 
+    pub fn native_price_to_lots(&self, price_native: i64) -> Option<i64> {
+        if price_native <= 0 || self.base_lot_size <= 0 || self.quote_lot_size <= 0 {
+            return None;
+        }
+
+        let numerator = (price_native as i128).checked_mul(self.base_lot_size as i128)?;
+        let denominator = BASE_NATIVE_UNIT.checked_mul(self.quote_lot_size as i128)?;
+        i64::try_from(numerator.checked_div(denominator)?).ok()
+    }
+
     pub fn required_initial_margin(&self, size_lots: i64, price_lots: i64) -> i64 {
         let notional = (size_lots.abs() as i128)
             .saturating_mul(price_lots as i128)
@@ -36,7 +46,7 @@ impl MarketConfig {
     pub fn notional_value(&self, size_lots: i64, price_lots: i64) -> i64 {
         let notional = (size_lots.abs() as i128)
             .saturating_mul(price_lots as i128)
-            .saturating_mul(QUOTE_NATIVE_UNIT);
+            .saturating_mul(self.quote_lot_size as i128);
 
         notional as i64
     }

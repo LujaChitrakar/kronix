@@ -14,12 +14,23 @@ import {
   sendResumeTrigger,
   sendEditTrigger,
 } from "@/lib/kronix/client";
-import { findMarketPda, findOpenOrdersPda } from "@/lib/kronix/pdas";
-import { fetchOpenOrders } from "@/lib/kronix/state";
+import {
+  findMarketConfigPda,
+  findMarketPda,
+  findOpenOrdersPda,
+} from "@/lib/kronix/pdas";
+import { fetchMarketConfig, fetchOpenOrders } from "@/lib/kronix/state";
 import { useStore } from "@/lib/store";
 import { sendTx, formatTxError } from "./tx";
 import { notifyError, notifyTxSuccess } from "@/lib/notifications";
 import { getTriggerOrderDecoder } from "@/lib/trigger-sdk";
+import {
+  formatPriceLots,
+  formatSizeLots,
+  parsePriceInput,
+  parseSizeInput,
+  type LotConfig,
+} from "@/lib/kronix/lot-math";
 
 const TRIGGER_ORDER_SIZE = 144;
 
@@ -61,7 +72,17 @@ export function TriggerOrders() {
     newSizeLots: "",
     newExpiry: "-1",
   });
+  const [cfg, setCfg] = useState<LotConfig | null>(null);
   const marketIndex = useStore((s) => s.selectedMarketIndex);
+
+  useEffect(() => {
+    const [cfgPda] = findMarketConfigPda(marketIndex);
+    fetchMarketConfig(connection, cfgPda)
+      .then((c) => {
+        if (c) setCfg({ baseLotSize: c.baseLotSize, quoteLotSize: c.quoteLotSize });
+      })
+      .catch(() => null);
+  }, [connection, marketIndex]);
 
   const refresh = useCallback(async () => {
     if (!owner) {
@@ -186,19 +207,27 @@ export function TriggerOrders() {
   const startEdit = (r: Row) => {
     setEditId(r.clientId);
     setDraft({
-      newTriggerPrice: String(r.triggerPrice),
-      newSizeLots: String(r.sizeLots),
+      newTriggerPrice: cfg ? formatPriceLots(r.triggerPrice, cfg) : String(r.triggerPrice),
+      newSizeLots: cfg ? formatSizeLots(r.sizeLots, cfg) : String(r.sizeLots),
       newExpiry: String(r.expiry),
     });
   };
 
   const submitEdit = async (clientId: bigint) => {
     if (!owner) return;
+    if (!cfg) {
+      setMsg("Edit failed:\nMarket config still loading");
+      notifyError("Edit failed", "Market config still loading");
+      return;
+    }
     setBusy(`edit ${clientId}`);
     setMsg("");
     try {
-      const newTriggerPrice = BigInt(draft.newTriggerPrice || "0");
-      const newSizeLots = BigInt(draft.newSizeLots || "0");
+      const newTriggerPrice = parsePriceInput(draft.newTriggerPrice || "0", cfg);
+      const newSizeLots = parseSizeInput(draft.newSizeLots || "0", cfg);
+      if (newTriggerPrice === null || newSizeLots === null) {
+        throw new Error("Invalid trigger price or size");
+      }
       const newExpiry = BigInt(draft.newExpiry || "-1");
       const sig = await sendEditTrigger(
         owner,
@@ -258,8 +287,8 @@ export function TriggerOrders() {
                     >
                       {r.side === 0 ? "BUY" : "SELL"}
                     </td>
-                    <td>{String(r.triggerPrice)}</td>
-                    <td>{String(r.sizeLots)}</td>
+                    <td>{cfg ? formatPriceLots(r.triggerPrice, cfg) : String(r.triggerPrice)}</td>
+                    <td>{cfg ? formatSizeLots(r.sizeLots, cfg) : String(r.sizeLots)}</td>
                     <td>{r.expiry === 0n ? "—" : String(r.expiry)}</td>
                     <td>{statusLabel(r.status)}</td>
                     <td className="text-right">
@@ -331,6 +360,7 @@ export function TriggerOrders() {
                             onChange={(v) =>
                               setDraft({ ...draft, newExpiry: v })
                             }
+                            inputMode="text"
                           />
                           <button
                             disabled={!!busy}
@@ -357,10 +387,12 @@ function EditField({
   label,
   value,
   onChange,
+  inputMode = "decimal",
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  inputMode?: "decimal" | "numeric" | "text";
 }) {
   return (
     <div>
@@ -370,7 +402,7 @@ function EditField({
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        inputMode="numeric"
+        inputMode={inputMode}
         className="w-full bg-kx-surface border kx-border rounded-md px-3 py-2 text-sm font-mono text-on-surface"
       />
     </div>

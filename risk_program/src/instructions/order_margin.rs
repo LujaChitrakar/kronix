@@ -12,7 +12,7 @@ use crate::{
     helper::{
         verify_account_owner, verify_initialized, verify_pda, verify_signer, verify_writtable,
     },
-    state::{MarketConfig, UserAccount, QUOTE_NATIVE_UNIT},
+    state::{MarketConfig, UserAccount},
 };
 
 #[derive(Pod, Zeroable, Clone, Copy, ShankType)]
@@ -43,13 +43,13 @@ fn order_margin_amount(
     if quote_lots <= 0 {
         return Err(RiskProgramError::InvalidAmount.into());
     }
-    let max_leverage = market.max_leverage.min(10);
+    let max_leverage = market.max_leverage;
     if leverage == 0 || max_leverage == 0 || leverage > max_leverage {
         return Err(RiskProgramError::ExceedsMaxLeverage.into());
     }
 
     let notional = (quote_lots as i128)
-        .checked_mul(QUOTE_NATIVE_UNIT)
+        .checked_mul(market.quote_lot_size as i128)
         .ok_or(RiskProgramError::InsufficientCollateral)?;
 
     let required = div_ceil_i128(notional, leverage as i128)?;

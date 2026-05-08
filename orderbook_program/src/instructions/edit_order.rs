@@ -187,7 +187,8 @@ pub fn process_edit_order(accounts: &[AccountView], data: &[u8]) -> ProgramResul
     };
 
     let leverage = params.leverage;
-    let reserved_margin = margin_from_quote_lots(params.new_quote_lots, leverage)?;
+    let reserved_margin =
+        margin_from_quote_lots(params.new_quote_lots, market_state.quote_lot_size, leverage)?;
 
     let new_order = Order {
         side,

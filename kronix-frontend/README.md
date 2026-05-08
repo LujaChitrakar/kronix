@@ -6,12 +6,15 @@ Create `kronix-frontend/.env.local` with server-side RPC config:
 
 ```bash
 NEXT_PUBLIC_RPC_URL=https://api.devnet.solana.com
+# Optional browser websocket endpoint. Defaults to Solana devnet websocket.
+NEXT_PUBLIC_RPC_WS_URL=wss://api.devnet.solana.com
 NEXT_PUBLIC_USDC_MINT=4VwXppbTdzQvzt7SsMYUpXdrZcytrQeixJFXUcgsEetF
 ```
 
 The browser uses the same-origin `/api/rpc` proxy. Keep
 `NEXT_PUBLIC_RPC_URL` out of client components so paid RPC URLs are not bundled
-or called directly by the browser.
+or called directly by the browser. `/api/rpc` is HTTP-only, so websocket
+subscriptions use `NEXT_PUBLIC_RPC_WS_URL` instead of `wss://<site>/api/rpc`.
 
 First, run the development server:
 
