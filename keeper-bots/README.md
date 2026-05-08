@@ -62,7 +62,9 @@ Required env vars (read from `.env.local`):
 | `KEEPER_DEV_CORRUPTED_COLLATERAL_FLOOR` | `-100000000000`               | Dev-only collateral floor used by skip mode     |
 | `KEEPER_DEV_CORRUPTED_ACCOUNTS`  | unset                                | Dev-only comma list of owner/user/position pubkeys to skip |
 
-The frontend's `lib/kronix/config.ts` reads the same `NEXT_PUBLIC_*` env vars.
+The frontend's browser connection uses `/api/rpc`; set `NEXT_PUBLIC_RPC_URL`
+in `kronix-frontend/.env.local` or Vercel for the upstream RPC provider, but
+do not read it from client components.
 Faucet API routes also accept `KEEPER_KEYPAIR_PATH` from
 `kronix-frontend/.env.local` when `MINT_AUTHORITY` is unset.
 

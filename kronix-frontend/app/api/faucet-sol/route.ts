@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import {
-  Connection,
   Keypair,
   LAMPORTS_PER_SOL,
   PublicKey,
@@ -8,6 +7,7 @@ import {
   Transaction,
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
+import { createServerConnection } from "@/lib/kronix/server-rpc";
 
 const FAUCET_LAMPORTS = LAMPORTS_PER_SOL / 10;
 
@@ -34,10 +34,7 @@ export async function POST(req: Request) {
 
     const recipient = new PublicKey(body.wallet);
     const authority = loadMintAuthority();
-    const conn = new Connection(
-      process.env.NEXT_PUBLIC_RPC_URL ?? "https://api.devnet.solana.com",
-      "confirmed",
-    );
+    const conn = createServerConnection("confirmed");
 
     const balance = await conn.getBalance(authority.publicKey, "confirmed");
     if (balance < FAUCET_LAMPORTS + 5_000) {

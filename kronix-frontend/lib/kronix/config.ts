@@ -52,9 +52,6 @@ export const SYSTEM_PROGRAM_ID = new PublicKey(
   "11111111111111111111111111111111",
 );
 
-export const RPC_URL =
-  process.env.NEXT_PUBLIC_RPC_URL ?? "https://api.devnet.solana.com";
-
 export const USDC_MINT = new PublicKey(
   process.env.NEXT_PUBLIC_USDC_MINT ??
     "4VwXppbTdzQvzt7SsMYUpXdrZcytrQeixJFXUcgsEetF",

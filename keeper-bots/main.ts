@@ -148,6 +148,21 @@ const PADDING_6 = new Uint8Array(6);
 
 const addr = (pk: PublicKey): Address => pk.toBase58() as Address;
 
+function redactRpcUrl(raw: string): string {
+  try {
+    const url = new URL(raw);
+    for (const key of ["api-key", "apikey", "key", "token"]) {
+      if (url.searchParams.has(key)) url.searchParams.set(key, "redacted");
+    }
+    if (url.username) url.username = "redacted";
+    if (url.password) url.password = "redacted";
+    return url.toString();
+  } catch {
+    const queryStart = raw.indexOf("?");
+    return queryStart === -1 ? raw : `${raw.slice(0, queryStart)}?redacted`;
+  }
+}
+
 // ── Bootstrap ────────────────────────────────────────────────────────────
 
 const conn = new Connection(RPC_URL, "confirmed");
@@ -194,7 +209,7 @@ function loadKeeperKeypair(): Keypair {
 
 const keeper = loadKeeperKeypair();
 console.log(`keeper pubkey: ${keeper.publicKey.toBase58()}`);
-console.log(`rpc:           ${RPC_URL}`);
+console.log(`rpc:           ${redactRpcUrl(RPC_URL)}`);
 console.log(`market_indexes:${MARKET_INDEXES.join(",")}`);
 if (DEV_SKIP_CORRUPTED_ACCOUNTS) {
   console.log(
