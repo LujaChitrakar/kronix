@@ -1,15 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { sendCreateStrategy } from "@/lib/kronix/client";
+import { sendCreateOpenOrders, sendCreateStrategy } from "@/lib/kronix/client";
 import { Side, StrategyType } from "@/lib/kronix/config";
-import { findUserAccountPda } from "@/lib/kronix/pdas";
+import {
+  findMarketPda,
+  findOpenOrdersPda,
+  findUserAccountPda,
+} from "@/lib/kronix/pdas";
 import { fetchUser } from "@/lib/kronix/state";
 import { emptyStrategyParamsArgs } from "@/lib/strategy-sdk";
 import { useStore } from "@/lib/store";
-import { useEffect } from "react";
-import { notifyError, notifyTxSuccess, notifyWarning } from "@/lib/notifications";
+import {
+  notifyError,
+  notifyInfo,
+  notifyTxSuccess,
+  notifyWarning,
+} from "@/lib/notifications";
 import { sendTx, formatTxError } from "./tx";
 
 const STRATEGY_TYPES: [string, number][] = [
@@ -58,14 +66,18 @@ export function StrategyForm() {
     orderBlockSensitivity: "0",
   });
 
-  const [busy, setBusy] = useState(false);
+  const [busyAction, setBusyAction] = useState<"initialize" | "create" | null>(
+    null,
+  );
   const [msg, setMsg] = useState("");
+  const [hasOpenOrders, setHasOpenOrders] = useState<boolean | null>(null);
 
   const [mounted, setMounted] = useState(false);
   const selectedPrice = useStore(s => s.selectedPrice);
   const marketIndex = useStore(s => s.selectedMarketIndex);
   const lastFocusedInputId = useStore(s => s.lastFocusedInputId);
   const setLastFocusedInputId = useStore(s => s.setLastFocusedInputId);
+  const busy = busyAction !== null;
 
   useEffect(() => {
     setMounted(true);
@@ -82,8 +94,59 @@ export function StrategyForm() {
     }
   }, [selectedPrice, lastFocusedInputId]);
 
+  useEffect(() => {
+    if (!owner) {
+      setHasOpenOrders(null);
+      return;
+    }
+    setHasOpenOrders(null);
+    let alive = true;
+    const refresh = async () => {
+      const [market] = findMarketPda(marketIndex);
+      const [oo] = findOpenOrdersPda(owner, market);
+      const info = await connection.getAccountInfo(oo, "confirmed");
+      if (alive) setHasOpenOrders(!!info);
+    };
+    refresh().catch(() => null);
+    const t = setInterval(() => refresh().catch(() => null), 5000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [connection, owner, marketIndex]);
+
+  const initializeAccount = async () => {
+    if (!owner) return;
+    setBusyAction("initialize");
+    setMsg("Initializing account...");
+    try {
+      const sig = await sendCreateOpenOrders(
+        owner,
+        connection,
+        (ixs, c) => sendTx(wallet, c, ixs),
+        marketIndex,
+      );
+      setHasOpenOrders(true);
+      setMsg(sig ? `Initialized ${sig.slice(0, 8)}...` : "Account already initialized");
+      if (sig) notifyTxSuccess("Account initialized", sig);
+      else notifyInfo("Account initialized", "Open orders account already exists");
+    } catch (e) {
+      const err = formatTxError(e);
+      setMsg(`Initialize failed:\n${err}`);
+      notifyError("Initialize account failed", err);
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
   const submit = async () => {
     if (!owner) return;
+    if (hasOpenOrders !== true) {
+      const msg = "Initialize account first";
+      setMsg(msg);
+      notifyWarning("Strategy blocked", msg);
+      return;
+    }
     const sz = BigInt(parseInt(sizeLots || "0", 10));
     if (sz <= 0n) {
       setMsg("Size must be > 0");
@@ -106,7 +169,7 @@ export function StrategyForm() {
       notifyWarning("Strategy blocked", msg);
       return;
     }
-    setBusy(true);
+    setBusyAction("create");
     setMsg("Creating strategy…");
     try {
       const params = emptyStrategyParamsArgs();
@@ -158,7 +221,7 @@ export function StrategyForm() {
       setMsg(`Failed:\n${err}`);
       notifyError("Strategy failed", err);
     } finally {
-      setBusy(false);
+      setBusyAction(null);
     }
   };
 
@@ -366,12 +429,23 @@ export function StrategyForm() {
         </div>
       )}
 
+      {owner && hasOpenOrders === false && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={initializeAccount}
+          className="w-full py-3 text-sm font-headline font-bold uppercase tracking-wider rounded-lg bg-[#4dffb4]/10 border border-[#4dffb4]/30 text-[#4dffb4] transition-colors hover:bg-[#4dffb4]/20 disabled:opacity-50"
+        >
+          {busyAction === "initialize" ? "Initializing..." : "Initialize Account"}
+        </button>
+      )}
+
       <button
-        disabled={busy || !owner}
+        disabled={busy || !owner || hasOpenOrders !== true}
         onClick={submit}
         className="w-full py-3 text-sm font-headline font-bold uppercase tracking-wider rounded-lg bg-[#4dffb4] text-on-primary-fixed shadow-lg shadow-[#4dffb4]/20 transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-50"
       >
-        {busy ? "Creating…" : owner ? "Create Strategy" : "Connect Wallet"}
+        {busyAction === "create" ? "Creating…" : owner ? "Create Strategy" : "Connect Wallet"}
       </button>
 
     </div>

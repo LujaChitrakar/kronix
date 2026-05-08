@@ -13,6 +13,7 @@ import {
   sendAddMargin,
   sendRemoveMargin,
   sendSettleFunding,
+  sendCancelTriggerOrders,
 } from "@/lib/kronix/client";
 import {
   getMarketInfoByIndex,
@@ -28,6 +29,8 @@ import { getTriggerOrderDecoder } from "@/lib/trigger-sdk";
 const TRIGGER_ORDER_SIZE = 144;
 
 type PositionTrigger = {
+  clientOrderId: bigint;
+  createdAt: bigint;
   price: bigint;
   sizeLots: bigint;
   status: number;
@@ -52,6 +55,11 @@ function readI128LE(data: Buffer, offset: number): bigint {
   return value & (1n << 127n) ? value - (1n << 128n) : value;
 }
 
+function isAttachedTriggerClientId(clientOrderId: bigint): boolean {
+  const suffix = clientOrderId % 10n;
+  return suffix === 1n || suffix === 2n;
+}
+
 function parseSwitchboardPriceNative(data: Buffer): bigint | null {
   if (data.length < SWITCHBOARD_SLOT_OFFSET + 8) return null;
   if (!data.subarray(0, 8).equals(SWITCHBOARD_DISC)) return null;
@@ -59,11 +67,51 @@ function parseSwitchboardPriceNative(data: Buffer): bigint | null {
   return readI128LE(data, SWITCHBOARD_VALUE_OFFSET) / SWITCHBOARD_SCALE;
 }
 
-function formatTriggers(triggers: PositionTrigger[]): string {
-  if (triggers.length === 0) return "-";
-  return triggers
+function formatTriggers(
+  triggers: PositionTrigger[],
+  positionSizeLots?: bigint,
+): string {
+  const visible =
+    positionSizeLots === undefined
+      ? triggers
+      : positionSizedTriggers(triggers, positionSizeLots);
+  if (visible.length === 0) return "-";
+  return visible
     .map((t) => `${t.price} (${t.sizeLots})${t.status === TriggerStatus.Paused ? " P" : ""}`)
     .join(", ");
+}
+
+function positionSizedTriggers(
+  triggers: PositionTrigger[],
+  positionSizeLots: bigint,
+): PositionTrigger[] {
+  let remaining = positionSizeLots;
+  const byPrice = new Map<string, PositionTrigger>();
+
+  for (const trigger of [...triggers].sort((a, b) => {
+    if (a.createdAt !== b.createdAt) return a.createdAt > b.createdAt ? -1 : 1;
+    if (a.clientOrderId !== b.clientOrderId) {
+      return a.clientOrderId > b.clientOrderId ? -1 : 1;
+    }
+    return 0;
+  })) {
+    if (remaining <= 0n) break;
+    if (trigger.sizeLots <= 0n) continue;
+
+    const sizeLots = trigger.sizeLots > remaining ? remaining : trigger.sizeLots;
+    remaining -= sizeLots;
+    const key = `${trigger.price}:${trigger.status}`;
+    const prev = byPrice.get(key);
+    if (prev) {
+      prev.sizeLots += sizeLots;
+      continue;
+    }
+    byPrice.set(key, { ...trigger, sizeLots });
+  }
+
+  return Array.from(byPrice.values()).sort((a, b) =>
+    a.price > b.price ? 1 : a.price < b.price ? -1 : 0,
+  );
 }
 
 export function PositionPanel() {
@@ -82,6 +130,7 @@ export function PositionPanel() {
     takeProfit: PositionTrigger[];
     stopLoss: PositionTrigger[];
   }>({ takeProfit: [], stopLoss: [] });
+  const [staleTriggerIds, setStaleTriggerIds] = useState<bigint[]>([]);
   const [oracle, setOracle] = useState<PublicKey | null>(null);
   const [cfg, setCfg] = useState<{
     quoteLotSize: bigint;
@@ -125,6 +174,7 @@ export function PositionPanel() {
           const t = decoder.decode(new Uint8Array(account.data));
           if (t.marketIndex !== marketIndex) continue;
           if (t.side !== closeSide) continue;
+          if (!isAttachedTriggerClientId(t.clientOrderId)) continue;
           if (
             t.status !== TriggerStatus.Active &&
             t.status !== TriggerStatus.Paused
@@ -132,6 +182,8 @@ export function PositionPanel() {
             continue;
           }
           const value = {
+            clientOrderId: t.clientOrderId,
+            createdAt: t.createdAt,
             price: t.triggerPrice,
             sizeLots: t.sizeLots,
             status: t.status,
@@ -145,16 +197,30 @@ export function PositionPanel() {
           continue;
         }
       }
-      nextTriggers.takeProfit.sort((a, b) =>
-        a.price > b.price ? 1 : a.price < b.price ? -1 : 0,
+      const visibleTakeProfit = positionSizedTriggers(nextTriggers.takeProfit, p.size);
+      const visibleStopLoss = positionSizedTriggers(nextTriggers.stopLoss, p.size);
+      const visibleIds = new Set(
+        [...visibleTakeProfit, ...visibleStopLoss].map((trigger) =>
+          trigger.clientOrderId.toString(),
+        ),
       );
-      nextTriggers.stopLoss.sort((a, b) =>
-        a.price > b.price ? 1 : a.price < b.price ? -1 : 0,
+      setPositionTriggers({
+        takeProfit: visibleTakeProfit,
+        stopLoss: visibleStopLoss,
+      });
+      setStaleTriggerIds(
+        [...nextTriggers.takeProfit, ...nextTriggers.stopLoss]
+          .filter(
+            (trigger) =>
+              trigger.status === TriggerStatus.Active &&
+              !visibleIds.has(trigger.clientOrderId.toString()),
+          )
+          .map((trigger) => trigger.clientOrderId),
       );
-      setPositionTriggers(nextTriggers);
     } else {
       setPos(null);
       setPositionTriggers({ takeProfit: [], stopLoss: [] });
+      setStaleTriggerIds([]);
     }
     if (cfg) {
       const configuredOracle = getMarketInfoByIndex(marketIndex)?.oracle;
@@ -233,6 +299,18 @@ export function PositionPanel() {
     }
   };
 
+  const cleanStaleTriggers = async () => {
+    if (!owner || staleTriggerIds.length === 0) return;
+    await run("Clean TP/SL", () =>
+      sendCancelTriggerOrders(
+        owner,
+        staleTriggerIds,
+        connection,
+        (ixs, c) => sendTx(wallet, c, ixs),
+      ),
+    );
+  };
+
   const baseUnits = (() => {
     const f = parseFloat(marginAmt);
     if (!isFinite(f) || f <= 0) return 0n;
@@ -282,12 +360,12 @@ export function PositionPanel() {
             <Stat label="Avg Entry (lots)" v={String(pos.entryPrice)} />
             <Stat
               label="TP (price/size)"
-              v={formatTriggers(positionTriggers.takeProfit)}
+              v={formatTriggers(positionTriggers.takeProfit, pos.size)}
               accent={positionTriggers.takeProfit.length > 0}
             />
             <Stat
               label="SL (price/size)"
-              v={formatTriggers(positionTriggers.stopLoss)}
+              v={formatTriggers(positionTriggers.stopLoss, pos.size)}
             />
             <Stat
               label="Margin"
@@ -423,6 +501,15 @@ export function PositionPanel() {
             >
               Settle Funding
             </button>
+            {staleTriggerIds.length > 0 && (
+              <button
+                disabled={!!busy}
+                onClick={cleanStaleTriggers}
+                className="text-[11px] font-headline font-bold uppercase tracking-wider min-w-[88px] px-3 py-1.5 rounded-md bg-[#4dffb4]/10 border border-[#4dffb4]/30 text-[#4dffb4] hover:bg-[#4dffb4]/20 transition-colors disabled:opacity-50"
+              >
+                Clean TP/SL
+              </button>
+            )}
           </div>
         </>
       )}

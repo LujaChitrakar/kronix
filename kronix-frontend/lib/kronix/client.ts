@@ -44,6 +44,7 @@ import {
   getInitializeVaultInstruction,
   getCreateRiskMarketInstruction,
   getDepositInsuranceInstruction,
+  getPositionDecoder,
 } from "@/lib/risk-sdk";
 
 import {
@@ -95,6 +96,8 @@ type PlaceTriggerOrderArgs = {
 };
 
 const TERMINAL_TRIGGER_STATUSES = new Set([1, 2]); // Triggered, Canceled
+const ACTIVE_TRIGGER_STATUS = 0;
+const TRIGGER_ORDER_SIZE = 144;
 
 const PADDING_3 = new Uint8Array(3);
 const PADDING_5 = new Uint8Array(5);
@@ -103,6 +106,11 @@ const PADDING_7 = new Uint8Array(7);
 
 function addr(pk: PublicKey): Address {
   return pk.toBase58() as Address;
+}
+
+function isAttachedTriggerClientId(clientOrderId: bigint): boolean {
+  const suffix = clientOrderId % 10n;
+  return suffix === 1n || suffix === 2n;
 }
 
 function priorityFeeIxs(): TransactionInstruction[] {
@@ -143,6 +151,46 @@ async function makerOpenOrdersForMatch(
   }
 
   return owners;
+}
+
+async function maxQuoteLotsForOrder(
+  conn: Connection,
+  market: PublicKey,
+  args: {
+    side: number;
+    orderType: number;
+    priceLots: bigint;
+    maxBaseLots: bigint;
+    maxQuoteLots: bigint;
+    limit: number;
+  },
+  marketIndex: number,
+): Promise<bigint> {
+  if (args.side !== 1 || args.orderType === PlaceOrderType.PostOnly) {
+    return args.maxQuoteLots;
+  }
+
+  const snap = await scanBook(conn, market, marketIndex);
+  let remainingBaseLots = args.maxBaseLots;
+  let quoteLots = 0n;
+  let fills = 0;
+  const isMarket = args.orderType === PlaceOrderType.Market;
+
+  for (const bid of snap.bids) {
+    if (remainingBaseLots <= 0n || fills >= args.limit) break;
+    if (!isMarket && bid.priceLots < args.priceLots) break;
+
+    const baseLots = bid.quantity < remainingBaseLots ? bid.quantity : remainingBaseLots;
+    quoteLots += baseLots * bid.priceLots;
+    remainingBaseLots -= baseLots;
+    fills += 1;
+  }
+
+  if (!isMarket && remainingBaseLots > 0n) {
+    quoteLots += remainingBaseLots * args.priceLots;
+  }
+
+  return quoteLots > args.maxQuoteLots ? quoteLots : args.maxQuoteLots;
 }
 
 // ───────── Onboarding ─────────
@@ -279,6 +327,17 @@ export async function sendClosePosition(
   const [position] = findPositionPda(owner, marketIndex);
   const [marketConfig] = findMarketConfigPda(marketIndex);
   const [fundingState] = findFundingStatePda(marketIndex);
+  const positionAccount = await conn.getAccountInfo(position, "confirmed");
+  const positionState = positionAccount
+    ? getPositionDecoder().decode(new Uint8Array(positionAccount.data))
+    : null;
+  const isFullClose =
+    !!positionState && positionState.size > 0n && sizeLots >= positionState.size;
+  const closeSide = positionState
+    ? positionState.side === 0
+      ? 1
+      : 0
+    : undefined;
 
   const ix = getClosePositionInstruction({
     signer: fakeSigner(owner),
@@ -291,7 +350,11 @@ export async function sendClosePosition(
     marketIndex,
     padding: PADDING_6,
   });
-  return send([...priorityFeeIxs(), toLegacyIx(ix)], conn);
+  const triggerIxs =
+    isFullClose && closeSide !== undefined
+      ? await activeTriggerCancelIxs(owner, conn, { marketIndex, side: closeSide })
+      : [];
+  return send([...priorityFeeIxs(), toLegacyIx(ix), ...triggerIxs], conn);
 }
 
 export async function sendAddMargin(
@@ -397,6 +460,13 @@ export async function sendPlaceOrder(
     await send([...priorityFeeIxs(), buildCreateOpenOrdersIx(owner, marketIndex)], conn);
   }
 
+  const effectiveMaxQuoteLots = await maxQuoteLotsForOrder(
+    conn,
+    market,
+    args,
+    marketIndex,
+  );
+
   const initFillsLog = getInitializeFillsLogInstruction({
     feePayer: fakeSigner(owner),
     taker: addr(owner),
@@ -417,7 +487,7 @@ export async function sendPlaceOrder(
     fillsLogs: addr(fillsLog),
     systemProgram: addr(SYSTEM_PROGRAM_ID),
     maxBaseLots: args.maxBaseLots,
-    maxQuoteLots: args.maxQuoteLots,
+    maxQuoteLots: effectiveMaxQuoteLots,
     clientOrderId: args.clientOrderId,
     expiryTimestamp: args.expiryTimestamp,
     priceLots: args.priceLots,
@@ -433,7 +503,7 @@ export async function sendPlaceOrder(
     orderType: args.orderType, // 0=limit?
     priceLots: args.priceLots,
     maxBaseLots: args.maxBaseLots,
-    maxQuoteLots: args.maxQuoteLots,
+    maxQuoteLots: effectiveMaxQuoteLots,
     clientOrderId: args.clientOrderId,
     owner: owner.toBase58(),
   });
@@ -461,6 +531,16 @@ export async function sendPlaceOrder(
     attachedTriggers.length > 0
       ? [buildSetDelegateIx(owner, findTriggerAuthorityPda(owner)[0], marketIndex)]
       : [];
+  const staleTriggerCancelIxs =
+    attachedTriggers.length > 0
+      ? (
+          await Promise.all(
+            Array.from(new Set(attachedTriggers.map((trigger) => trigger.side))).map((side) =>
+              activeTriggerCancelIxs(owner, conn, { marketIndex, side }),
+            ),
+          )
+        ).flat()
+      : [];
   const triggerIxs = attachedTriggers.map((trigger) =>
     buildPlaceTriggerOrderIx(owner, trigger),
   );
@@ -471,6 +551,7 @@ export async function sendPlaceOrder(
       toLegacyIx(initFillsLog),
       placeIx,
       ...delegateIxs,
+      ...staleTriggerCancelIxs,
       ...triggerIxs,
     ],
     conn,
@@ -646,6 +727,8 @@ export async function sendEditOrder(
     limit: number;
     leverage?: number;
     marketIndex?: number;
+    oldClientId?: bigint;
+    attachedTriggers?: PlaceTriggerOrderArgs[];
   },
   conn: Connection,
   send: Send,
@@ -709,7 +792,30 @@ export async function sendEditOrder(
     ...makerOos.map((pubkey) => ({ pubkey, isSigner: false, isWritable: true })),
   );
 
-  return send([...priorityFeeIxs(), toLegacyIx(initFillsLog), editIx], conn);
+  const triggerCancelIxs =
+    args.oldClientId !== undefined
+      ? await attachedTriggerCancelIxs(owner, [args.oldClientId], conn)
+      : [];
+  const attachedTriggers = args.attachedTriggers ?? [];
+  const triggerDelegateIxs =
+    attachedTriggers.length > 0
+      ? [buildSetDelegateIx(owner, findTriggerAuthorityPda(owner)[0], marketIndex)]
+      : [];
+  const triggerIxs = attachedTriggers.map((trigger) =>
+    buildPlaceTriggerOrderIx(owner, trigger),
+  );
+
+  return send(
+    [
+      ...priorityFeeIxs(),
+      toLegacyIx(initFillsLog),
+      editIx,
+      ...triggerCancelIxs,
+      ...triggerDelegateIxs,
+      ...triggerIxs,
+    ],
+    conn,
+  );
 }
 
 export async function sendSetDelegate(
@@ -804,6 +910,20 @@ export async function sendCancelTriggerOrder(
   return send([...priorityFeeIxs(), buildCancelTriggerOrderIx(owner, triggerOrder)], conn);
 }
 
+export async function sendCancelTriggerOrders(
+  owner: PublicKey,
+  clientOrderIds: bigint[],
+  conn: Connection,
+  send: Send,
+): Promise<string> {
+  if (clientOrderIds.length === 0) throw new Error("No trigger orders to cancel");
+  const ixs = clientOrderIds.map((clientOrderId) => {
+    const [triggerOrder] = findTriggerOrderPda(owner, clientOrderId);
+    return buildCancelTriggerOrderIx(owner, triggerOrder);
+  });
+  return send([...priorityFeeIxs(), ...ixs], conn);
+}
+
 function buildCancelTriggerOrderIx(
   owner: PublicKey,
   triggerOrder: PublicKey,
@@ -844,6 +964,40 @@ async function attachedTriggerCancelIxs(
       return;
     }
   });
+
+  return ixs;
+}
+
+async function activeTriggerCancelIxs(
+  owner: PublicKey,
+  conn: Connection,
+  filter: {
+    marketIndex: number;
+    side: number;
+  },
+): Promise<TransactionInstruction[]> {
+  const accounts = await conn.getProgramAccounts(TRIGGER_PROGRAM_ID, {
+    commitment: "confirmed",
+    filters: [
+      { dataSize: TRIGGER_ORDER_SIZE },
+      { memcmp: { offset: 48, bytes: owner.toBase58() } },
+    ],
+  });
+  const decoder = getTriggerOrderDecoder();
+  const ixs: TransactionInstruction[] = [];
+
+  for (const { pubkey, account } of accounts) {
+    try {
+      const trigger = decoder.decode(new Uint8Array(account.data));
+      if (trigger.marketIndex !== filter.marketIndex) continue;
+      if (trigger.side !== filter.side) continue;
+      if (trigger.status !== ACTIVE_TRIGGER_STATUS) continue;
+      if (!isAttachedTriggerClientId(trigger.clientOrderId)) continue;
+      ixs.push(buildCancelTriggerOrderIx(owner, pubkey));
+    } catch {
+      continue;
+    }
+  }
 
   return ixs;
 }
