@@ -178,25 +178,6 @@ export async function sendTx(
     return sig;
   }
 
-  // Pre-flight simulate to surface program errors before wallet popup.
-  try {
-    const sim = await conn.simulateTransaction(tx);
-    if (sim.value.err) {
-      const logs = sim.value.logs ?? undefined;
-      throw new TxError(
-        `simulation failed: ${JSON.stringify(sim.value.err)}` +
-          (logs ? ` — ${summarizeLogs(logs)}` : ""),
-        "simulate",
-        logs,
-        sim.value.err,
-      );
-    }
-  } catch (e) {
-    if (e instanceof TxError) throw e;
-    // simulate RPC errors: don't block — fall through to send
-    console.warn("simulate RPC error", e);
-  }
-
   let sig: string;
   try {
     sig = await wallet.sendTransaction(tx, conn);

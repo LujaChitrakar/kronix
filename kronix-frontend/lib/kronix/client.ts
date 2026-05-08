@@ -3,6 +3,7 @@ import {
   PublicKey,
   TransactionInstruction,
   ComputeBudgetProgram,
+  type GetAccountInfoConfig,
 } from "@solana/web3.js";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import type { Address } from "@solana/kit";
@@ -76,7 +77,7 @@ import {
   findStrategyAuthorityPda,
 } from "./pdas";
 import { toLegacyIx, fakeSigner } from "./ix-bridge";
-import { fetchFillsLog } from "./fills-log";
+import { fetchFillsLog, type FillsLog } from "./fills-log";
 import { buildSettleFillsIx, MAX_FILLS_PER_TX } from "./settle-fills";
 import { scanBook } from "./book-scan";
 
@@ -98,6 +99,8 @@ type PlaceTriggerOrderArgs = {
 const TERMINAL_TRIGGER_STATUSES = new Set([1, 2]); // Triggered, Canceled
 const ACTIVE_TRIGGER_STATUS = 0;
 const TRIGGER_ORDER_SIZE = 144;
+const FILLS_LOG_WAIT_MS = 12_000;
+const FILLS_LOG_POLL_MS = 500;
 
 const PADDING_3 = new Uint8Array(3);
 const PADDING_5 = new Uint8Array(5);
@@ -118,6 +121,63 @@ function priorityFeeIxs(): TransactionInstruction[] {
     ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 }),
     ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 10_000 }),
   ];
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function signatureSlot(
+  conn: Connection,
+  sig: string,
+): Promise<number | undefined> {
+  try {
+    const status = await conn.getSignatureStatuses([sig]);
+    return status.value[0]?.slot;
+  } catch {
+    return undefined;
+  }
+}
+
+async function waitForFillsLog(
+  conn: Connection,
+  fillsLog: PublicKey,
+  clientOrderId: bigint,
+  minContextSlot?: number,
+): Promise<FillsLog> {
+  const deadline = Date.now() + FILLS_LOG_WAIT_MS;
+  let lastLog: FillsLog | null = null;
+  let lastError: unknown;
+
+  while (Date.now() <= deadline) {
+    try {
+      const config: GetAccountInfoConfig | "confirmed" = minContextSlot
+        ? { commitment: "confirmed", minContextSlot }
+        : "confirmed";
+      const log = await fetchFillsLog(conn, fillsLog, config);
+      if (log?.clientOrderId === clientOrderId) {
+        lastLog = log;
+        if (log.fillCount > 0 || log.allSettled === 1) return log;
+      }
+    } catch (err) {
+      lastError = err;
+    }
+
+    await sleep(FILLS_LOG_POLL_MS);
+  }
+
+  try {
+    const log = await fetchFillsLog(conn, fillsLog, "confirmed");
+    if (log?.clientOrderId === clientOrderId) return log;
+  } catch (err) {
+    lastError = err;
+  }
+
+  if (lastLog) return lastLog;
+  if (lastError instanceof Error) {
+    throw new Error(`FillsLog not readable after place_order: ${lastError.message}`);
+  }
+  throw new Error(`FillsLog ${fillsLog.toBase58()} not found after place_order`);
 }
 
 async function makerOpenOrdersForMatch(
@@ -601,11 +661,17 @@ export async function sendPlaceOrderAndSettle(
   const [fillsLog] = findFillsLogPda(owner, args.clientOrderId);
   console.log("📋 fillsLog PDA:", fillsLog.toBase58());
 
-  const log = await fetchFillsLog(conn, fillsLog);
+  const placeSlot = await signatureSlot(conn, placeSig);
+  const log = await waitForFillsLog(
+    conn,
+    fillsLog,
+    args.clientOrderId,
+    placeSlot,
+  );
   console.log("📊 fillsLog data:", log);
   console.log("📊 fillCount:", log?.fillCount);
 
-  if (!log || log.fillCount === 0) {
+  if (log.fillCount === 0) {
     console.warn("⚠️ No fills found — order did not match");
     return { placeSig, settleSigs: [], fillCount: 0 };
   }

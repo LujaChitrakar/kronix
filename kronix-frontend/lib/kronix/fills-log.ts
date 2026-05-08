@@ -1,4 +1,4 @@
-import { Connection, PublicKey } from "@solana/web3.js";
+import { Connection, PublicKey, type GetAccountInfoConfig } from "@solana/web3.js";
 
 export type FillEntry = {
   takerClientId: bigint;
@@ -33,7 +33,7 @@ export type FillsLog = {
 
 const FILL_ENTRY_LEN = 152;
 const HEADER_LEN = 8 + 8 + 1 + 1 + 1 + 5; // 24
-const FILLS_LEN = 8 * FILL_ENTRY_LEN; // 832
+const FILLS_LEN = 8 * FILL_ENTRY_LEN; // 1216
 
 export function decodeFillsLog(buf: Uint8Array): FillsLog {
   const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
@@ -86,8 +86,9 @@ export function decodeFillsLog(buf: Uint8Array): FillsLog {
 export async function fetchFillsLog(
   conn: Connection,
   pk: PublicKey,
+  config: GetAccountInfoConfig | "processed" | "confirmed" | "finalized" = "confirmed",
 ): Promise<FillsLog | null> {
-  const a = await conn.getAccountInfo(pk, "confirmed");
+  const a = await conn.getAccountInfo(pk, config);
   if (!a) return null;
   return decodeFillsLog(new Uint8Array(a.data));
 }
