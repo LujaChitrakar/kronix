@@ -4,7 +4,7 @@ use shank::ShankType;
 
 use crate::{
     errors::OrderBookError,
-    helper::{verify_account_owner, verify_initialized, verify_signer},
+    helper::{verify_account_owner, verify_initialized, verify_signer, verify_writtable},
     states::OpenOrdersAccount,
 };
 
@@ -16,7 +16,7 @@ pub struct SetDelegateParams {
 
 pub fn process_set_delegate(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     let [
-        signer,              // must be oo_account.owner
+        signer, // must be oo_account.owner or current delegate
         open_orders_account,
         _remaining @ ..,
     ] = accounts else {
@@ -25,12 +25,17 @@ pub fn process_set_delegate(accounts: &[AccountView], data: &[u8]) -> ProgramRes
 
     verify_signer(signer)?;
     verify_initialized(open_orders_account)?;
+    verify_writtable(open_orders_account)?;
     unsafe { verify_account_owner(open_orders_account, &crate::ID)? };
 
     let mut oo_data = open_orders_account.try_borrow_mut()?;
     let oo = bytemuck::from_bytes_mut::<OpenOrdersAccount>(&mut oo_data[..OpenOrdersAccount::LEN]);
 
-    if oo.owner != *signer.address().as_array() {
+    let signer_key = *signer.address().as_array();
+    let is_owner = oo.owner == signer_key;
+    let is_delegate = oo.delegate != [0u8; 32] && oo.delegate == signer_key;
+
+    if !is_owner && !is_delegate {
         return Err(OrderBookError::InvalidOwner.into());
     }
 
