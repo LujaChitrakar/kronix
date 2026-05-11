@@ -1441,6 +1441,7 @@ const PRICE_HISTORY_PATH =
   path.join(process.cwd(), "kronix-price-history.json");
 
 const priceHistory = new Map<number, bigint[]>();
+const lastRsiByStrategy = new Map<string, number>();
 
 function loadPriceHistory(): void {
   try {
@@ -1739,13 +1740,14 @@ function computeSignal(s: StrategyRow, markLots: bigint): number | null {
   const hist = historyWithCurrentSample(s.marketIndex, markLots);
 
   if (s.strategyType === StrategyType.RSI) {
-    const prevRsi = computeRsi(hist.slice(0, -1), s.rsiPeriod);
     const rsi = computeRsi(hist, s.rsiPeriod);
-    if (prevRsi === null || rsi === null) return null;
-    if (s.side === 0 && prevRsi >= s.rsiOversold && rsi <= s.rsiOversold)
-      return 0;
-    if (s.side === 1 && prevRsi <= s.rsiOverbought && rsi >= s.rsiOverbought)
-      return 1;
+    if (rsi === null) return null;
+    const key = s.pubkey.toBase58();
+    const prevRsi = lastRsiByStrategy.get(key);
+    lastRsiByStrategy.set(key, rsi);
+    if (prevRsi === undefined) return null;
+    if (s.side === 0 && prevRsi > s.rsiOversold && rsi <= s.rsiOversold) return 0;
+    if (s.side === 1 && prevRsi < s.rsiOverbought && rsi >= s.rsiOverbought) return 1;
     return null;
   }
 
