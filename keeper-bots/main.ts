@@ -1963,6 +1963,12 @@ async function runExecuteStrategies(): Promise<void> {
       );
       continue;
     }
+    if (s.limitPriceLots <= 0n) {
+      console.log(
+        `[execute-strategy ${s.owner.toBase58().slice(0, 6)}/t${s.strategyType}/sig${signal}] skip — limit price required for resting strategy order`,
+      );
+      continue;
+    }
 
     const [strategyAuthority, bumpAuthority] = findStrategyAuthorityPda(s.owner);
     const [market] = findMarketPda(s.marketIndex);
