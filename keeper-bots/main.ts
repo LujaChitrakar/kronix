@@ -1727,16 +1727,25 @@ async function scanStrategies(): Promise<StrategyRow[]> {
 // 12 samples × 5s tick = 1-minute synthetic bars.
 const CANDLE_BUCKET_SAMPLES = 12;
 
+function historyWithCurrentSample(marketIndex: number, markLots: bigint): bigint[] {
+  const hist = priceHistory.get(marketIndex) ?? [];
+  if (hist[hist.length - 1] === markLots) return hist;
+  return [...hist, markLots];
+}
+
 // Returns 0 (Buy), 1 (Sell), or null (no action).
 // Mirrors strategy_engine/evaluator.md per type.
 function computeSignal(s: StrategyRow, markLots: bigint): number | null {
-  const hist = priceHistory.get(s.marketIndex) ?? [];
+  const hist = historyWithCurrentSample(s.marketIndex, markLots);
 
   if (s.strategyType === StrategyType.RSI) {
+    const prevRsi = computeRsi(hist.slice(0, -1), s.rsiPeriod);
     const rsi = computeRsi(hist, s.rsiPeriod);
-    if (rsi === null) return null;
-    if (s.side === 0 && rsi < s.rsiOversold) return 0;
-    if (s.side === 1 && rsi > s.rsiOverbought) return 1;
+    if (prevRsi === null || rsi === null) return null;
+    if (s.side === 0 && prevRsi >= s.rsiOversold && rsi <= s.rsiOversold)
+      return 0;
+    if (s.side === 1 && prevRsi <= s.rsiOverbought && rsi >= s.rsiOverbought)
+      return 1;
     return null;
   }
 
