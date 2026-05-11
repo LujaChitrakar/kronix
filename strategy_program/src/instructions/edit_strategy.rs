@@ -22,7 +22,7 @@ pub struct EditStrategyParams {
     pub new_max_executions_per_day: u64,
 
     // Status control
-    pub new_status: u8, // 255 = no change, 0 = active, 1 = paused
+    pub new_status: u8,   // 255 = no change, 0 = active, 1 = paused
     pub new_leverage: u8, // 0 = no change
 
     pub padding: [u8; 6],

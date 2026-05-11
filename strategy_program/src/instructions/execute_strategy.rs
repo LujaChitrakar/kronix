@@ -8,9 +8,7 @@ use shank::ShankType;
 
 use crate::{
     constants::STRATEGY_AUTHORITY_SEED,
-    cpi::{
-        initialize_fills_log_cpi, place_order_cpi, place_trigger_order_cpi,
-    },
+    cpi::{initialize_fills_log_cpi, place_order_cpi, place_trigger_order_cpi},
     errors::StrategyProgramError,
     helpers::{
         close_account, verify_account_owner, verify_initialized, verify_pda, verify_signer,
@@ -120,11 +118,13 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
     if params.signal > 1 || params.signal != strategy.side {
         return Err(StrategyProgramError::InvalidSignal.into());
     }
-    let order_type: u8 = if strategy.limit_price_lots > 0 {
-        0u8
-    } else {
-        3u8
-    };
+    if strategy.limit_price_lots <= 0 {
+        return Err(StrategyProgramError::InvalidPrice.into());
+    }
+    // Strategies should enter the orderbook as maker orders after their
+    // condition is met. PostOnlySlide prevents immediate taker fills while
+    // still posting by sliding just outside the opposing best price.
+    let order_type: u8 = 4u8;
 
     let owner_key = strategy.owner;
 
@@ -153,14 +153,7 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 
-    let quote_price_lots = if strategy.limit_price_lots > 0 {
-        strategy.limit_price_lots
-    } else {
-        strategy
-            .take_profit_price
-            .max(strategy.stop_loss_price)
-            .max(1)
-    };
+    let quote_price_lots = strategy.limit_price_lots;
     let max_quote_lots = strategy
         .size_lots
         .checked_mul(quote_price_lots)
