@@ -8,10 +8,6 @@
 
 import {
   combineCodec,
-  fixDecoderSize,
-  fixEncoderSize,
-  getBytesDecoder,
-  getBytesEncoder,
   getI64Decoder,
   getI64Encoder,
   getStructDecoder,
@@ -118,7 +114,7 @@ export type CreateStrategyInstructionData = {
   side: number;
   bumpAuthority: number;
   bumpFillsLog: number;
-  padding: ReadonlyUint8Array;
+  leverage: number;
   params: StrategyParams;
 };
 
@@ -136,7 +132,7 @@ export type CreateStrategyInstructionDataArgs = {
   side: number;
   bumpAuthority: number;
   bumpFillsLog: number;
-  padding: ReadonlyUint8Array;
+  leverage: number;
   params: StrategyParamsArgs;
 };
 
@@ -157,7 +153,7 @@ export function getCreateStrategyInstructionDataEncoder(): Encoder<CreateStrateg
       ["side", getU8Encoder()],
       ["bumpAuthority", getU8Encoder()],
       ["bumpFillsLog", getU8Encoder()],
-      ["padding", fixEncoderSize(getBytesEncoder(), 1)],
+      ["leverage", getU8Encoder()],
       ["params", getStrategyParamsEncoder()],
     ]),
     (value) => ({ ...value, discriminator: CREATE_STRATEGY_DISCRIMINATOR }),
@@ -180,7 +176,7 @@ export function getCreateStrategyInstructionDataDecoder(): Decoder<CreateStrateg
     ["side", getU8Decoder()],
     ["bumpAuthority", getU8Decoder()],
     ["bumpFillsLog", getU8Decoder()],
-    ["padding", fixDecoderSize(getBytesDecoder(), 1)],
+    ["leverage", getU8Decoder()],
     ["params", getStrategyParamsDecoder()],
   ]);
 }
@@ -234,7 +230,7 @@ export type CreateStrategyInput<
   side: CreateStrategyInstructionDataArgs["side"];
   bumpAuthority: CreateStrategyInstructionDataArgs["bumpAuthority"];
   bumpFillsLog: CreateStrategyInstructionDataArgs["bumpFillsLog"];
-  padding: CreateStrategyInstructionDataArgs["padding"];
+  leverage: CreateStrategyInstructionDataArgs["leverage"];
   params: CreateStrategyInstructionDataArgs["params"];
 };
 

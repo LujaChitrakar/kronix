@@ -885,6 +885,7 @@ function absBigint(v: bigint): bigint {
 
 async function strategyRestingOrder(
   openOrdersAccount: PublicKey,
+  clientOrderId: bigint,
 ): Promise<RestingOrderInfo | null> {
   const acc = await conn.getAccountInfo(openOrdersAccount, "confirmed");
   if (!acc) return null;
@@ -892,6 +893,7 @@ async function strategyRestingOrder(
     const oo = getOpenOrdersAccountDecoder().decode(new Uint8Array(acc.data));
     for (const order of oo.openOrders) {
       if (order.isFree !== 0 || order.makerOut !== 0) continue;
+      if (order.clientId !== clientOrderId) continue;
       const original = absBigint(order.originalBaseLots);
       const filled = absBigint(order.filledBaseLots);
       if (original <= filled) continue;
@@ -1862,7 +1864,7 @@ function buildExecuteStrategyIx(args: {
   const keys = [
     { pubkey: args.keeper, isSigner: true, isWritable: true },
     { pubkey: args.strategyAuthority, isSigner: false, isWritable: true },
-    { pubkey: args.strategyOwner, isSigner: false, isWritable: false },
+    { pubkey: args.strategyOwner, isSigner: false, isWritable: true },
     { pubkey: args.strategyAccount, isSigner: false, isWritable: true },
     { pubkey: args.openOrdersAccount, isSigner: false, isWritable: true },
     { pubkey: args.market, isSigner: false, isWritable: true },
@@ -1962,7 +1964,7 @@ async function runExecuteStrategies(): Promise<void> {
     const [bids] = findBidsPda(s.marketIndex);
     const [asks] = findAsksPda(s.marketIndex);
     const [openOrdersAccount, bumpOoAccount] = findOpenOrdersPda(
-      strategyAuthority,
+      s.owner,
       market,
     );
     const [fillsLog, bumpFillsLog] = findFillsLogPda(
@@ -1972,7 +1974,10 @@ async function runExecuteStrategies(): Promise<void> {
     const [userAccount] = findUserAccountPda(s.owner);
     const [marketConfig] = findMarketConfigPda(s.marketIndex);
 
-    const restingOrder = await strategyRestingOrder(openOrdersAccount);
+    const restingOrder = await strategyRestingOrder(
+      openOrdersAccount,
+      s.clientOrderId,
+    );
     if (restingOrder) {
       console.log(
         `[execute-strategy ${s.owner.toBase58().slice(0, 6)}/t${s.strategyType}/sig${signal}] skip open order client=${restingOrder.clientId} side=${restingOrder.side} remaining=${restingOrder.remainingBaseLots}`,

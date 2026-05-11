@@ -23,7 +23,7 @@ pub struct ExecuteStrategy {
     
               
           pub strategy_authority: solana_address::Address,
-                /// Strategy owner
+                /// Strategy owner, receives closed strategy rent
 
     
               
@@ -116,7 +116,7 @@ impl ExecuteStrategy {
             self.strategy_authority,
             false
           ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+                                          accounts.push(solana_instruction::AccountMeta::new(
             self.strategy_owner,
             false
           ));
@@ -281,7 +281,7 @@ impl ExecuteStrategyInstructionArgs {
 ///
                       ///   0. `[writable, signer]` keeper
                 ///   1. `[writable]` strategy_authority
-          ///   2. `[]` strategy_owner
+                ///   2. `[writable]` strategy_owner
                 ///   3. `[writable]` strategy_account
                 ///   4. `[writable]` open_orders_account
                 ///   5. `[writable]` market
@@ -344,7 +344,7 @@ impl ExecuteStrategyBuilder {
                         self.strategy_authority = Some(strategy_authority);
                     self
     }
-            /// Strategy owner
+            /// Strategy owner, receives closed strategy rent
 #[inline(always)]
     pub fn strategy_owner(&mut self, strategy_owner: solana_address::Address) -> &mut Self {
                         self.strategy_owner = Some(strategy_owner);
@@ -553,7 +553,7 @@ impl ExecuteStrategyBuilder {
       
                     
               pub strategy_authority: &'b solana_account_info::AccountInfo<'a>,
-                        /// Strategy owner
+                        /// Strategy owner, receives closed strategy rent
 
       
                     
@@ -644,7 +644,7 @@ pub struct ExecuteStrategyCpi<'a, 'b> {
     
               
           pub strategy_authority: &'b solana_account_info::AccountInfo<'a>,
-                /// Strategy owner
+                /// Strategy owner, receives closed strategy rent
 
     
               
@@ -780,7 +780,7 @@ impl<'a, 'b> ExecuteStrategyCpi<'a, 'b> {
             *self.strategy_authority.key,
             false
           ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+                                          accounts.push(solana_instruction::AccountMeta::new(
             *self.strategy_owner.key,
             false
           ));
@@ -945,7 +945,7 @@ impl<'a, 'b> ExecuteStrategyCpi<'a, 'b> {
 ///
                       ///   0. `[writable, signer]` keeper
                 ///   1. `[writable]` strategy_authority
-          ///   2. `[]` strategy_owner
+                ///   2. `[writable]` strategy_owner
                 ///   3. `[writable]` strategy_account
                 ///   4. `[writable]` open_orders_account
                 ///   5. `[writable]` market
@@ -1012,7 +1012,7 @@ impl<'a, 'b> ExecuteStrategyCpiBuilder<'a, 'b> {
                         self.instruction.strategy_authority = Some(strategy_authority);
                     self
     }
-      /// Strategy owner
+      /// Strategy owner, receives closed strategy rent
 #[inline(always)]
     pub fn strategy_owner(&mut self, strategy_owner: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
                         self.instruction.strategy_owner = Some(strategy_owner);

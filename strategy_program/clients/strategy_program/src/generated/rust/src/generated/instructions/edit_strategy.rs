@@ -57,13 +57,13 @@ impl EditStrategy {
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
  pub struct EditStrategyInstructionData {
             discriminator: u8,
-                                                      }
+                                                            }
 
 impl EditStrategyInstructionData {
   pub fn new() -> Self {
     Self {
                         discriminator: 1,
-                                                                                                                                  }
+                                                                                                                                                }
   }
 
     pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
@@ -86,7 +86,8 @@ impl Default for EditStrategyInstructionData {
                 pub new_cooldown_secs: u64,
                 pub new_max_executions_per_day: u64,
                 pub new_status: u8,
-                pub padding: [u8; 7],
+                pub new_leverage: u8,
+                pub padding: [u8; 6],
       }
 
 impl EditStrategyInstructionArgs {
@@ -113,7 +114,8 @@ pub struct EditStrategyBuilder {
                 new_cooldown_secs: Option<u64>,
                 new_max_executions_per_day: Option<u64>,
                 new_status: Option<u8>,
-                padding: Option<[u8; 7]>,
+                new_leverage: Option<u8>,
+                padding: Option<[u8; 6]>,
         __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
@@ -169,7 +171,12 @@ impl EditStrategyBuilder {
         self
       }
                 #[inline(always)]
-      pub fn padding(&mut self, padding: [u8; 7]) -> &mut Self {
+      pub fn new_leverage(&mut self, new_leverage: u8) -> &mut Self {
+        self.new_leverage = Some(new_leverage);
+        self
+      }
+                #[inline(always)]
+      pub fn padding(&mut self, padding: [u8; 6]) -> &mut Self {
         self.padding = Some(padding);
         self
       }
@@ -199,6 +206,7 @@ impl EditStrategyBuilder {
                                                                   new_cooldown_secs: self.new_cooldown_secs.clone().expect("new_cooldown_secs is not set"),
                                                                   new_max_executions_per_day: self.new_max_executions_per_day.clone().expect("new_max_executions_per_day is not set"),
                                                                   new_status: self.new_status.clone().expect("new_status is not set"),
+                                                                  new_leverage: self.new_leverage.clone().expect("new_leverage is not set"),
                                                                   padding: self.padding.clone().expect("padding is not set"),
                                     };
     
@@ -334,6 +342,7 @@ impl<'a, 'b> EditStrategyCpiBuilder<'a, 'b> {
                                 new_cooldown_secs: None,
                                 new_max_executions_per_day: None,
                                 new_status: None,
+                                new_leverage: None,
                                 padding: None,
                     __remaining_accounts: Vec::new(),
     });
@@ -387,7 +396,12 @@ impl<'a, 'b> EditStrategyCpiBuilder<'a, 'b> {
         self
       }
                 #[inline(always)]
-      pub fn padding(&mut self, padding: [u8; 7]) -> &mut Self {
+      pub fn new_leverage(&mut self, new_leverage: u8) -> &mut Self {
+        self.instruction.new_leverage = Some(new_leverage);
+        self
+      }
+                #[inline(always)]
+      pub fn padding(&mut self, padding: [u8; 6]) -> &mut Self {
         self.instruction.padding = Some(padding);
         self
       }
@@ -421,6 +435,7 @@ impl<'a, 'b> EditStrategyCpiBuilder<'a, 'b> {
                                                                   new_cooldown_secs: self.instruction.new_cooldown_secs.clone().expect("new_cooldown_secs is not set"),
                                                                   new_max_executions_per_day: self.instruction.new_max_executions_per_day.clone().expect("new_max_executions_per_day is not set"),
                                                                   new_status: self.instruction.new_status.clone().expect("new_status is not set"),
+                                                                  new_leverage: self.instruction.new_leverage.clone().expect("new_leverage is not set"),
                                                                   padding: self.instruction.padding.clone().expect("padding is not set"),
                                     };
         let instruction = EditStrategyCpi {
@@ -447,7 +462,8 @@ struct EditStrategyCpiBuilderInstruction<'a, 'b> {
                 new_cooldown_secs: Option<u64>,
                 new_max_executions_per_day: Option<u64>,
                 new_status: Option<u8>,
-                padding: Option<[u8; 7]>,
+                new_leverage: Option<u8>,
+                padding: Option<[u8; 6]>,
         /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
   __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }

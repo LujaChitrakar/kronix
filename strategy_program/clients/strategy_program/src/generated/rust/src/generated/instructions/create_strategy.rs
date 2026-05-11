@@ -147,7 +147,7 @@ impl Default for CreateStrategyInstructionData {
                 pub side: u8,
                 pub bump_authority: u8,
                 pub bump_fills_log: u8,
-                pub padding: [u8; 1],
+                pub leverage: u8,
                 pub params: StrategyParams,
       }
 
@@ -193,7 +193,7 @@ pub struct CreateStrategyBuilder {
                 side: Option<u8>,
                 bump_authority: Option<u8>,
                 bump_fills_log: Option<u8>,
-                padding: Option<[u8; 1]>,
+                leverage: Option<u8>,
                 params: Option<StrategyParams>,
         __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
@@ -317,8 +317,8 @@ impl CreateStrategyBuilder {
         self
       }
                 #[inline(always)]
-      pub fn padding(&mut self, padding: [u8; 1]) -> &mut Self {
-        self.padding = Some(padding);
+      pub fn leverage(&mut self, leverage: u8) -> &mut Self {
+        self.leverage = Some(leverage);
         self
       }
                 #[inline(always)]
@@ -364,7 +364,7 @@ impl CreateStrategyBuilder {
                                                                   side: self.side.clone().expect("side is not set"),
                                                                   bump_authority: self.bump_authority.clone().expect("bump_authority is not set"),
                                                                   bump_fills_log: self.bump_fills_log.clone().expect("bump_fills_log is not set"),
-                                                                  padding: self.padding.clone().expect("padding is not set"),
+                                                                  leverage: self.leverage.clone().expect("leverage is not set"),
                                                                   params: self.params.clone().expect("params is not set"),
                                     };
     
@@ -614,7 +614,7 @@ impl<'a, 'b> CreateStrategyCpiBuilder<'a, 'b> {
                                 side: None,
                                 bump_authority: None,
                                 bump_fills_log: None,
-                                padding: None,
+                                leverage: None,
                                 params: None,
                     __remaining_accounts: Vec::new(),
     });
@@ -734,8 +734,8 @@ impl<'a, 'b> CreateStrategyCpiBuilder<'a, 'b> {
         self
       }
                 #[inline(always)]
-      pub fn padding(&mut self, padding: [u8; 1]) -> &mut Self {
-        self.instruction.padding = Some(padding);
+      pub fn leverage(&mut self, leverage: u8) -> &mut Self {
+        self.instruction.leverage = Some(leverage);
         self
       }
                 #[inline(always)]
@@ -779,7 +779,7 @@ impl<'a, 'b> CreateStrategyCpiBuilder<'a, 'b> {
                                                                   side: self.instruction.side.clone().expect("side is not set"),
                                                                   bump_authority: self.instruction.bump_authority.clone().expect("bump_authority is not set"),
                                                                   bump_fills_log: self.instruction.bump_fills_log.clone().expect("bump_fills_log is not set"),
-                                                                  padding: self.instruction.padding.clone().expect("padding is not set"),
+                                                                  leverage: self.instruction.leverage.clone().expect("leverage is not set"),
                                                                   params: self.instruction.params.clone().expect("params is not set"),
                                     };
         let instruction = CreateStrategyCpi {
@@ -830,7 +830,7 @@ struct CreateStrategyCpiBuilderInstruction<'a, 'b> {
                 side: Option<u8>,
                 bump_authority: Option<u8>,
                 bump_fills_log: Option<u8>,
-                padding: Option<[u8; 1]>,
+                leverage: Option<u8>,
                 params: Option<StrategyParams>,
         /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
   __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,

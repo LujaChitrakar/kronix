@@ -51,7 +51,12 @@ pub enum StrategyInstruction {
         desc = "Strategy authority PDA",
         writable
     )]
-    #[account(2, name = "strategy_owner", desc = "Strategy owner")]
+    #[account(
+        2,
+        name = "strategy_owner",
+        desc = "Strategy owner, receives closed strategy rent",
+        writable
+    )]
     #[account(3, name = "strategy_account", desc = "Strategy account PDA", writable)]
     #[account(
         4,
