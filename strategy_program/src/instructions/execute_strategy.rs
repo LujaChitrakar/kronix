@@ -121,10 +121,9 @@ pub fn process_execute_strategy(accounts: &[AccountView], data: &[u8]) -> Progra
     if strategy.limit_price_lots <= 0 {
         return Err(StrategyProgramError::InvalidPrice.into());
     }
-    // Strategies should enter the orderbook as maker orders after their
-    // condition is met. PostOnlySlide prevents immediate taker fills while
-    // still posting by sliding just outside the opposing best price.
-    let order_type: u8 = 4u8;
+    // Before the signal fires this remains a strategy order only. Once fired,
+    // it becomes a normal limit order so the orderbook can fill or rest it.
+    let order_type: u8 = 0u8;
 
     let owner_key = strategy.owner;
 

@@ -1965,7 +1965,7 @@ async function runExecuteStrategies(): Promise<void> {
     }
     if (s.limitPriceLots <= 0n) {
       console.log(
-        `[execute-strategy ${s.owner.toBase58().slice(0, 6)}/t${s.strategyType}/sig${signal}] skip — limit price required for resting strategy order`,
+        `[execute-strategy ${s.owner.toBase58().slice(0, 6)}/t${s.strategyType}/sig${signal}] skip — limit price required for strategy execution`,
       );
       continue;
     }
