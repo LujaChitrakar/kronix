@@ -79,7 +79,7 @@ export type ExecuteStrategyInstruction<
         ? WritableAccount<TAccountStrategyAuthority>
         : TAccountStrategyAuthority,
       TAccountStrategyOwner extends string
-        ? ReadonlyAccount<TAccountStrategyOwner>
+        ? WritableAccount<TAccountStrategyOwner>
         : TAccountStrategyOwner,
       TAccountStrategyAccount extends string
         ? WritableAccount<TAccountStrategyAccount>
@@ -222,7 +222,7 @@ export type ExecuteStrategyInput<
   keeper: TransactionSigner<TAccountKeeper>;
   /** Strategy authority PDA */
   strategyAuthority: Address<TAccountStrategyAuthority>;
-  /** Strategy owner */
+  /** Strategy owner, receives closed strategy rent */
   strategyOwner: Address<TAccountStrategyOwner>;
   /** Strategy account PDA */
   strategyAccount: Address<TAccountStrategyAccount>;
@@ -335,7 +335,7 @@ export function getExecuteStrategyInstruction<
       value: input.strategyAuthority ?? null,
       isWritable: true,
     },
-    strategyOwner: { value: input.strategyOwner ?? null, isWritable: false },
+    strategyOwner: { value: input.strategyOwner ?? null, isWritable: true },
     strategyAccount: { value: input.strategyAccount ?? null, isWritable: true },
     openOrdersAccount: {
       value: input.openOrdersAccount ?? null,
@@ -431,7 +431,7 @@ export type ParsedExecuteStrategyInstruction<
     keeper: TAccountMetas[0];
     /** Strategy authority PDA */
     strategyAuthority: TAccountMetas[1];
-    /** Strategy owner */
+    /** Strategy owner, receives closed strategy rent */
     strategyOwner: TAccountMetas[2];
     /** Strategy account PDA */
     strategyAccount: TAccountMetas[3];

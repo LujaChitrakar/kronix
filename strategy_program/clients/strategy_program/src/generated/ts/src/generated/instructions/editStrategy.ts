@@ -78,6 +78,7 @@ export type EditStrategyInstructionData = {
   newCooldownSecs: bigint;
   newMaxExecutionsPerDay: bigint;
   newStatus: number;
+  newLeverage: number;
   padding: ReadonlyUint8Array;
 };
 
@@ -89,6 +90,7 @@ export type EditStrategyInstructionDataArgs = {
   newCooldownSecs: number | bigint;
   newMaxExecutionsPerDay: number | bigint;
   newStatus: number;
+  newLeverage: number;
   padding: ReadonlyUint8Array;
 };
 
@@ -103,7 +105,8 @@ export function getEditStrategyInstructionDataEncoder(): FixedSizeEncoder<EditSt
       ["newCooldownSecs", getU64Encoder()],
       ["newMaxExecutionsPerDay", getU64Encoder()],
       ["newStatus", getU8Encoder()],
-      ["padding", fixEncoderSize(getBytesEncoder(), 7)],
+      ["newLeverage", getU8Encoder()],
+      ["padding", fixEncoderSize(getBytesEncoder(), 6)],
     ]),
     (value) => ({ ...value, discriminator: EDIT_STRATEGY_DISCRIMINATOR }),
   );
@@ -119,7 +122,8 @@ export function getEditStrategyInstructionDataDecoder(): FixedSizeDecoder<EditSt
     ["newCooldownSecs", getU64Decoder()],
     ["newMaxExecutionsPerDay", getU64Decoder()],
     ["newStatus", getU8Decoder()],
-    ["padding", fixDecoderSize(getBytesDecoder(), 7)],
+    ["newLeverage", getU8Decoder()],
+    ["padding", fixDecoderSize(getBytesDecoder(), 6)],
   ]);
 }
 
@@ -148,6 +152,7 @@ export type EditStrategyInput<
   newCooldownSecs: EditStrategyInstructionDataArgs["newCooldownSecs"];
   newMaxExecutionsPerDay: EditStrategyInstructionDataArgs["newMaxExecutionsPerDay"];
   newStatus: EditStrategyInstructionDataArgs["newStatus"];
+  newLeverage: EditStrategyInstructionDataArgs["newLeverage"];
   padding: EditStrategyInstructionDataArgs["padding"];
 };
 

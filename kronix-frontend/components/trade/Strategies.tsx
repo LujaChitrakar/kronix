@@ -115,6 +115,7 @@ export function Strategies() {
       try {
         const s = decoder.decode(new Uint8Array(account.data));
         if (s.marketIndex !== marketIndex) continue;
+        if (s.status === StrategyStatus.Completed) continue;
         list.push({
           pubkey,
           strategyType: s.strategyType,
