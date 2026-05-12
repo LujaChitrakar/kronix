@@ -2,6 +2,7 @@ import { TradeNav } from "@/components/trade/TradeNav";
 import { Orderbook } from "@/components/trade/Orderbook";
 import { TradeForms } from "@/components/trade/TradeForms";
 import { BottomPanel } from "@/components/trade/BottomPanel";
+import { StrategyExecutionWatcher } from "@/components/trade/StrategyExecutionWatcher";
 import ChartWrapper from "@/components/ChartWrapper";
 import { KronixWalletProvider } from "@/lib/kronix/wallet-provider";
 
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
 export default function TradePage() {
   return (
     <KronixWalletProvider>
+      <StrategyExecutionWatcher />
       <div className="min-h-screen bg-[#0B0F0D] text-on-surface">
         <TradeNav />
 
