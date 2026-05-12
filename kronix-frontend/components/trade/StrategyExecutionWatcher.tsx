@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import {
+  ORDERBOOK_PROGRAM_ID,
   Side,
   STRATEGY_PROGRAM_ID,
   StrategyStatus,
@@ -17,15 +18,18 @@ import {
   findStrategyAuthorityPda,
 } from "@/lib/kronix/pdas";
 import { fetchOpenOrders } from "@/lib/kronix/state";
-import { notifySuccess } from "@/lib/notifications";
+import { notifySuccess, notifyTxSuccess } from "@/lib/notifications";
 import { useStore } from "@/lib/store";
 import { getStrategyAccountDecoder, STRATEGY_ACCOUNT_LEN } from "@/lib/strategy-sdk";
 
 const OWNER_OFFSET_IN_STRATEGY = 248;
 const POLL_MS = 6000;
+const SIGNATURE_LOOKUP_ATTEMPTS = 8;
+const SIGNATURE_LOOKUP_DELAY_MS = 1500;
 
 type StrategySnapshot = {
   key: string;
+  pubkey: PublicKey;
   strategyType: number;
   status: number;
   side: number;
@@ -34,6 +38,10 @@ type StrategySnapshot = {
 };
 
 type ExecutionOutcome = "resting" | "filled";
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
 
 function typeLabel(t: number): string {
   if (t === StrategyType.RSI) return "RSI";
@@ -72,6 +80,7 @@ async function fetchStrategySnapshots(
       const key = `${pubkey.toBase58()}:${s.clientOrderId}`;
       snapshots.set(key, {
         key,
+        pubkey,
         strategyType: s.strategyType,
         status: s.status,
         side: s.side,
@@ -122,13 +131,75 @@ async function executionOutcome(
   return null;
 }
 
-function notifyExecuted(strategy: StrategySnapshot, outcome: ExecutionOutcome) {
+async function isExecutionSignature(
+  connection: Connection,
+  signature: string,
+): Promise<boolean> {
+  const tx = await connection.getTransaction(signature, {
+    commitment: "confirmed",
+    maxSupportedTransactionVersion: 0,
+  });
+  const meta = tx?.meta;
+  if (!meta || meta.err) return false;
+  const logs = meta.logMessages ?? [];
+  return (
+    logs.some((line) => line.includes(ORDERBOOK_PROGRAM_ID.toBase58())) &&
+    logs.some((line) => line.includes("disc byte: 3"))
+  );
+}
+
+async function fetchExecutionSignature(
+  connection: Connection,
+  owner: PublicKey,
+  strategy: StrategySnapshot,
+): Promise<string | null> {
+  const [strategyAuthority] = findStrategyAuthorityPda(owner);
+  const [fillsLog] = findFillsLogPda(strategyAuthority, strategy.clientOrderId);
+  const lookupAddresses = [strategy.pubkey, fillsLog];
+
+  for (let attempt = 0; attempt < SIGNATURE_LOOKUP_ATTEMPTS; attempt++) {
+    const signatures = (
+      await Promise.all(
+        lookupAddresses.map((address) =>
+          connection.getSignaturesForAddress(
+            address,
+            { limit: 6 },
+            "confirmed",
+          ),
+        ),
+      )
+    )
+      .flat()
+      .filter((entry) => entry.err === null)
+      .sort((a, b) => b.slot - a.slot);
+
+    const seen = new Set<string>();
+    for (const entry of signatures) {
+      if (seen.has(entry.signature)) continue;
+      seen.add(entry.signature);
+      if (await isExecutionSignature(connection, entry.signature).catch(() => false)) {
+        return entry.signature;
+      }
+    }
+
+    if (attempt < SIGNATURE_LOOKUP_ATTEMPTS - 1) {
+      await sleep(SIGNATURE_LOOKUP_DELAY_MS);
+    }
+  }
+
+  return null;
+}
+
+function notifyExecuted(
+  strategy: StrategySnapshot,
+  outcome: ExecutionOutcome,
+  signature: string | null,
+) {
   const result =
     outcome === "resting" ? "opened in Open Orders" : "filled during execution";
-  notifySuccess(
-    "Strategy executed",
-    `${typeLabel(strategy.strategyType)} ${sideLabel(strategy.side)} ${result}`,
-  );
+  const description = `${typeLabel(strategy.strategyType)} ${sideLabel(strategy.side)} ${result}`;
+  if (signature) notifyTxSuccess("Strategy executed", signature, description);
+  else notifySuccess("Strategy executed", description);
 }
 
 export function StrategyExecutionWatcher() {
@@ -181,7 +252,12 @@ export function StrategyExecutionWatcher() {
         if (!outcome) continue;
 
         notifiedRef.current.add(notifyKey);
-        notifyExecuted(strategy, outcome);
+        const signature = await fetchExecutionSignature(
+          connection,
+          owner,
+          strategy,
+        ).catch(() => null);
+        notifyExecuted(strategy, outcome, signature);
       }
 
       previousRef.current = current;
