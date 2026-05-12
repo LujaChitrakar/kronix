@@ -123,6 +123,8 @@ export function notifyTxSuccess(title: string, signature: string, description?: 
 
 export const notifyError = (title: string, description?: string) =>
   notify("error", title, description);
+export const notifySuccess = (title: string, description?: string) =>
+  notify("success", title, description);
 export const notifyWarning = (title: string, description?: string) =>
   notify("warning", title, description);
 export const notifyInfo = (title: string, description?: string) =>
