@@ -1,0 +1,49 @@
+{
+  "strategies": [
+    {
+      "id": "262ab37c-50f3-4bda-b917-e2c769aad3a6",
+      "owner": "HYR4Z8uZFdGRi4RjXNs4GLGEmJCxbho3jTfQP2Y7m3g4",
+      "symbol": "SOL",
+      "strategyType": "RSI",
+      "side": "bid",
+      "orderKind": "limit",
+      "quantity": 0.1,
+      "limitPrice": 82,
+      "transferUsdc": 10,
+      "reduceOnly": false,
+      "cooldownSecs": 300,
+      "maxExecutionsPerDay": 5,
+      "autoExecute": false,
+      "executionsToday": 0,
+      "status": "active",
+      "params": {
+        "rsiPeriod": 14,
+        "rsiOversold": 30,
+        "rsiOverbought": 70
+      },
+      "createdAt": 1779129666477
+    },
+    {
+      "id": "13632c5b-bc22-4981-8a36-3421ab53871a",
+      "owner": "HYR4Z8uZFdGRi4RjXNs4GLGEmJCxbho3jTfQP2Y7m3g4",
+      "symbol": "SOL",
+      "strategyType": "RSI",
+      "side": "bid",
+      "orderKind": "market",
+      "quantity": 0.1,
+      "transferUsdc": 10,
+      "reduceOnly": false,
+      "cooldownSecs": 300,
+      "maxExecutionsPerDay": 5,
+      "autoExecute": false,
+      "executionsToday": 0,
+      "status": "active",
+      "params": {
+        "rsiPeriod": 14,
+        "rsiOversold": 30,
+        "rsiOverbought": 70
+      },
+      "createdAt": 1779129515797
+    }
+  ]
+}

@@ -94,6 +94,14 @@ export function TradeNav() {
           >
             About
           </Link>*/}
+          <Link
+            href="/pheonix"
+            title="Phoenix strategies"
+            className="px-3 h-9 inline-flex items-center gap-1.5 rounded-md bg-kx-surface-hi border kx-border text-xs font-bold text-on-surface hover:text-[#77c8ff] transition-colors"
+          >
+            <span className="material-symbols-outlined text-[16px] leading-none">bolt</span>
+            <span className="hidden sm:inline">Phoenix</span>
+          </Link>
           <button
             type="button"
             disabled={!wallet.publicKey || usdcBusy}

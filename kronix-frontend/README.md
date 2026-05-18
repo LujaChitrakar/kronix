@@ -16,6 +16,25 @@ The browser uses the same-origin `/api/rpc` proxy. Keep
 or called directly by the browser. `/api/rpc` is HTTP-only, so websocket
 subscriptions use `NEXT_PUBLIC_RPC_WS_URL` instead of `wss://<site>/api/rpc`.
 
+Phoenix strategies run on mainnet-oriented Phoenix APIs and use a separate
+keeper signer:
+
+```bash
+NEXT_PUBLIC_PHOENIX_RPC_URL=https://api.mainnet-beta.solana.com
+PHOENIX_API_URL=https://perp-api.phoenix.trade
+# Optional: if unset, the keeper also accepts KEEPER_KEYPAIR_PATH.
+PHOENIX_KEEPER_KEYPAIR='[64-byte-json-secret-key]'
+```
+
+The Phoenix keeper signer must be the wallet authority for testing or a
+Phoenix delegated position authority for the trader. `KEEPER_KEYPAIR_PATH` may
+be either a keypair file path, a 64-byte JSON array, or a base58 secret key.
+Start it with:
+
+```bash
+pnpm phoenix-keeper
+```
+
 First, run the development server:
 
 ```bash
