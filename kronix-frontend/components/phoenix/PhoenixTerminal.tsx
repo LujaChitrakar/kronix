@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
@@ -150,6 +151,86 @@ function strategyPrice(strategy: PhoenixStrategy, fallback?: number): string {
   return "MKT";
 }
 
+function bookMaxQty(bids: PhoenixBookLevel[], asks: PhoenixBookLevel[]): number {
+  return Math.max(1, ...bids.map((level) => level[1]), ...asks.map((level) => level[1]));
+}
+
+function bookSpread(bid?: number, ask?: number): { mid?: number; spread?: number; bps?: number } {
+  if (bid === undefined || ask === undefined) return {};
+  const mid = (bid + ask) / 2;
+  const spread = ask - bid;
+  return {
+    mid,
+    spread,
+    bps: mid > 0 ? (spread / mid) * 10_000 : undefined,
+  };
+}
+
+function DepthColumn({
+  title,
+  side,
+  levels,
+  maxQty,
+}: {
+  title: string;
+  side: "bid" | "ask";
+  levels: PhoenixBookLevel[];
+  maxQty: number;
+}) {
+  const isBid = side === "bid";
+  const color = isBid ? "text-[#4dffb4]" : "text-[#ff7b72]";
+  const fill = isBid ? "bg-[#4dffb4]/12" : "bg-[#ff6b6b]/12";
+  const border = isBid ? "border-[#4dffb4]/18" : "border-[#ff6b6b]/18";
+
+  return (
+    <div className={`min-w-0 border ${border} bg-[#090d0d]`}>
+      <div className="flex h-10 items-center justify-between border-b border-white/10 px-3">
+        <div className={`font-headline text-xs font-extrabold uppercase ${color}`}>
+          {title}
+        </div>
+        <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-on-surface-variant/60">
+          Price / Qty / Total
+        </div>
+      </div>
+      <div className="grid grid-cols-[1fr_0.8fr_0.95fr] border-b border-white/5 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-on-surface-variant/50">
+        <span>Price</span>
+        <span className="text-right">Size</span>
+        <span className="text-right">Total</span>
+      </div>
+      <div className="min-h-[244px] p-1.5">
+        {levels.length ? (
+          levels.map((level, index) => {
+            const pct = Math.min(100, (level[1] / maxQty) * 100);
+            return (
+              <div
+                key={`${side}-${level[0]}-${index}`}
+                className="relative grid grid-cols-[1fr_0.8fr_0.95fr] items-center overflow-hidden px-2 py-[5px] font-mono text-xs transition-colors hover:bg-white/[0.035]"
+              >
+                <span
+                  className={`absolute inset-y-0 ${isBid ? "right-0" : "left-0"} ${fill}`}
+                  style={{ width: `${pct}%` }}
+                  aria-hidden="true"
+                />
+                <span className={`relative truncate ${color}`}>{fmt(level[0])}</span>
+                <span className="relative truncate text-right text-on-surface">
+                  {fmt(level[1], 3)}
+                </span>
+                <span className="relative truncate text-right text-on-surface-variant">
+                  {fmt(level[0] * level[1], 2)}
+                </span>
+              </div>
+            );
+          })
+        ) : (
+          <div className="grid min-h-[228px] place-items-center font-mono text-xs text-on-surface-variant/60">
+            Waiting
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function statusDot(status: WsStatus): string {
   if (status === "live") return "bg-[#4dffb4]";
   if (status === "connecting") return "bg-[#ffcc66]";
@@ -184,7 +265,7 @@ function Field({
         type="number"
         step={step}
         disabled={disabled}
-        className="h-10 w-full rounded border border-white/10 bg-[#0b100f] px-3 font-mono text-sm text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/35 focus:border-[#77c8ff]/60 disabled:cursor-not-allowed disabled:opacity-45"
+        className="h-10 w-full rounded border border-white/10 bg-[#030505] px-3 font-mono text-sm text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/35 focus:border-white/35 disabled:cursor-not-allowed disabled:opacity-45"
       />
     </label>
   );
@@ -218,7 +299,7 @@ function Segmented<T extends string>({
               onClick={() => onChange(entry)}
               className={`h-8 rounded font-headline text-xs font-bold transition-colors ${
                 selected
-                  ? "bg-[#77c8ff] text-[#061119]"
+                  ? "bg-[#d7dde2] text-[#060707]"
                   : "text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface"
               }`}
             >
@@ -246,10 +327,10 @@ function Stat({
       : tone === "bad"
         ? "text-[#ff8a80]"
         : tone === "blue"
-          ? "text-[#77c8ff]"
+          ? "text-[#d7dde2]"
           : "text-on-surface";
   return (
-    <div className="min-w-0 border border-white/10 bg-white/[0.025] px-3 py-2">
+    <div className="min-w-0 border border-white/10 bg-[#050707] px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
       <div className="truncate font-mono text-[10px] uppercase tracking-[0.16em] text-on-surface-variant/60">
         {label}
       </div>
@@ -371,6 +452,11 @@ export function PhoenixTerminal() {
 
   const { bid, ask } = bestBidAsk(book.bids, book.asks);
   const displayedMid = stats.midPx ?? book.mid;
+  const maxDepthQty = useMemo(
+    () => bookMaxQty(book.bids, book.asks),
+    [book.asks, book.bids],
+  );
+  const spread = useMemo(() => bookSpread(bid, ask), [ask, bid]);
   const selectedTrader = trader?.traders?.[0];
   const selectedPosition = selectedTrader?.positions.find(
     (position) => position.symbol === symbol || position.symbol === `${symbol}-PERP`,
@@ -779,7 +865,7 @@ export function PhoenixTerminal() {
             value={srLevels}
             onChange={(event) => setSrLevels(event.target.value)}
             placeholder="145, 150, 155"
-            className="h-10 w-full rounded border border-white/10 bg-[#0b100f] px-3 font-mono text-sm text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/35 focus:border-[#77c8ff]/60"
+            className="h-10 w-full rounded border border-white/10 bg-[#030505] px-3 font-mono text-sm text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/35 focus:border-white/35"
           />
         </label>
       </div>
@@ -796,25 +882,29 @@ export function PhoenixTerminal() {
     );
 
   return (
-    <main className="min-h-screen bg-[#080d0c] text-on-surface">
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0b0f0d]/95 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[1480px] items-center justify-between gap-3 px-4 py-3">
+    <main className="min-h-screen bg-[#020303] text-on-surface">
+      <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.028)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.022)_1px,transparent_1px)] bg-[size:56px_56px]" />
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050707]/92 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-3 px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
             <Link
               href="/"
-              className="grid h-9 w-9 shrink-0 place-items-center rounded border border-white/10 bg-white/[0.03] text-on-surface-variant transition-colors hover:border-[#4dffb4]/30 hover:text-[#4dffb4]"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded border border-white/10 bg-white/[0.035] text-on-surface-variant shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-colors hover:border-[#4dffb4]/30 hover:text-[#4dffb4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4dffb4]/40"
               title="Back to Kronix"
             >
               <span className="material-symbols-outlined text-[18px]">arrow_back</span>
             </Link>
+            <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded border border-white/10 bg-[#050505] shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_10px_35px_rgba(0,0,0,0.35)]">
+              <Image src="/logo.png" alt="Kronix" width={42} height={42} priority />
+            </div>
             <div className="min-w-0">
-              <div className="truncate font-headline text-lg font-extrabold tracking-normal">
-                KRONIX <span className="text-[#77c8ff]">Phoenix</span>
+              <div className="truncate font-headline text-xl font-extrabold tracking-normal text-white">
+                KRONIX <span className="text-[#d7dde2]">PHOENIX</span>
               </div>
               <div className="mt-0.5 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-on-surface-variant/70">
                 <span className={`h-1.5 w-1.5 rounded-full ${statusDot(wsStatus)}`} />
                 <span>{wsStatus}</span>
-                <span className="hidden sm:inline">mainnet</span>
+                <span className="hidden sm:inline">strategy terminal</span>
               </div>
             </div>
           </div>
@@ -824,7 +914,7 @@ export function PhoenixTerminal() {
               onClick={() => void refreshTrader()}
               disabled={!owner || traderLoading}
               title="Refresh trader state"
-              className="grid h-9 w-9 place-items-center rounded border border-white/10 bg-white/[0.03] text-on-surface-variant transition-colors hover:border-[#77c8ff]/35 hover:text-[#77c8ff] disabled:cursor-not-allowed disabled:opacity-40"
+              className="grid h-10 w-10 place-items-center rounded border border-white/10 bg-white/[0.035] text-on-surface-variant transition-colors hover:border-[#d7dde2]/35 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <span className="material-symbols-outlined text-[18px]">
                 {traderLoading ? "progress_activity" : "refresh"}
@@ -835,10 +925,10 @@ export function PhoenixTerminal() {
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-[1480px] grid-cols-[minmax(310px,0.9fr)_minmax(0,1.35fr)] gap-4 px-4 py-4 max-xl:grid-cols-1">
+      <div className="relative mx-auto grid max-w-[1500px] grid-cols-[minmax(330px,0.9fr)_minmax(0,1.35fr)] gap-4 px-4 py-4 max-xl:grid-cols-1">
         <section className="min-w-0 space-y-4">
-          <div className="border border-white/10 bg-[#101514]">
-            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+          <div className="overflow-hidden border border-white/10 bg-[#080b0b] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-white/[0.025] px-4 py-3">
               <div className="min-w-0">
                 <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-on-surface-variant/65">
                   Market
@@ -846,7 +936,7 @@ export function PhoenixTerminal() {
                 <select
                   value={symbol}
                   onChange={(event) => setSymbol(event.target.value)}
-                  className="mt-1 h-9 rounded border border-white/10 bg-[#080d0c] px-2 font-headline text-xl font-extrabold text-on-surface outline-none focus:border-[#77c8ff]/60"
+                  className="mt-1 h-10 rounded border border-white/10 bg-[#030505] px-2 font-headline text-xl font-extrabold text-on-surface outline-none transition-colors focus:border-[#d7dde2]/60"
                 >
                   {markets.map((market) => (
                     <option key={market} value={market}>
@@ -859,7 +949,7 @@ export function PhoenixTerminal() {
                 <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-on-surface-variant/65">
                   Mid
                 </div>
-                <div className="font-mono text-2xl font-bold text-[#77c8ff]">
+                <div className="font-mono text-2xl font-bold text-white">
                   ${fmt(displayedMid)}
                 </div>
               </div>
@@ -874,55 +964,44 @@ export function PhoenixTerminal() {
             </div>
           </div>
 
-          <div className="border border-white/10 bg-[#101514]">
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-              <h2 className="font-headline text-sm font-extrabold">Orderbook</h2>
-              <span className="font-mono text-[11px] text-on-surface-variant">
-                OI {fmtCompact(stats.openInterest)}
-              </span>
+          <div className="overflow-hidden border border-white/10 bg-[#080b0b] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+            <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.025] px-4 py-3">
+              <div>
+                <h2 className="font-headline text-sm font-extrabold uppercase tracking-[0.08em] text-white">
+                  Orderbook
+                </h2>
+                <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-on-surface-variant/55">
+                  side by side depth
+                </div>
+              </div>
+              <div className="text-right font-mono">
+                <div className="text-[11px] text-on-surface-variant">
+                  OI {fmtCompact(stats.openInterest)}
+                </div>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-on-surface-variant/60">
+                  Spread {spread.spread === undefined ? "--" : `$${fmt(spread.spread)}`}{" "}
+                  {spread.bps === undefined ? "" : `${spread.bps.toFixed(1)}bps`}
+                </div>
+              </div>
+            </div>
+            <div className="border-b border-white/10 bg-[#050707] px-4 py-2">
+              <div className="flex items-center justify-center gap-3">
+                <span className="font-mono text-lg font-bold text-white">
+                  ${fmt(spread.mid ?? displayedMid)}
+                </span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-on-surface-variant/60">
+                  mid price
+                </span>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-px bg-white/10 p-px">
-              <div className="bg-[#0b100f] p-3">
-                <div className="mb-2 grid grid-cols-2 font-mono text-[10px] uppercase tracking-[0.14em] text-on-surface-variant/60">
-                  <span>Bid</span>
-                  <span className="text-right">Qty</span>
-                </div>
-                <div className="space-y-1">
-                  {book.bids.length ? (
-                    book.bids.map((level, index) => (
-                      <div key={`${level[0]}-${index}`} className="grid grid-cols-2 font-mono text-xs">
-                        <span className="text-[#4dffb4]">{fmt(level[0])}</span>
-                        <span className="truncate text-right text-on-surface-variant">{fmt(level[1], 3)}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="font-mono text-xs text-on-surface-variant/60">Waiting</div>
-                  )}
-                </div>
-              </div>
-              <div className="bg-[#0b100f] p-3">
-                <div className="mb-2 grid grid-cols-2 font-mono text-[10px] uppercase tracking-[0.14em] text-on-surface-variant/60">
-                  <span>Ask</span>
-                  <span className="text-right">Qty</span>
-                </div>
-                <div className="space-y-1">
-                  {book.asks.length ? (
-                    book.asks.map((level, index) => (
-                      <div key={`${level[0]}-${index}`} className="grid grid-cols-2 font-mono text-xs">
-                        <span className="text-[#ff8a80]">{fmt(level[0])}</span>
-                        <span className="truncate text-right text-on-surface-variant">{fmt(level[1], 3)}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="font-mono text-xs text-on-surface-variant/60">Waiting</div>
-                  )}
-                </div>
-              </div>
+              <DepthColumn title="Bids" side="bid" levels={book.bids.slice(0, 12)} maxQty={maxDepthQty} />
+              <DepthColumn title="Asks" side="ask" levels={book.asks.slice(0, 12)} maxQty={maxDepthQty} />
             </div>
           </div>
 
-          <div className="border border-white/10 bg-[#101514]">
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+          <div className="overflow-hidden border border-white/10 bg-[#080b0b] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+            <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.025] px-4 py-3">
               <h2 className="font-headline text-sm font-extrabold">Trader</h2>
               <span className="font-mono text-[11px] text-on-surface-variant">
                 {selectedTrader?.state ?? "not loaded"}
@@ -960,9 +1039,19 @@ export function PhoenixTerminal() {
         </section>
 
         <section className="min-w-0 space-y-4">
-          <div className="border border-white/10 bg-[#101514]">
-            <div className="border-b border-white/10 px-4 py-3">
-              <h1 className="font-headline text-base font-extrabold">Create Phoenix Strategy</h1>
+          <div className="overflow-hidden border border-white/10 bg-[#080b0b] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+            <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.025] px-4 py-3">
+              <div>
+                <h1 className="font-headline text-base font-extrabold uppercase tracking-[0.06em] text-white">
+                  Create Phoenix Strategy
+                </h1>
+                <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-on-surface-variant/55">
+                  keeper-ready execution
+                </div>
+              </div>
+              <span className="grid h-9 w-9 place-items-center rounded border border-white/10 bg-[#050707] text-on-surface-variant">
+                <span className="material-symbols-outlined text-[18px]">bolt</span>
+              </span>
             </div>
             <div className="space-y-4 p-4">
               <div className="grid grid-cols-[1.2fr_0.8fr_0.8fr] gap-3 max-md:grid-cols-1">
@@ -973,7 +1062,7 @@ export function PhoenixTerminal() {
                   <select
                     value={strategyType}
                     onChange={(event) => setStrategyType(event.target.value as PhoenixStrategyType)}
-                    className="h-10 w-full rounded border border-white/10 bg-[#0b100f] px-3 font-headline text-sm font-bold text-on-surface outline-none focus:border-[#77c8ff]/60"
+                    className="h-10 w-full rounded border border-white/10 bg-[#030505] px-3 font-headline text-sm font-bold text-on-surface outline-none transition-colors focus:border-white/35"
                   >
                     {STRATEGY_TYPES.map((entry) => (
                       <option key={entry} value={entry}>
@@ -1025,7 +1114,7 @@ export function PhoenixTerminal() {
                       type="checkbox"
                       checked={reduceOnly}
                       onChange={(event) => setReduceOnly(event.target.checked)}
-                      className="h-4 w-4 accent-[#77c8ff]"
+                    className="h-4 w-4 accent-[#d7dde2]"
                     />
                     Reduce only
                   </label>
@@ -1034,7 +1123,7 @@ export function PhoenixTerminal() {
                       type="checkbox"
                       checked={autoExecute}
                       onChange={(event) => setAutoExecute(event.target.checked)}
-                      className="h-4 w-4 accent-[#77c8ff]"
+                      className="h-4 w-4 accent-[#d7dde2]"
                     />
                     Auto execute
                   </label>
@@ -1042,7 +1131,7 @@ export function PhoenixTerminal() {
                 <button
                   type="button"
                   onClick={() => void createStrategy()}
-                  className="inline-flex h-10 items-center gap-2 rounded bg-[#77c8ff] px-4 font-headline text-sm font-extrabold text-[#061119] transition-colors hover:bg-[#9bd8ff]"
+                  className="inline-flex h-10 items-center gap-2 rounded bg-[#d7dde2] px-4 font-headline text-sm font-extrabold text-[#060707] shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
                 >
                   <span className="material-symbols-outlined text-[18px]">add</span>
                   Create Strategy
@@ -1051,9 +1140,11 @@ export function PhoenixTerminal() {
             </div>
           </div>
 
-          <div className="border border-white/10 bg-[#101514]">
-            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-              <h2 className="font-headline text-sm font-extrabold">Phoenix Strategies</h2>
+          <div className="overflow-hidden border border-white/10 bg-[#080b0b] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-white/[0.025] px-4 py-3">
+              <h2 className="font-headline text-sm font-extrabold uppercase tracking-[0.08em] text-white">
+                Phoenix Strategies
+              </h2>
               <span className="font-mono text-[11px] text-on-surface-variant">
                 {strategies.length} total
               </span>
@@ -1061,7 +1152,7 @@ export function PhoenixTerminal() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1020px] border-collapse text-left">
                 <thead>
-                  <tr className="border-b border-white/10 font-mono text-[10px] uppercase tracking-[0.14em] text-on-surface-variant/60">
+                  <tr className="border-b border-white/10 bg-[#050707] font-mono text-[10px] uppercase tracking-[0.14em] text-on-surface-variant/60">
                     <th className="px-4 py-3 font-medium">Strategy</th>
                     <th className="px-3 py-3 font-medium">Side</th>
                     <th className="px-3 py-3 font-medium">Order</th>
@@ -1079,7 +1170,7 @@ export function PhoenixTerminal() {
                       const signal = strategySignals.get(strategy.id);
                       const readyReason = isStrategyReady(strategy);
                       return (
-                        <tr key={strategy.id} className="border-b border-white/5 last:border-b-0">
+                        <tr key={strategy.id} className="border-b border-white/5 transition-colors last:border-b-0 hover:bg-white/[0.025]">
                           <td className="px-4 py-3">
                             <div className="font-headline text-sm font-bold">{strategy.strategyType}</div>
                             <div className="mt-0.5 font-mono text-[11px] text-on-surface-variant">
@@ -1106,7 +1197,7 @@ export function PhoenixTerminal() {
                             <div
                               className={`font-mono text-xs ${
                                 signal?.signal === strategy.side
-                                  ? "text-[#77c8ff]"
+                                  ? "text-[#d7dde2]"
                                   : signal?.ready
                                     ? "text-on-surface"
                                     : "text-on-surface-variant"
@@ -1135,7 +1226,7 @@ export function PhoenixTerminal() {
                                 onClick={() => void executeStrategy(strategy)}
                                 disabled={busyId === strategy.id}
                                 title="Execute strategy"
-                                className="grid h-8 w-8 place-items-center rounded border border-[#77c8ff]/30 bg-[#77c8ff]/10 text-[#77c8ff] transition-colors hover:bg-[#77c8ff]/18 disabled:cursor-wait disabled:opacity-50"
+                                className="grid h-8 w-8 place-items-center rounded border border-white/15 bg-white/[0.06] text-[#d7dde2] transition-colors hover:bg-white/[0.1] disabled:cursor-wait disabled:opacity-50"
                               >
                                 <span className="material-symbols-outlined text-[17px]">
                                   {busyId === strategy.id ? "progress_activity" : "play_arrow"}
